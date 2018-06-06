@@ -19,6 +19,7 @@ var context = require('./context.js');
 var headerPipes = require('./header-pipes.js');
 var compressionPipes = require('./compression-pipes.js');
 var version = require('../../package.json').version;
+var name = require('../../package.json').name;
 
 var SRC_GLOBS = [
     'js/**/*.js',
@@ -92,6 +93,7 @@ gulp.task('npm-sources', ['bundler-config', 'npm-dts-generator'], function() {
 
         gulp.src('package.json')
             .pipe(replace(version, context.version.package))
+            .pipe(replace(`"name": "devextreme"`, `"name": "@congresspolymedia/devextreme"`))
             .pipe(gulp.dest(context.RESULT_NPM_PATH)),
 
         gulp.src(DIST_GLOBS)
