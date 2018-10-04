@@ -8,11 +8,13 @@ var $ = require("../../core/renderer"),
 
 var PIVOTGRID_EXPAND_CLASS = "dx-expand";
 
+//#region VIS-PATCHED
 function applyDashboardZoomCorrection(value) {
     var zoom = window.visApi().getSheetZoom();
     var invertedScale = 100 / zoom;
     return Math.floor(value * invertedScale);
 }
+//#endregion VIS-PATCHED
 
 var getRealElementWidth = function(element) {
     var width = 0,
@@ -28,9 +30,9 @@ var getRealElementWidth = function(element) {
     }
 
     if(width > 0) {
-        return applyDashboardZoomCorrection(width); //HACK: поправка с учетом скейла дэшборда
+        return applyDashboardZoomCorrection(width); //VIS-PATCHED
     } else {
-        return applyDashboardZoomCorrection(element.offsetWidth); //HACK: поправка с учетом скейла дэшборда
+        return applyDashboardZoomCorrection(element.offsetWidth); //VIS-PATCHED
     }
 };
 
@@ -278,9 +280,9 @@ exports.AreaItem = Class.inherit({
                 height = clientRect.height;
             }
             if(height > 0) {
-                return applyDashboardZoomCorrection(height); //HACK: поправка с учетом скейла дэшборда
+                return applyDashboardZoomCorrection(height); //VIS-PATCHED
             } else {
-                return applyDashboardZoomCorrection(row.offsetHeight); //HACK: поправка с учетом скейла дэшборда
+                return applyDashboardZoomCorrection(row.offsetHeight); //VIS-PATCHED
             }
         }
         return 0;
