@@ -8,6 +8,14 @@ var $ = require("../../core/renderer"),
 
 var PIVOTGRID_EXPAND_CLASS = "dx-expand";
 
+//#region VIS-PATCHED
+function applyDashboardZoomCorrection(value) {
+    var zoom = window.visApi().getSheetZoom();
+    var invertedScale = 100 / zoom;
+    return Math.floor(value * invertedScale);
+}
+//#endregion VIS-PATCHED
+
 var getRealElementWidth = function(element) {
     var width = 0,
         clientRect;
@@ -22,9 +30,9 @@ var getRealElementWidth = function(element) {
     }
 
     if(width > 0) {
-        return width;
+        return applyDashboardZoomCorrection(width); //VIS-PATCHED
     } else {
-        return element.offsetWidth;
+        return applyDashboardZoomCorrection(element.offsetWidth); //VIS-PATCHED
     }
 };
 
@@ -272,9 +280,9 @@ exports.AreaItem = Class.inherit({
                 height = clientRect.height;
             }
             if(height > 0) {
-                return height;
+                return applyDashboardZoomCorrection(height); //VIS-PATCHED
             } else {
-                return row.offsetHeight;
+                return applyDashboardZoomCorrection(row.offsetHeight); //VIS-PATCHED
             }
         }
         return 0;

@@ -1,5 +1,11 @@
 "use strict";
-
+//#region VIS-PATCHED
+function applyDashboardZoomCorrection(value) {
+    var zoom = window.visApi().getSheetZoom();
+    var invertedScale = 100 / zoom;
+    return Math.floor(value * invertedScale)
+}
+//#endregion VIS-PATCHED
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     Callbacks = require("../../core/utils/callbacks"),
@@ -240,15 +246,21 @@ var ColumnsSeparatorView = SeparatorView.inherit({
         this.callBase();
     },
 
-    moveByX: function(outerX) {
+    //#region VIS-PATCHED
+    moveByX: function(outerX, applyOuterX=true, applyParentOffsetLeft=true) {
         var $element = this.element();
-        if($element) {
-            $element.css("left", outerX - this._parentElement().offset().left);
+        var parentOffsetLeft = this._parentElement().offset().left;
+        applyOuterX?outerX = applyDashboardZoomCorrection(outerX):null;
+        applyParentOffsetLeft?parentOffsetLeft = applyDashboardZoomCorrection(parentOffsetLeft):null;
+        
+        if ($element) {
+            $element.css("left", outerX - parentOffsetLeft);
             ///#DEBUG
             this._testPosX = outerX;
             ///#ENDDEBUG
         }
     },
+    //#endregion VIS-PATCHED
 
     changeCursor: function(cursorName) {
         cursorName = typeUtils.isDefined(cursorName) ? cursorName : "";
@@ -608,6 +620,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
         return null;
     },
 
+    //#region VIS-PATCHED
     _moveSeparator: function(args) {
         var e = args.event,
             that = e.data,
@@ -616,14 +629,15 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             isNextColumnMode = isNextColumnResizingMode(that),
             deltaX = columnsSeparatorWidth / 2,
             parentOffset = that._$parentContainer.offset(),
-            parentOffsetLeft = parentOffset.left,
+            parentOffsetLeft = applyDashboardZoomCorrection(parentOffset.left),
             eventData = eventUtils.eventData(e);
 
         if(that._isResizing && that._resizingInfo) {
-            if(parentOffsetLeft <= eventData.x && (!isNextColumnMode || eventData.x <= parentOffsetLeft + that._$parentContainer.width())) {
+            if(parentOffsetLeft <= eventData.x && (!isNextColumnMode || applyDashboardZoomCorrection(eventData.x) <= parentOffsetLeft + that._$parentContainer.width())) {
                 if(that._updateColumnsWidthIfNeeded(eventData.x)) {
                     var $cell = that._columnHeadersView.getColumnElements().eq(that._resizingInfo.currentColumnIndex);
-                    that._columnsSeparatorView.moveByX($cell.offset().left + (isNextColumnMode && that.option("rtlEnabled") ? 0 : $cell.outerWidth()));
+                    var newPositionX = applyDashboardZoomCorrection($cell.offset().left) + (isNextColumnMode && that.option("rtlEnabled") ? 0 : $cell.outerWidth());
+                    that._columnsSeparatorView.moveByX(newPositionX, false, true);
                     that._tablePositionController.update(that._targetPoint.y);
                     e.preventDefault();
                 }
@@ -656,6 +670,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             }
         }
     },
+    //#endregion VIS-PATCHED
 
     _endResizing: function(args) {
         var e = args.event,
@@ -815,9 +830,10 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
         if(isNextColumnMode && this.option("rtlEnabled")) {
             deltaX = -deltaX;
         }
+        deltaX = applyDashboardZoomCorrection(deltaX);//VIS-PATCHED
         cellWidth = this._resizingInfo.currentColumnWidth + deltaX;
         column = visibleColumns[this._resizingInfo.currentColumnIndex];
-        minWidth = column && column.minWidth || columnsSeparatorWidth;
+        minWidth = applyDashboardZoomCorrection(column && column.minWidth || columnsSeparatorWidth);
         needUpdate = cellWidth >= minWidth;
 
         if(isNextColumnMode) {
