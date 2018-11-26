@@ -247,14 +247,7 @@ var ColumnsSeparatorView = SeparatorView.inherit({
     },
 
     //#region VIS-PATCHED
-    moveByX: function(outerX, applyOuterX, applyParentOffsetLeft) {
-        applyOuterX = applyOuterX === undefined
-            ? true
-            : applyOuterX;
-
-        applyParentOffsetLeft = applyParentOffsetLeft === undefined
-            ? true
-            : applyParentOffsetLeft;
+    moveByX: function(outerX, applyOuterX = true, applyParentOffsetLeft = true) {
 
         var $element = this.element();
         var parentOffsetLeft = this._parentElement().offset().left;

@@ -20,6 +20,7 @@ var headerPipes = require('./header-pipes.js');
 var compressionPipes = require('./compression-pipes.js');
 var version = require('../../package.json').version;
 var name = require('../../package.json').name;
+const babel = require('gulp-babel');
 
 var SRC_GLOBS = [
     'js/**/*.js',
@@ -72,12 +73,29 @@ var addDefaultExport = lazyPipe().pipe(function() {
 });
 
 gulp.task('npm-sources', ['bundler-config', 'npm-dts-generator'], function() {
+
+    //этот конфиг должен совпадать с нашим
+    var babelConfig = {
+        presets: ["env"],
+        plugins: [
+            //для преобразования async function, иначе будет ошибка: regeneratorruntime is not defined
+            ["transform-runtime", {
+                "regenerator": true,
+            }],
+            //необходимо для наследования новых классов от built-in классов, например кастомных ошибок: class CustomError extends Error
+            ["babel-plugin-transform-builtin-extend", {
+                globals: ["Error", "Array"]
+            }],
+        ],
+    };
+
     return merge(
 
         gulp.src(SRC_GLOBS)
             .pipe(compressionPipes.removeDebug())
             .pipe(addDefaultExport())
             .pipe(headerPipes.starLicense())
+            .pipe(babel(babelConfig)) //здесь происходит преобразование в es5
             .pipe(compressionPipes.beautify())
             .pipe(gulp.dest(context.RESULT_NPM_PATH)),
 
