@@ -1,4 +1,5 @@
 "use strict";
+const { applyDashboardZoomCorrection } = require("../vis_helpers");
 
 var $ = require("../../core/renderer"),
     Class = require("../../core/class"),
@@ -7,14 +8,6 @@ var $ = require("../../core/renderer"),
     isDefined = require("../../core/utils/type").isDefined;
 
 var PIVOTGRID_EXPAND_CLASS = "dx-expand";
-
-//#region VIS-PATCHED
-function applyDashboardZoomCorrection(value) {
-    var zoom = window.visApi().getSheetZoom();
-    var invertedScale = 100 / zoom;
-    return Math.floor(value * invertedScale);
-}
-//#endregion VIS-PATCHED
 
 var getRealElementWidth = function(element) {
     var width = 0,

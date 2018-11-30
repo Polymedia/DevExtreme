@@ -1,11 +1,6 @@
 "use strict";
-//#region VIS-PATCHED
-function applyDashboardZoomCorrection(value) {
-    var zoom = window.visApi().getSheetZoom();
-    var invertedScale = 100 / zoom;
-    return Math.floor(value * invertedScale)
-}
-//#endregion VIS-PATCHED
+const { applyDashboardZoomCorrection } = require("../vis_helpers");
+
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     Callbacks = require("../../core/utils/callbacks"),
