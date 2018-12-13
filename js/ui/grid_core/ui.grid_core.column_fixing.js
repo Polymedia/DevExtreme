@@ -1,5 +1,5 @@
 "use strict";
-
+var { applyDashboardZoomCorrection } = require("../vis_helpers");
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     browser = require("../../core/utils/browser"),
@@ -345,9 +345,9 @@ var baseFixedColumns = {
                     rowHeight = rowHeights[rowIndex];
                     fixedRowHeight = fixedRowHeights[rowIndex];
                     if(rowHeight > fixedRowHeight) {
-                        $fixedRowElements.eq(rowIndex).css("height", rowHeight);
+                        $fixedRowElements.eq(rowIndex).css("height", applyDashboardZoomCorrection(rowHeight));
                     } else if(rowHeight < fixedRowHeight) {
-                        $rowElements.eq(rowIndex).css("height", fixedRowHeight);
+                        $rowElements.eq(rowIndex).css("height", applyDashboardZoomCorrection(fixedRowHeight));
                     }
                 }
             }
