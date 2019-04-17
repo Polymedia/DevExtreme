@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     Class = require("../core/class"),
@@ -509,6 +507,7 @@ var Box = CollectionWidget.inherit({
             */
             /**
             * @name dxBoxOptions.onSelectionChanged
+            * @action
             * @hidden
             * @inheritdoc
             */
@@ -547,6 +546,13 @@ var Box = CollectionWidget.inherit({
             * @hidden
             * @inheritdoc
             */
+
+            /**
+             * @name dxBoxOptions.items
+             * @type Array<string, dxBoxItem, object>
+             * @fires dxBoxOptions.onOptionChanged
+             * @inheritdoc
+             */
         });
     },
 
@@ -759,27 +765,27 @@ var Box = CollectionWidget.inherit({
     */
 });
 /**
-* @name dxBoxItemTemplate
-* @inherits CollectionWidgetItemTemplate
+* @name dxBoxItem
+* @inherits CollectionWidgetItem
 * @type object
 */
 /**
-* @name dxBoxItemTemplate.ratio
+* @name dxBoxItem.ratio
 * @type number
 * @default 0
 */
 /**
-* @name dxBoxItemTemplate.baseSize
+* @name dxBoxItem.baseSize
 * @type number | Enums.Mode
 * @default 0
 */
 /**
-* @name dxBoxItemTemplate.shrink
+* @name dxBoxItem.shrink
 * @type number
 * @default 1
 */
 /**
-* @name dxBoxItemTemplate.box
+* @name dxBoxItem.box
 * @type dxBoxOptions
 * @default undefined
 */

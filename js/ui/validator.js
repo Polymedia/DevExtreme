@@ -1,5 +1,3 @@
-"use strict";
-
 var dataUtils = require("../core/element_data"),
     Callbacks = require("../core/utils/callbacks"),
     errors = require("./widget/ui.errors"),
@@ -9,14 +7,14 @@ var dataUtils = require("../core/element_data"),
     ValidationMixin = require("./validation/validation_mixin"),
     ValidationEngine = require("./validation_engine"),
     DefaultAdapter = require("./validation/default_adapter"),
-    registerComponent = require("../core/component_registrator"),
-    each = require("../core/utils/iterator").each;
+    registerComponent = require("../core/component_registrator");
 
 var VALIDATOR_CLASS = "dx-validator";
 
 /**
 * @name dxValidator
 * @inherits DOMComponent
+* @extension
 * @module ui/validator
 * @export default
 */
@@ -195,6 +193,7 @@ var Validator = DOMComponent.inherit({
                 this._initGroupRegistration();
                 return;
             case "validationRules":
+                this._resetValidationRules();
                 this.option("isValid") !== undefined && this.validate();
                 return;
             case "adapter":
@@ -205,10 +204,18 @@ var Validator = DOMComponent.inherit({
         }
     },
 
-    _resetValidationState: function() {
-        each(this.option("validationRules"), function(_, rule) {
-            delete rule.isValid;
-        });
+    _getValidationRules: function() {
+        if(!this._validationRules) {
+            this._validationRules = map(this.option("validationRules"), (function(rule) {
+                return extend({}, rule, { validator: this });
+            }).bind(this));
+        }
+
+        return this._validationRules;
+    },
+
+    _resetValidationRules: function() {
+        delete this._validationRules;
     },
 
     /**
@@ -223,11 +230,7 @@ var Validator = DOMComponent.inherit({
             bypass = adapter.bypass && adapter.bypass(),
             value = adapter.getValue(),
             currentError = adapter.getCurrentValidationError && adapter.getCurrentValidationError(),
-            rules = map(that.option("validationRules"), function(rule) {
-                rule.validator = that;
-                return rule;
-            }),
-
+            rules = this._getValidationRules(),
             result;
 
         if(bypass) {
@@ -240,7 +243,6 @@ var Validator = DOMComponent.inherit({
         }
 
         this._applyValidationResult(result, adapter);
-
 
         return result;
     },
@@ -259,7 +261,7 @@ var Validator = DOMComponent.inherit({
             };
 
         adapter.reset();
-        this._resetValidationState();
+        this._resetValidationRules();
         this._applyValidationResult(result, adapter);
     },
 

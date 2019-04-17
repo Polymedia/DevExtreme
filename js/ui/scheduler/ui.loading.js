@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     viewPortUtils = require("../../core/utils/view_port"),
     LoadPanel = require("../load_panel"),
@@ -10,7 +8,7 @@ var loading = null;
 var createLoadPanel = function(options) {
     return new LoadPanel($("<div>")
         .appendTo(options && options.container || viewPortUtils.value()),
-        options);
+    options);
 };
 
 var removeLoadPanel = function() {

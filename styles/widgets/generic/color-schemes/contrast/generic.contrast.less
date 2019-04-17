@@ -22,12 +22,13 @@
 @base-hover-color: @base-accent;
 @base-focus-color: @base-accent;
 @base-shadow-color: transparent;
+@base-select-color: @base-text-color;
 
 @base-default: #52BBE7;
 @base-success: #71C35E;
 @base-danger: #EE5959;
 @base-warning: #ffb277;
-@base-info: 80b9e4;
+@base-info: #80b9e4;
 
 /**
 * @name 10. Text color
@@ -64,13 +65,6 @@
 @VALIDATION_SUMMARY_COLOR: @base-invalid-color;
 
 @validation-overlay-border-radius: @base-border-radius;
-
-/**
-* @name 20. Selected state text color
-* @type color
-* @group base.common
-*/
-@base-selected-text-color: @base-inverted-text-color;
 
 @datagrid-row-hovered-color: @base-text-color;
 /**
@@ -116,6 +110,14 @@
 * @group editors.texteditors
 */
 @texteditor-bg: @base-bg;
+@texteditor-underlined-bg: transparent;
+
+/**
+* @name 15. Filled editor background color
+* @type color
+* @group editors.texteditors
+*/
+@texteditor-filled-bg: fade(@texteditor-color, 5%);
 
 /**
 * @name 30. Focused border color
@@ -129,7 +131,6 @@
 
 @texteditor-color: @base-text-color;
 @texteditor-disabled-opacity: .5;
-@texteditor-readonly-border-color: darken(@texteditor-border-color, 50%);
 
 @texteditor-placeholder-color: @base-text-color;
 
@@ -137,6 +138,7 @@
 
 @texteditor-invalid-focused-border-color: @base-invalid-color;
 @texteditor-invalid-faded-border-color: @base-invalid-faded-border-color;
+@texteditor-filled-invalid-background: fade(@texteditor-invalid-faded-border-color, 20%);
 
 @texteditor-border-radius: @base-border-radius;
 @texteditor-input-border-radius: @base-border-radius;
@@ -238,7 +240,7 @@
 // Button
 
 @button-icon-color: @base-icon-color;
-@button-inverted-icon-color: @base-inverted-icon-color;
+
 
 @button-border-radius: @base-border-radius;
 
@@ -246,82 +248,43 @@
 @button-disabled-icon-opacity: .6;
 
 // Normal button
-@button-normal-border-color: @base-border-color;
-@button-normal-bg: @base-bg;
-@button-normal-shadow-color: transparent;
-
-@button-normal-hover-bg: @base-hover-color;
-@button-normal-hover-border-color: @base-border-color;
-@button-normal-hover-shadow-color: transparent;
-
-@button-normal-focused-bg: @base-bg;
-@button-normal-focused-border-color: @base-focus-color;
-@button-normal-focused-shadow-color: transparent;
-
-@button-normal-active-bg: @base-inverted-bg;
-@button-normal-active-border-color: transparent;
-@button-normal-active-shadow-color: transparent;
-
-@button-icon-color: @base-icon-color;
-@button-normal-active-color: @base-inverted-text-color;
-
-@button-normal-icon-color: @button-icon-color;
-
-// Default button
-@button-default-border-color: @base-default;
-@button-default-bg: @base-default;
-@button-default-color: @base-inverted-text-color;
-
-@button-default-hover-border-color: saturate(darken(@base-default, 28.7%), 24.4%);
-@button-default-hover-bg: @base-default;
-
-@button-default-focused-border-color: saturate(darken(@base-default, 28.7%), 24.4%);
-@button-default-focused-bg: @base-default;
-
-@button-default-active-border-color: saturate(darken(@base-default, 28.7%), 24.4%);
-@button-default-active-bg: saturate(darken(@base-default, 28.7%), 24.4%);
-
-@button-default-icon-color: @button-inverted-icon-color;
-
-// Danger button
-@button-danger-border-color: @base-danger;
-@button-danger-bg: @base-danger;
-@button-danger-color: @base-inverted-text-color;
-
-@button-danger-hover-border-color: desaturate(@base-danger, 13.5%);
-@button-danger-hover-bg: @base-danger;
-
-@button-danger-focused-border-color: desaturate(@base-danger, 13.5%);
-@button-danger-focused-bg: @base-danger;
-
-@button-danger-active-border-color: desaturate(@base-danger, 13.5%);
-@button-danger-active-bg: desaturate(@base-danger, 13.5%);
-
-@button-danger-icon-color: @button-inverted-icon-color;
-
-// Success button
-
-@button-success-border-color: @base-success;
-@button-success-bg: @base-success;
-@button-success-color: @base-inverted-text-color;
-
-@button-success-hover-border-color: saturate(darken(@base-success, 30.2%), 52.5%);
-@button-success-hover-bg: @base-success;
-
-@button-success-focused-border-color: saturate(darken(@base-success, 30.2%), 52.5%);
-@button-success-focused-bg: @base-success;
-
-@button-success-active-border-color: saturate(darken(@base-success, 30.2%), 52.5%);
-@button-success-active-bg: saturate(darken(@base-success, 30.2%), 52.5%);
-
-@button-success-icon-color: @button-inverted-icon-color;
-
 /**
 * @name 10. Text color
 * @type color
 * @group buttons.normal
 */
 @button-normal-color: @base-text-color;
+@button-normal-border-color: @base-border-color;
+@button-normal-bg: @base-bg;
+@button-special-hover: @base-accent;
+
+
+// Default button
+@button-default-border-color: @base-default;
+@button-default-bg: @base-default;
+@button-default-color: @base-inverted-text-color;
+
+// Danger button
+@button-danger-border-color: @base-danger;
+@button-danger-bg: @base-danger;
+@button-danger-color: @base-inverted-text-color;
+
+// Success button
+@button-success-border-color: @base-success;
+@button-success-bg: @base-success;
+@button-success-color: @base-inverted-text-color;
+
+// ButtonGroup
+
+@button-group-normal-selected-bg: @base-inverted-bg;
+@button-group-default-selected-bg: @base-default;
+@button-group-danger-selected-bg: @base-danger;
+@button-group-success-selected-bg: @base-success;
+
+@button-group-normal-selected-color: @base-inverted-text-color;
+@button-group-default-selected-color: @base-inverted-text-color;
+@button-group-danger-selected-color: @base-inverted-text-color;
+@button-group-success-selected-color: @base-inverted-text-color;
 
 // Checkbox
 /**
@@ -368,6 +331,14 @@
 @checkbox-readonly-bg: @checkbox-bg;
 
 @checkbox-icon-border-radius: @base-border-radius - 2px;
+
+// Drawer
+/**
+* @name 10. Shader background color
+* @type color
+* @group navigations.drawer
+*/
+@drawer-shader-background-color: fade(@base-shadow-color, 50%);
 
 // Fileuploader
 /**
@@ -434,6 +405,17 @@
 */
 @gallery-navbutton-active-color: @base-text-color;
 @gallery-navbutton-border-radius: @base-border-radius - 4px;
+
+// HtmlEditor
+@htmleditor-border-color: @base-border-color;
+@htmleditor-invalid-border-color: @base-invalid-color;
+@htmleditor-invalid-faded-border-color: @base-invalid-faded-border-color;
+@htmleditor-toolbar-border-color: @base-border-color;
+@htmleditor-normal-format-active-bg: @base-bg;
+@htmleditor-default-format-active-bg: @base-default;
+@htmleditor-danger-format-active-bg: @base-danger;
+@htmleditor-success-format-active-bg: @base-success;
+@htmleditor-variable-bg: fade(@base-accent, 15%);
 
 // List
 /**
@@ -573,7 +555,11 @@
 @dropdowneditor-button-active-border-color: transparent;
 
 @dropdowneditor-button-hover-bg: @base-bg;
+@dropdowneditor-filled-button-hover-bg: fade(@base-accent, 20%);
 @dropdowneditor-button-active-bg: @base-inverted-bg;
+@dropdowneditor-filled-button-active-bg: fade(@base-accent, 30%);
+@dropdowneditor-filled-button-invalid-hover-bg: fade(@texteditor-invalid-focused-border-color, 20%);
+@dropdowneditor-filled-button-invalid-active-bg: fade(@texteditor-invalid-focused-border-color, 30%);
 
 @dropdowneditor-icon-color: @base-icon-color;
 @dropdowneditor-icon-active-color: @base-inverted-icon-color;
@@ -583,7 +569,6 @@
 // Lookup
 
 @lookup-icon-color: @base-icon-color;
-@lookup-validation-message-color: @base-invalid-color;
 
 // Selectbox
 /**
@@ -595,6 +580,7 @@
 @selectbox-shadow-color: @base-shadow-color;
 
 // Tabs
+@tabs-tab-color: @base-text-color;
 /**
 * @name 45. Bottom layer background color
 * @type color
@@ -675,6 +661,10 @@
 */
 @navbar-tab-selected-bg: #fff - @base-bg;
 @navbar-tab-focused-border-color: @base-focus-color;
+
+@navbar-tab-bg: @base-bg;
+@navbar-tab-color: @base-text-color;
+@navbar-tab-selected-color: @base-text-color;
 
 // Scrollable
 
@@ -938,6 +928,18 @@
 * @group datagrid
 */
 @datagrid-row-selected-color: @base-inverted-text-color;
+/**
+* @name 83. Focused row text color
+* @type color
+* @group datagrid
+*/
+@datagrid-row-focused-color: @base-text-color;
+/**
+* @name 84. Focused row background color
+* @type color
+* @group datagrid
+*/
+@datagrid-row-focused-bg: @base-accent;
 
 /**
 * @name 90. Hovered row background color
@@ -1143,6 +1145,18 @@
 * @group treelist
 */
 @treelist-row-selected-color: @base-inverted-text-color;
+/**
+* @name 83. Focused row text color
+* @type color
+* @group datagrid
+*/
+@treelist-row-focused-color: @base-text-color;
+/**
+* @name 84. Focused row background color
+* @type color
+* @group datagrid
+*/
+@treelist-row-focused-bg: @base-accent;
 
 /**
 * @name 90. Hovered row background color
@@ -1473,6 +1487,7 @@
 
 @calendar-button-caption-active-bg: @base-inverted-bg;
 @calendar-button-footer-active-bg: @base-inverted-bg;
+@calendar-button-caption-color: @base-text-color;
 
 /**
 * @name 110. Shevron icon color
@@ -1480,9 +1495,6 @@
 * @group editors.calendar
 */
 @calendar-shevron-icon-color: @base-icon-color;
-
-// Calendar picker
-@datebox-dropdowneditor-button-active-shadow-color: @base-shadow-color;
 
 // Tooltip
 /**
@@ -1622,10 +1634,10 @@
 @toast-warning-icon-image-bg: url(images/widgets/generic/color-schemes/light/toast/warning.png);
 @toast-error-icon-image-bg: url(images/widgets/generic/color-schemes/light/toast/error.png);
 @toast-success-icon-image-bg: url(images/widgets/generic/color-schemes/light/toast/success.png);
-@sctollbar-button-horizontal-decrement-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-horizontal-arrow-start.png) no-repeat;
-@sctollbar-button-horizontal-increment-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-horizontal-arrow-end.png) no-repeat;
-@sctollbar-button-vertical-decrement-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-vertical-arrow-up.png) no-repeat;
-@sctollbar-button-vertical-increment-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-vertical-arrow-down.png) no-repeat;
+@scrollbar-button-horizontal-decrement-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-horizontal-arrow-start.png) no-repeat;
+@scrollbar-button-horizontal-increment-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-horizontal-arrow-end.png) no-repeat;
+@scrollbar-button-vertical-decrement-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-vertical-arrow-up.png) no-repeat;
+@scrollbar-button-vertical-increment-bg: url(images/widgets/generic/color-schemes/contrast/scrollable/scrollbar-vertical-arrow-down.png) no-repeat;
 @colorbox-preview-empty-bg: url(images/widgets/generic/color-schemes/contrast/colorbox/nocolor.png);
 @calendar-cell-empty-bg: url(images/widgets/generic/color-schemes/contrast/calendar/empty-cell.png) center center no-repeat;
 

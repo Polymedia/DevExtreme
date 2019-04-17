@@ -11,18 +11,9 @@ var BaseWidget = {
     * @default undefined
     */
 
-    // DEPRECATED_16_1
     /**
-    * @pseudo CommonVizPrecision
-    * @type number
-    * @default undefined
-    * @deprecated
-    */
-
-    /**
-    * @pseudo CommonVizFontFamily
-    * @type string
-    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
+    * @pseudo CommonVizLightFontFamily
+    * @default "'Segoe UI Light', 'Helvetica Neue Light', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif" @prop family
     */
 
     /**
@@ -107,6 +98,13 @@ var BaseWidget = {
     * @notUsedInTheme
     */
     redrawOnResize: true,
+    /**
+    * @name BaseWidgetOptions.disabled
+    * @type boolean
+    * @default false
+    * @notUsedInTheme
+    */
+    disabled: false,
     /**
     * @name BaseWidgetOptions.onIncidentOccurred
     * @extends Action
@@ -242,38 +240,17 @@ var BaseWidget = {
         },
         /**
         * @name BaseWidgetOptions.title.font
-        * @type object
+        * @type Font
+        * @default '#232323' @prop color
+        * @default 28 @prop size
+        * @default 200 @prop weight
+        * @extends CommonVizLightFontFamily
         */
         font: {
-            /**
-            * @name BaseWidgetOptions.title.font.family
-            * @type string
-            * @default "'Segoe UI Light', 'Helvetica Neue Light', 'Trebuchet MS', Verdana"
-            */
-            family: "'Segoe UI Light', 'Helvetica Neue Light', 'Trebuchet MS', Verdana",
-            /**
-            * @name BaseWidgetOptions.title.font.weight
-            * @type number
-            * @default 200
-            */
+            family: undefined,
             weight: 200,
-            /**
-            * @name BaseWidgetOptions.title.font.color
-            * @type string
-            * @default '#232323'
-            */
             color: '#232323',
-            /**
-            * @name BaseWidgetOptions.title.font.size
-            * @type number|string
-            * @default 28
-            */
             size: 28,
-            /**
-            * @name BaseWidgetOptions.title.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**
@@ -295,38 +272,17 @@ var BaseWidget = {
             text: null,
             /**
             * @name BaseWidgetOptions.title.subtitle.font
-            * @type object
+            * @type Font
+            * @default '#232323' @prop color
+            * @default 16 @prop size
+            * @default 200 @prop weight
+            * @extends CommonVizLightFontFamily
             */
             font: {
-                /**
-                * @name BaseWidgetOptions.title.subtitle.font.family
-                * @type string
-                * @default "'Segoe UI Light', 'Helvetica Neue Light', 'Trebuchet MS', Verdana"
-                */
-                family: "'Segoe UI Light', 'Helvetica Neue Light', 'Trebuchet MS', Verdana",
-                /**
-                * @name BaseWidgetOptions.title.subtitle.font.weight
-                * @type number
-                * @default 200
-                */
+                family: undefined,
                 weight: 200,
-                /**
-                * @name BaseWidgetOptions.title.subtitle.font.color
-                * @type string
-                * @default '#232323'
-                */
                 color: '#232323',
-                /**
-                * @name BaseWidgetOptions.title.subtitle.font.size
-                * @type number|string
-                * @default 16
-                */
                 size: 16,
-                /**
-                * @name BaseWidgetOptions.title.subtitle.font.opacity
-                * @type number
-                * @default undefined
-                */
                 opacity: undefined
             }
         }
@@ -350,7 +306,7 @@ var BaseWidget = {
         printingEnabled: true,
         /**
         * @name BaseWidgetOptions.export.formats
-        * @type Array<string>
+        * @type Array<Enums.ExportFormat>
         * @default ['PNG', 'PDF', 'JPEG', 'SVG', 'GIF']
         */
         formats: ['PNG', 'PDF', 'JPEG', 'SVG', 'GIF'],
@@ -425,11 +381,6 @@ var BaseWidget = {
         */
         format: undefined,
         /**
-        * @name BaseWidgetOptions.tooltip.precision
-        * @extends CommonVizPrecision
-        */
-        precision: undefined,
-        /**
         * @name BaseWidgetOptions.tooltip.color
         * @type string
         * @default '#ffffff'
@@ -491,38 +442,14 @@ var BaseWidget = {
         },
         /**
         * @name BaseWidgetOptions.tooltip.font
-        * @type object
+        * @type Font
+        * @default '#232323' @prop color
         */
         font: {
-            /**
-            * @name BaseWidgetOptions.tooltip.font.color
-            * @type string
-            * @default '#232323'
-            */
             color: '#232323',
-            /**
-            * @name BaseWidgetOptions.tooltip.font.size
-            * @type number|string
-            * @default 12
-            */
             size: 12,
-            /**
-            * @name BaseWidgetOptions.tooltip.font.family
-            * @type string
-            * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-            */
-            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-            /**
-            * @name BaseWidgetOptions.tooltip.font.weight
-            * @type number
-            * @default 400
-            */
+            family: undefined,
             weight: 400,
-            /**
-            * @name BaseWidgetOptions.tooltip.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**
@@ -589,6 +516,7 @@ var BaseWidget = {
        * @name BaseWidgetOptions.loadingIndicator.show
        * @type boolean
        * @default false
+       * @fires BaseWidgetOptions.onOptionChanged
        */
         show: false,
         /**
@@ -605,38 +533,14 @@ var BaseWidget = {
         backgroundColor: '#FFFFFF',
         /**
         * @name BaseWidgetOptions.loadingIndicator.font
-        * @type object
+        * @type Font
+        * @default '#767676' @prop color
         */
         font: {
-            /**
-            * @name BaseWidgetOptions.loadingIndicator.font.family
-            * @type string
-            * @default undefined
-            */
             family: undefined,
-            /**
-            * @name BaseWidgetOptions.loadingIndicator.font.weight
-            * @type number
-            * @default undefined
-            */
             weight: undefined,
-            /**
-            * @name BaseWidgetOptions.loadingIndicator.font.color
-            * @type string
-            * @default '#767676'
-            */
             color: '#767676',
-            /**
-            * @name BaseWidgetOptions.loadingIndicator.font.size
-            * @type number|string
-            * @default undefined
-            */
             size: undefined,
-            /**
-            * @name BaseWidgetOptions.loadingIndicator.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         }
     }
@@ -664,17 +568,11 @@ var ScaleBreak = {
 
 /**
 * @name VizTimeInterval
-* @type object
+* @type number|object|Enums.VizTimeInterval
+* @default undefined
 * @hidden
 */
 var tickInterval = {
-    /**
-    * @pseudo VizTimeIntervalEnum
-    * @type number|object|string
-    * @default undefined
-    * @acceptValues 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
-    */
-
     /**
     * @name VizTimeInterval.years
     * @type number
@@ -721,3 +619,59 @@ var tickInterval = {
     */
     milliseconds: undefined
 };
+
+/**
+* @name VizRange
+* @hidden
+* @type object
+*/
+var VizRange = {
+    /**
+    * @name VizRange.startValue
+    * @type number|date|string
+    * @default undefined
+    */
+    startValue: undefined,
+    /**
+    * @name VizRange.endValue
+    * @type number|date|string
+    * @default undefined
+    */
+    endValue: undefined,
+    /**
+    * @name VizRange.length
+    * @inherits VizTimeInterval
+    * @default undefined
+    */
+    length: undefined
+};
+
+/**
+ * @name Font
+ * @type object
+ * @hidden
+ */
+/**
+ * @name Font.color
+ * @type string
+ */
+ /**
+ * @name Font.family
+ * @type string
+ * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif"
+ */
+ /**
+ * @name Font.opacity
+ * @type number
+ * @default 1
+ */
+ /**
+ * @name Font.size
+ * @type string|number
+ * @default 12
+ */
+ /**
+ * @name Font.weight
+ * @type number
+ * @default 400
+ */

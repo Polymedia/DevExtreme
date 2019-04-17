@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     fx = require("animation/fx"),
     translator = require("animation/translator"),
@@ -89,8 +87,8 @@ var mockFxAnimateBackground = function(animations, type, output) {
 var mockFxAnimateTitle = function(animations, type, output) {
     animations[type] = function($element, end, action) {
         var itemIndex = $("#panorama")
-                .find(toSelector(PANORAMA_TITLE_CLASS) + ", " + toSelector(PANORAMA_GHOST_TITLE_CLASS))
-                .index($element.get(0));
+            .find(toSelector(PANORAMA_TITLE_CLASS) + ", " + toSelector(PANORAMA_GHOST_TITLE_CLASS))
+            .index($element.get(0));
         output[itemIndex] = {
             $element: $element,
             type: type,
@@ -109,8 +107,8 @@ var mockFxAnimateTitle = function(animations, type, output) {
 var mockFxAnimateItem = function(animations, type, output) {
     animations[type] = function($element, end, action) {
         var itemIndex = $("#panorama")
-                .find(toSelector(PANORAMA_ITEM_CLASS) + ", " + toSelector(PANORAMA_GHOST_ITEM_CLASS))
-                .index($element.get(0));
+            .find(toSelector(PANORAMA_ITEM_CLASS) + ", " + toSelector(PANORAMA_GHOST_ITEM_CLASS))
+            .index($element.get(0));
         output[itemIndex] = {
             $element: $element,
             type: type,
@@ -366,8 +364,8 @@ QUnit.test("background position should be set correctly", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             backgroundImage: image,
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -380,8 +378,8 @@ QUnit.test("background position should be set correctly in RTL mode", function(a
     var $panorama = $("#panorama").dxPanorama({
             backgroundImage: image,
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ],
             rtlEnabled: true
         }),
@@ -409,8 +407,8 @@ QUnit.test("title should have correct position", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -425,8 +423,8 @@ QUnit.test("title should have correct position in RTL mode", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ],
             rtlEnabled: true
         }),
@@ -441,8 +439,8 @@ QUnit.test("title should have correct position in RTL mode", function(assert) {
 QUnit.test("2 items should have correct geometry", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -457,8 +455,8 @@ QUnit.test("2 items should have correct geometry", function(assert) {
 QUnit.test("2 items should have correct geometry in RTL mode", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             items: [
-            { text: "first item content" },
-            { text: "second item content" }
+                { text: "first item content" },
+                { text: "second item content" }
             ],
             rtlEnabled: true
         }),
@@ -474,9 +472,9 @@ QUnit.test("2 items should have correct geometry in RTL mode", function(assert) 
 QUnit.test(">3 items should have correct geometry", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -492,9 +490,9 @@ QUnit.test(">3 items should have correct geometry", function(assert) {
 QUnit.test(">3 items should have correct geometry in RTL mode", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ],
             rtlEnabled: true
         }),
@@ -594,9 +592,9 @@ QUnit.test("swipe should change selected item", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -614,9 +612,9 @@ QUnit.test("swipe should change selected item in RTL mode", function(assert) {
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ],
             rtlEnabled: true
         }),
@@ -635,9 +633,9 @@ QUnit.test("long fast left swipe should change selected index only by -1", funct
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -653,9 +651,9 @@ QUnit.test("long fast right swipe should change selected index only by 1", funct
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");
@@ -681,9 +679,9 @@ QUnit.test("selected index should not be changed by click on item", function(ass
     var $panorama = $("#panorama").dxPanorama({
             title: "my panorama",
             items: [
-            { text: "first item content" },
-            { text: "second item content" },
-            { text: "third item content" }
+                { text: "first item content" },
+                { text: "second item content" },
+                { text: "third item content" }
             ]
         }),
         panorama = $panorama.dxPanorama("instance");

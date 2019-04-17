@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     commonUtils = require("../core/utils/common"),
@@ -145,6 +143,7 @@ var ResponsiveBox = CollectionWidget.inherit({
             */
             /**
             * @name dxResponsiveBoxOptions.onSelectionChanged
+            * @action
             * @hidden
             * @inheritdoc
             */
@@ -178,6 +177,12 @@ var ResponsiveBox = CollectionWidget.inherit({
             * @hidden
             * @inheritdoc
             */
+            /**
+             * @name dxResponsiveBoxOptions.items
+             * @type Array<string, dxResponsiveBoxItem, object>
+             * @fires dxResponsiveBoxOptions.onOptionChanged
+             * @inheritdoc
+             */
 
             onLayoutChanged: null,
             currentScreenFactor: undefined,
@@ -278,10 +283,31 @@ var ResponsiveBox = CollectionWidget.inherit({
         }).bind(this));
     },
 
+    getSingleColumnRows: function() {
+        var rows = this.option("rows"),
+            screenItemsLength = this._screenItems.length;
+
+        if(rows.length) {
+            var filteredRows = this._filterByScreen(rows),
+                result = [];
+
+            for(var i = 0; i < screenItemsLength; i++) {
+                var sizeConfig = this._defaultSizeConfig();
+                if(i < filteredRows.length && typeUtils.isDefined(filteredRows[i].shrink)) {
+                    sizeConfig.shrink = filteredRows[i].shrink;
+                }
+                result.push(sizeConfig);
+            }
+            return result;
+        } else {
+            return this._defaultSizeConfig(screenItemsLength);
+        }
+    },
+
     _prepareRowsAndCols: function() {
         if(this._isSingleColumnScreen()) {
             this._prepareSingleColumnScreenItems();
-            this._rows = this._defaultSizeConfig(this._screenItems.length);
+            this._rows = this.getSingleColumnRows();
             this._cols = this._defaultSizeConfig(1);
         } else {
             this._rows = this._sizesByScreen(this.option("rows"));
@@ -310,8 +336,12 @@ var ResponsiveBox = CollectionWidget.inherit({
         }).bind(this));
     },
 
+    _createDefaultSizeConfig: function() {
+        return { ratio: 1, baseSize: 0, minSize: 0, maxSize: 0 };
+    },
+
     _defaultSizeConfig: function(size) {
-        var defaultSizeConfig = { ratio: 1, baseSize: 0, minSize: 0, maxSize: 0 };
+        var defaultSizeConfig = this._createDefaultSizeConfig();
         if(!arguments.length) {
             return defaultSizeConfig;
         }
@@ -365,17 +395,19 @@ var ResponsiveBox = CollectionWidget.inherit({
     },
 
     _itemsByScreen: function() {
-        return iteratorUtils.map(this.option("items"), (function(item) {
-            var locations = item.location || {};
+        return this.option("items").reduce((result, item) => {
+            let locations = item.location || {};
             locations = typeUtils.isPlainObject(locations) ? [locations] : locations;
 
-            return iteratorUtils.map(this._filterByScreen(locations), function(location) {
-                return {
+            this._filterByScreen(locations).forEach(location => {
+                result.push({
                     item: item,
                     location: extend({ rowspan: 1, colspan: 1 }, location)
-                };
+                });
             });
-        }).bind(this));
+
+            return result;
+        }, []);
     },
 
     _occupyCells: function(itemCell, itemInfo) {
@@ -590,14 +622,8 @@ var ResponsiveBox = CollectionWidget.inherit({
     },
 
     _blockSize: function(block, direction) {
-        var sizeConfigs = (direction === "row") ? this._rows : this._cols;
-
-        var result = {
-            ratio: 0,
-            baseSize: 0,
-            minSize: 0,
-            maxSize: 0
-        };
+        var sizeConfigs = (direction === "row") ? this._rows : this._cols,
+            result = extend(this._createDefaultSizeConfig(), { ratio: 0 });
 
         for(var index = block[direction].start; index <= block[direction].end; index++) {
             var sizeConfig = sizeConfigs[index];
@@ -605,6 +631,10 @@ var ResponsiveBox = CollectionWidget.inherit({
             result.baseSize += sizeConfig.baseSize;
             result.minSize += sizeConfig.minSize;
             result.maxSize += sizeConfig.maxSize;
+
+            if(typeUtils.isDefined(sizeConfig.shrink)) {
+                result.shrink = sizeConfig.shrink;
+            }
         }
 
         result.minSize = result.minSize ? result.minSize : "auto";
@@ -631,6 +661,7 @@ var ResponsiveBox = CollectionWidget.inherit({
 
     _dispose: function() {
         clearTimeout(this._updateTimer);
+        this._clearItemNodeTemplates();
         this._cleanUnusedRoots();
         this.callBase.apply(this, arguments);
     },
@@ -714,34 +745,34 @@ var ResponsiveBox = CollectionWidget.inherit({
     */
 });
 /**
-* @name dxResponsiveBoxItemTemplate
-* @inherits CollectionWidgetItemTemplate
+* @name dxResponsiveBoxItem
+* @inherits CollectionWidgetItem
 * @type object
 */
 /**
-* @name dxResponsiveBoxItemTemplate.location
+* @name dxResponsiveBoxItem.location
 * @type Object|Array<Object>
 */
 /**
-* @name dxResponsiveBoxItemTemplate.location.row
+* @name dxResponsiveBoxItem.location.row
 * @type number
 */
 /**
-* @name dxResponsiveBoxItemTemplate.location.col
+* @name dxResponsiveBoxItem.location.col
 * @type number
 */
 /**
-* @name dxResponsiveBoxItemTemplate.location.rowspan
-* @type number
-* @default undefined
-*/
-/**
-* @name dxResponsiveBoxItemTemplate.location.colspan
+* @name dxResponsiveBoxItem.location.rowspan
 * @type number
 * @default undefined
 */
 /**
-* @name dxResponsiveBoxItemTemplate.location.screen
+* @name dxResponsiveBoxItem.location.colspan
+* @type number
+* @default undefined
+*/
+/**
+* @name dxResponsiveBoxItem.location.screen
 * @type string
 * @default undefined
 */

@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "../../core/renderer";
 import modules from "./ui.grid_core.modules";
 import { extend } from "../../core/utils/extend";
@@ -54,21 +52,13 @@ var FilterBuilderView = modules.View.inherit({
         }));
     },
 
-    _getFilterBuilderFields: function() {
-        return this.getController("columns").getColumns().map(item => {
-            let column = extend(true, {}, item);
-            column.filterOperations = item.filterOperations !== item.defaultFilterOperations ? column.filterOperations : null;
-            return column;
-        });
-    },
-
     _getPopupContentTemplate: function(contentElement) {
         var $contentElement = $(contentElement),
             $filterBuilderContainer = $("<div>").appendTo($(contentElement));
 
         this._filterBuilder = this._createComponent($filterBuilderContainer, FilterBuilder, extend({
             value: this.option("filterValue"),
-            fields: this._getFilterBuilderFields(),
+            fields: this.getController("columns").getFilteringColumns(),
         }, this.option("filterBuilder"), {
             customOperations: this.getController("filterSync").getCustomFilterOperations()
         }));

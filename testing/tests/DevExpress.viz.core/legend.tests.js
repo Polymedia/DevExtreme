@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     vizMocks = require("../../helpers/vizMocks.js"),
@@ -300,7 +298,9 @@ QUnit.test('Draw with Title', function(assert) {
     this.createAndDrawLegend(200, 200);
 
     for(var i = 0; i < this.data.length; i++) {
-        assert.equal(this.renderer.text.getCall(i).returnValue.setTitle.firstCall.args[0], this.data[i].text + " " + this.data[i].states.normal.fill + " " + this.data[i].id, 'Text element for series ' + i);
+        var expectedValue = this.data[i].text + " " + this.data[i].states.normal.fill + " " + this.data[i].id;
+        assert.equal(this.renderer.text.getCall(i).returnValue.setTitle.firstCall.args[0], expectedValue, 'Text element for series ' + i);
+        assert.equal(this.renderer.rect.getCall(i).returnValue.setTitle.firstCall.args[0], expectedValue, 'Hint on marker element for series ' + i);
     }
 });
 
@@ -427,15 +427,15 @@ QUnit.test('Update', function(assert) {
         states: { hover: states.hover, selection: states.selection, normal: { fill: '#00FF00' } }
     }];
     var legend = this.createSimpleLegend()
-            .draw(200, 200)
-            .update([{
-                text: 'newText', id: 0, states: {
-                    hover: { fill: 'green1', hatching: { direction: 'right' } },
-                    normal: { fill: 'none' },
-                    selection: { fill: 'blue1', hatching: { direction: 'left' } }
-                }
-            }], this.options)
-            .draw();
+        .draw(200, 200)
+        .update([{
+            text: 'newText', id: 0, states: {
+                hover: { fill: 'green1', hatching: { direction: 'right' } },
+                normal: { fill: 'none' },
+                selection: { fill: 'blue1', hatching: { direction: 'left' } }
+            }
+        }], this.options)
+        .draw();
 
     states = $.map(legend._items, function(item) { return item.states; });
 
@@ -756,9 +756,9 @@ QUnit.test("T405783, border is visible", function(assert) {
     this.createSimpleLegend().draw(200, 56);
 
     this.checkItems(assert, [
-            { id: 0, marker: { translateX: 0, translateY: 0 }, label: { translateX: 20, translateY: -1 } },
-            { id: 1, marker: { translateX: 49, translateY: 0 }, label: { translateX: 69, translateY: -1 } },
-            { id: 2, marker: { translateX: 98, translateY: 0 }, label: { translateX: 118, translateY: -1 } }
+        { id: 0, marker: { translateX: 0, translateY: 0 }, label: { translateX: 20, translateY: -1 } },
+        { id: 1, marker: { translateX: 49, translateY: 0 }, label: { translateX: 69, translateY: -1 } },
+        { id: 2, marker: { translateX: 98, translateY: 0 }, label: { translateX: 118, translateY: -1 } }
     ]);
 });
 
@@ -768,9 +768,9 @@ QUnit.test("T405783, border is not visible", function(assert) {
     this.createSimpleLegend().draw(200, 72);
 
     this.checkItems(assert, [
-            { id: 0, marker: { translateX: 0, translateY: 0 }, label: { translateX: 20, translateY: -1 } },
-            { id: 1, marker: { translateX: 0, translateY: 22 }, label: { translateX: 20, translateY: 21 } },
-            { id: 2, marker: { translateX: 49, translateY: 0 }, label: { translateX: 69, translateY: -1 } }
+        { id: 0, marker: { translateX: 0, translateY: 0 }, label: { translateX: 20, translateY: -1 } },
+        { id: 1, marker: { translateX: 0, translateY: 22 }, label: { translateX: 20, translateY: 21 } },
+        { id: 2, marker: { translateX: 49, translateY: 0 }, label: { translateX: 69, translateY: -1 } }
     ]);
 });
 
@@ -1357,9 +1357,9 @@ QUnit.test('coordsIn', function(assert) {
 QUnit.test('coordsIn after erase', function(assert) {
     this.renderer.bBoxTemplate = { x: 10, y: 15, height: 30, width: 20 };
     var legend = this.createSimpleLegend()
-            .draw(200, 200)
-            .shift(10, 15)
-            .erase();
+        .draw(200, 200)
+        .shift(10, 15)
+        .erase();
 
     assert.ok(!legend.coordsIn(10, 30));
     assert.ok(!legend.coordsIn(20, 30));
@@ -1390,8 +1390,8 @@ QUnit.test("coordsIn after update without data", function(assert) {
 QUnit.test('getItemByCoord', function(assert) {
     this.data = getLegendData(2);
     var legend = this.createSimpleLegend()
-        .draw(200, 200)
-        .shift(10, 15),
+            .draw(200, 200)
+            .shift(10, 15),
         element1 = {
             bottom: 18,
             id: 0,
@@ -1631,7 +1631,7 @@ QUnit.test('horizontalAlignment specified incorrectly', function(assert) {
 QUnit.module("Life cycle", $.extend({}, environment, {
     beforeEach: function() {
         this.legend = this.createSimpleLegend()
-                .draw(200, 200);
+            .draw(200, 200);
     }
 }));
 
@@ -1663,7 +1663,7 @@ QUnit.module('States', $.extend({}, environment, {
             states: states
         }];
         this.legend = this.createSimpleLegend()
-                .draw(200, 200);
+            .draw(200, 200);
     }
 }));
 
@@ -1828,6 +1828,19 @@ QUnit.test('Common color', function(assert) {
     var createMarker = this.createMarker;
     $.each(this.data, function(i) {
         assert.deepEqual(createMarker.getCall(i).returnValue.attr.getCall(0).args, [{ fill: 'common-color', opacity: undefined }], String(i));
+    });
+});
+
+QUnit.test('No state color, no marker color - use default color', function(assert) {
+    $.each(this.data, function(_, item) {
+        item.states.normal.fill = null;
+    });
+    this.options.defaultColor = 'default-color';
+    this.createAndDrawLegend();
+
+    var createMarker = this.createMarker;
+    $.each(this.data, function(i) {
+        assert.deepEqual(createMarker.getCall(i).returnValue.attr.getCall(0).args, [{ fill: 'default-color', opacity: undefined }], String(i));
     });
 });
 

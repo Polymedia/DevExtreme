@@ -1,18 +1,16 @@
-"use strict";
+import $ from "../../core/renderer";
+import eventsEngine from "../../events/core/events_engine";
+import Class from "../../core/class";
+import Callbacks from "../../core/utils/callbacks";
+import { grep } from "../../core/utils/common";
+import { isFunction } from "../../core/utils/type";
+import { inArray } from "../../core/utils/array";
+import { each } from "../../core/utils/iterator";
+import errors from "../widget/ui.errors";
+import messageLocalization from "../../localization/message";
+import { hasWindow } from "../../core/utils/window";
 
-var $ = require("../../core/renderer"),
-    eventsEngine = require("../../events/core/events_engine"),
-    Class = require("../../core/class"),
-    Callbacks = require("../../core/utils/callbacks"),
-    grep = require("../../core/utils/common").grep,
-    isFunction = require("../../core/utils/type").isFunction,
-    inArray = require("../../core/utils/array").inArray,
-    each = require("../../core/utils/iterator").each,
-    errors = require("../widget/ui.errors"),
-    messageLocalization = require("../../localization/message"),
-    hasWindow = require("../../core/utils/window").hasWindow(),
-
-    WIDGET_WITH_LEGACY_CONTAINER_NAME = "dxDataGrid";
+var WIDGET_WITH_LEGACY_CONTAINER_NAME = "dxDataGrid";
 
 
 var ModuleItem = Class.inherit({
@@ -111,8 +109,6 @@ var ModuleItem = Class.inherit({
         } else {
             $target.attr(prefix + name, value);
         }
-
-        // this.component.setAria.apply(this.component, arguments);
     },
 
     _createComponent: function() {
@@ -195,7 +191,7 @@ var View = ModuleItem.inherit({
 
     _invalidate: function(requireResize, requireReady) {
         this._requireRender = true;
-        this.component._requireResize = hasWindow && (this.component._requireResize || requireResize);
+        this.component._requireResize = hasWindow() && (this.component._requireResize || requireResize);
         this._requireReady = this._requireReady || requireReady;
     },
 
@@ -258,7 +254,7 @@ var View = ModuleItem.inherit({
             this._renderCore(options);
             this.component._optionCache = undefined;
             this._afterRender($parent);
-            this.renderCompleted.fire();
+            this.renderCompleted.fire(options);
         }
     },
 

@@ -1,19 +1,17 @@
-"use strict";
+import $ from "jquery";
+import { noop } from "core/utils/common";
+import typeUtils from "core/utils/type";
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
+import ajaxMock from "../../helpers/ajaxMock.js";
+import { DataSource } from "data/data_source/data_source";
+import Store from "data/abstract_store";
+import ArrayStore from "data/array_store";
+import ODataStore from "data/odata/store";
+import AggregateCalculator from "ui/data_grid/aggregate_calculator";
 
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop,
-    typeUtils = require("core/utils/type"),
-    executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
-    ajaxMock = require("../../helpers/ajaxMock.js"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    Store = require("data/abstract_store"),
-    ArrayStore = require("data/array_store"),
-    ODataStore = require("data/odata/store"),
-    AggregateCalculator = require("ui/data_grid/aggregate_calculator");
+const TEN_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-var TEN_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-var moduleConfig = {
+const moduleConfig = {
     beforeEach: function() {
         executeAsyncMock.setup();
     },
@@ -80,6 +78,26 @@ QUnit.test("with no key specified", function(assert) {
             assert.ok(true, "shouldn't retrieve filtered values");
         })
     );
+});
+
+QUnit.test("with filter as a function (T686655)", (assert) => {
+    assert.expect(2);
+
+    const source = new DataSource({
+        store: [
+            { a: "1" },
+            { a: "2" }
+        ],
+        filter: (itemData) => itemData.a !== "2"
+    });
+
+    source.loadSingle("a", "1").done((r) => {
+        assert.equal(r.a, "1");
+    });
+
+    source.loadSingle("a", "2").fail(() => {
+        assert.ok(true, "shouldn't retrieve filtered values");
+    });
 });
 
 QUnit.test("use key if no propName specified", function(assert) {
@@ -802,6 +820,23 @@ QUnit.test("cancel works", function(assert) {
     assert.ok(!source.isLoading());
 });
 
+QUnit.test("cancelAll works", function(assert) {
+    var source = new DataSource({
+        load: function() {
+            return $.Deferred().promise();
+        }
+    });
+
+    var promise1 = source.load();
+    var promise2 = source.load();
+
+    source.cancelAll();
+
+    assert.ok(!source.isLoading());
+    assert.equal(promise1.state(), "rejected", "promise1 is rejected");
+    assert.equal(promise2.state(), "rejected", "promise2 is rejected");
+});
+
 QUnit.test("canceling on customizeStoreLoadOptions", function(assert) {
     var source = new DataSource({
         load: mustNotReach
@@ -875,8 +910,8 @@ QUnit.test("search API, default impl, no selector", function(assert) {
 
 QUnit.test("search API, default impl, single selector", function(assert) {
     var store = new ArrayStore([
-            { text: "abc" },
-            { text: "xyz" }
+        { text: "abc" },
+        { text: "xyz" }
     ]);
 
     var source = new DataSource(store);
@@ -891,9 +926,9 @@ QUnit.test("search API, default impl, single selector", function(assert) {
 
 QUnit.test("search API, default impl, multi selectors, custom op", function(assert) {
     var store = new ArrayStore([
-            { text: "abc", description: "xyz" },
-            { text: "xyz", description: "abc" },
-            { text: "xyz", description: "xyz" }
+        { text: "abc", description: "xyz" },
+        { text: "xyz", description: "abc" },
+        { text: "xyz", description: "xyz" }
     ]);
 
     var source = new DataSource(store);
@@ -908,7 +943,7 @@ QUnit.test("search API, default impl, multi selectors, custom op", function(asse
 
 QUnit.test("search API, default impl, complex selector", function(assert) {
     var store = new ArrayStore([
-            { date: new Date(1984, 5, 14) }
+        { date: new Date(1984, 5, 14) }
     ]);
 
     var source = new DataSource(store);
@@ -1418,6 +1453,32 @@ QUnit.test("expand option for OData store", function(assert) {
         .always(done);
 });
 
+QUnit.test("filterToLower option equal false for OData store", function(assert) {
+    var done = assert.async();
+
+    ajaxMock.setup({
+        url: "odata.org",
+        callback: function(bag) {
+            this.responseText = { value: [bag] };
+        }
+    });
+
+    new DataSource({
+        store: new ODataStore({
+            url: "odata.org",
+            filterToLower: false
+        }),
+        filter: ["prop.nested.prop", "contains", "O"]
+    }).load()
+        .done(function(data) {
+            assert.equal(data[0].data.$filter, "substringof('O',prop/nested/prop)");
+        })
+        .always(function() {
+            ajaxMock.clear();
+        })
+        .always(done);
+});
+
 QUnit.test("Q456193", function(assert) {
     var store = new ArrayStore(["a", "b", "c"]),
         source = new DataSource(store);
@@ -1644,4 +1705,330 @@ QUnit.test("StoreLoadOptionAccessors: null and undefined (based on T304670)", fu
     assert.equal(ds.requireTotalCount(undefined), false);
     assert.equal(ds.requireTotalCount(null), false);
     assert.equal(ds.requireTotalCount(), false);
+});
+
+QUnit.module("live update", {
+    beforeEach: function() {
+        var loadSpy = sinon.spy();
+        this.loadSpy = loadSpy;
+        var itemRemove = { field: 1 },
+            itemUpdate = { field: 2 };
+        this.changes = [
+            { type: "insert", data: { field: 3 } },
+            { type: "remove", key: itemRemove },
+            { type: "update", key: itemUpdate, data: { field: 4 } }
+        ];
+
+        this.createDataSource = function(options) {
+            return new DataSource($.extend({
+                load: function() {
+                    loadSpy();
+                    return [itemRemove, itemUpdate];
+                }
+            }, options));
+        };
+        this.initGroupingDataSource = function(options) {
+            return new DataSource({
+                load: function() {
+                    return [{
+                        key: "a",
+                        items: [{ key: 1, field: 1, type: "a" }, { key: 2, field: 2, type: "a" }]
+                    }, {
+                        key: "b",
+                        items: [{ key: 3, field: 3, type: "b" }]
+                    }];
+                },
+                key: "key",
+                group: "type",
+                pushAggregationTimeout: 0
+            });
+        };
+
+        this.initPlainDataSource = function(options) {
+            this.array = [
+                { id: 1, text: "test 1" },
+                { id: 2, text: "test 2" }
+            ];
+
+            return new DataSource($.extend({
+                store: {
+                    type: "array",
+                    data: this.array,
+                    key: "id"
+                },
+                paginate: false,
+                pushAggregationTimeout: 0
+            }, options));
+        };
+
+        this.clock = sinon.useFakeTimers();
+    },
+    afterEach: function() {
+        this.clock.restore();
+    }
+}, function() {
+    QUnit.test("load is called when reshapeOnPush is enabled", function(assert) {
+        var dataSource = this.createDataSource({
+            reshapeOnPush: true,
+            pushAggregationTimeout: 0
+        });
+        assert.equal(this.loadSpy.callCount, 0);
+
+        dataSource.store().push(this.changes);
+        assert.equal(this.loadSpy.callCount, 1);
+    });
+
+    QUnit.test("load is called with throttle when reshapeOnPush and pushAggregationTimeout are enabled", function(assert) {
+        var dataSource = this.createDataSource({
+            reshapeOnPush: true,
+            pushAggregationTimeout: 100
+        });
+        assert.equal(this.loadSpy.callCount, 0);
+
+        dataSource.store().push(this.changes);
+        dataSource.store().push(this.changes);
+
+        assert.equal(this.loadSpy.callCount, 0);
+        this.clock.tick(100);
+        assert.equal(this.loadSpy.callCount, 1);
+    });
+
+    QUnit.test("load is called with throttle when reshapeOnPush and pushAggregationTimeout is defined", function(assert) {
+        var dataSource = this.createDataSource({
+            reshapeOnPush: true,
+            pushAggregationTimeout: 100
+        });
+        assert.equal(this.loadSpy.callCount, 0);
+
+        dataSource.store().push(this.changes);
+        dataSource.store().push(this.changes);
+
+        assert.equal(this.loadSpy.callCount, 0);
+        this.clock.tick(100);
+        assert.equal(this.loadSpy.callCount, 1);
+    });
+
+    QUnit.test("load is called with automatic throttle depends on changed time", function(assert) {
+        var dataSource = this.createDataSource({
+            reshapeOnPush: true
+        });
+
+        dataSource.on("changed", (function() {
+            this.clock.tick(10);
+        }).bind(this));
+
+        dataSource.load();
+
+        assert.equal(this.loadSpy.callCount, 1);
+
+        dataSource.store().push(this.changes);
+        dataSource.store().push(this.changes);
+
+        this.clock.tick(49);
+
+        assert.equal(this.loadSpy.callCount, 1);
+
+        this.clock.tick(1);
+        assert.equal(this.loadSpy.callCount, 2);
+    });
+
+    QUnit.test("automatic throttle depends on changed time when reshapeOnPush is disabled", function(assert) {
+        var dataSource = this.createDataSource({
+            reshapeOnPush: false
+        });
+
+        dataSource.load();
+
+        var changedSpy = sinon.spy();
+        dataSource.on("changed", (function() {
+            this.clock.tick(10);
+            changedSpy();
+        }).bind(this));
+
+        assert.equal(changedSpy.callCount, 0);
+
+        dataSource.store().push(this.changes);
+        this.clock.tick();
+        dataSource.store().push(this.changes);
+        assert.equal(changedSpy.callCount, 1);
+
+        this.clock.tick(49);
+        assert.equal(changedSpy.callCount, 1);
+
+        this.clock.tick(1);
+        assert.equal(changedSpy.callCount, 2);
+    });
+
+    QUnit.test("load isn't called when reshapeOnPush is disabled", function(assert) {
+        var dataSource = this.createDataSource();
+        dataSource.store().push(this.changes);
+        assert.equal(this.loadSpy.callCount, 0);
+    });
+
+    QUnit.test("pass changes in changed event when reshapeOnPush and paginate are disabled", function(assert) {
+        var dataSource = this.createDataSource({
+            paginate: false,
+            pushAggregationTimeout: 0
+        });
+        var changedSpy = sinon.spy();
+        dataSource.on("changed", changedSpy);
+        dataSource.store().push(this.changes);
+        assert.equal(changedSpy.firstCall.args[0].changes.length, 3);
+    });
+
+    QUnit.test("don't skip changes with types 'insert' and 'remove' when reshapeOnPush is disabled and paginate is enabled", function(assert) {
+        var dataSource = this.createDataSource({
+            paginate: true,
+            pushAggregationTimeout: 0
+        });
+        var changedSpy = sinon.spy();
+        dataSource.on("changed", changedSpy);
+        dataSource.store().push(this.changes);
+        assert.equal(changedSpy.firstCall.args[0].changes.length, 3);
+    });
+
+    QUnit.test("changed is fired with throttle when pushAggregationTimeout is enabled", function(assert) {
+        var dataSource = this.createDataSource({
+            paginate: false,
+            pushAggregationTimeout: 100
+        });
+        var changedSpy = sinon.spy();
+        dataSource.on("changed", changedSpy);
+
+        assert.equal(changedSpy.callCount, 0);
+
+        dataSource.store().push(this.changes);
+        dataSource.store().push(this.changes);
+
+        assert.equal(changedSpy.callCount, 0);
+
+        this.clock.tick(100);
+        assert.equal(changedSpy.callCount, 1);
+        assert.equal(changedSpy.lastCall.args[0].changes.length, 6);
+    });
+
+    QUnit.test("push for grouping", function(assert) {
+        var dataSource = this.initGroupingDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "update", data: { key: 1, field: 12, type: "a" }, key: 1 }
+        ]);
+        assert.deepEqual(dataSource.items()[0].key, "a");
+        assert.deepEqual(dataSource.items()[0].items[0].field, 12);
+    });
+
+    QUnit.test("push type='insert' is ignored for grouping", function(assert) {
+        var dataSource = this.initGroupingDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "insert", data: { key: 3, field: 3, type: "a" } }
+        ]);
+        assert.deepEqual(dataSource.items()[0].items.length, 2);
+
+        dataSource.store().push([
+            { type: "insert", key: 4 }
+        ]);
+        assert.deepEqual(dataSource.items()[0].items.length, 2);
+    });
+
+    QUnit.test("push type='delete' is ignored for grouping", function(assert) {
+        var dataSource = this.initGroupingDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "delete", key: 2 }
+        ]);
+        assert.deepEqual(dataSource.items()[0].items.length, 2);
+    });
+
+    QUnit.test("push type='insert' if item is exists", function(assert) {
+        var dataSource = this.initPlainDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "insert", data: { id: 2, text: "modified" } }
+        ]);
+
+        assert.deepEqual(dataSource.items().length, 2);
+    });
+
+    QUnit.test("push type='insert' if item is exists if reshapeOnPush", function(assert) {
+        var dataSource = this.initPlainDataSource({ reshapeOnPush: true });
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "insert", data: { id: 2, text: "modified" } }
+        ]);
+
+        assert.deepEqual(dataSource.items().length, 2);
+        assert.deepEqual(this.array.length, 2);
+    });
+
+    QUnit.test("push type='remove' and type='insert'", function(assert) {
+        var dataSource = this.initPlainDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "remove", key: 1 },
+            { type: "insert", data: { id: 1, text: "modified" } }
+        ]);
+
+        assert.deepEqual(this.array, [
+            { id: 2, text: "test 2" },
+            { id: 1, text: "modified" }
+        ]);
+        assert.deepEqual(dataSource.items(), this.array);
+    });
+
+    QUnit.test("push type='remove' and type='insert' if reshapeOnPush", function(assert) {
+        var dataSource = this.initPlainDataSource({ reshapeOnPush: true });
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "remove", key: 1 },
+            { type: "insert", data: { id: 1, text: "modified" } }
+        ]);
+
+        assert.deepEqual(this.array, [
+            { id: 2, text: "test 2" },
+            { id: 1, text: "modified" }
+        ]);
+        assert.deepEqual(dataSource.items(), this.array);
+    });
+
+    QUnit.test("push type='insert' with same key", function(assert) {
+        var dataSource = this.initPlainDataSource();
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "insert", data: { id: 3, text: "first" } },
+            { type: "insert", data: { id: 3, text: "second" } }
+        ]);
+
+        assert.deepEqual(this.array, [
+            { id: 1, text: "test 1" },
+            { id: 2, text: "test 2" },
+            { id: 3, text: "first" }
+        ]);
+        assert.deepEqual(dataSource.items(), this.array);
+    });
+
+    QUnit.test("push type='remove' after insert if reshapeOnPush", function(assert) {
+        var dataSource = this.initPlainDataSource({ reshapeOnPush: true });
+        dataSource.load();
+
+        dataSource.store().push([
+            { type: "insert", data: { id: 3, text: "first" } },
+            { type: "insert", data: { id: 3, text: "second" } }
+        ]);
+
+        assert.deepEqual(this.array, [
+            { id: 1, text: "test 1" },
+            { id: 2, text: "test 2" },
+            { id: 3, text: "first" }
+        ]);
+        assert.deepEqual(dataSource.items(), this.array);
+    });
 });

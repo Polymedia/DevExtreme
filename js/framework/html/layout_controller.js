@@ -1,5 +1,3 @@
-"use strict";
-
 require("../../integration/jquery");
 
 var $ = require("jquery"),
@@ -390,8 +388,8 @@ var DefaultLayoutController = Class.inherit({
 
     _getViewTemplateId: function(viewInfo) {
         var viewTemplateInstance = viewInfo.$viewTemplate
-                ? viewInfo.$viewTemplate.dxView("instance")
-                : this._viewEngine.getViewTemplateInfo(viewInfo.viewName);
+            ? viewInfo.$viewTemplate.dxView("instance")
+            : this._viewEngine.getViewTemplateInfo(viewInfo.viewName);
 
         return viewTemplateInstance.getId();
     },

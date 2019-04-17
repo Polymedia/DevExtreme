@@ -1,5 +1,3 @@
-"use strict";
-
 var registerEventCallbacks = require("./event_registrator_callbacks");
 var extend = require("../../core/utils/extend").extend;
 var domAdapter = require("../../core/dom_adapter");
@@ -27,6 +25,8 @@ var NATIVE_EVENTS_TO_TRIGGER = {
     "focusout": "blur"
 };
 var NO_BUBBLE_EVENTS = ["blur", "focusout", "focus", "focusin", "load"];
+
+var forcePassiveFalseEventNames = ["touchmove", "wheel", "mousewheel"]; // "touchstart"?
 
 var matchesSafe = function(target, selector) {
     return !isWindow(target) && target.nodeName !== "#document" && domAdapter.elementMatches(target, selector);
@@ -171,6 +171,7 @@ var getHandlersController = function(element, eventName) {
 
             var firstHandlerForTheType = eventData.handleObjects.length === 1;
             var shouldAddNativeListener = firstHandlerForTheType && eventNameIsDefined;
+            var nativeListenerOptions;
 
             if(shouldAddNativeListener) {
                 shouldAddNativeListener = !special.callMethod(eventName, "setup", element, [ data, namespaces, handler ]);
@@ -178,7 +179,14 @@ var getHandlersController = function(element, eventName) {
 
             if(shouldAddNativeListener) {
                 eventData.nativeHandler = getNativeHandler(eventName);
-                eventData.removeListener = domAdapter.listen(element, NATIVE_EVENTS_TO_SUBSCRIBE[eventName] || eventName, eventData.nativeHandler);
+
+                if(forcePassiveFalseEventNames.indexOf(eventName) > -1) {
+                    nativeListenerOptions = {
+                        passive: false
+                    };
+                }
+
+                eventData.removeListener = domAdapter.listen(element, NATIVE_EVENTS_TO_SUBSCRIBE[eventName] || eventName, eventData.nativeHandler, nativeListenerOptions);
             }
 
             special.callMethod(eventName, "add", element, [ handleObject ]);
@@ -591,6 +599,8 @@ eventsEngine.subscribeGlobal = function() {
         });
     }));
 };
+
+eventsEngine.forcePassiveFalseEventNames = forcePassiveFalseEventNames;
 
 ///#DEBUG
 eventsEngine.elementDataMap = elementDataMap;

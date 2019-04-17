@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     domAdapter = require("../../core/dom_adapter"),
     eventsEngine = require("../../events/core/events_engine"),
@@ -13,7 +11,9 @@ var $ = require("../../core/renderer"),
     Editor = require("../editor/editor"),
     eventUtils = require("../../events/utils"),
     pointerEvents = require("../../events/pointer"),
-    clickEvent = require("../../events/click");
+    clickEvent = require("../../events/click"),
+    config = require("../../core/config"),
+    Deferred = require("../../core/utils/deferred").Deferred;
 
 var TEXTEDITOR_CLASS = "dx-texteditor",
     TEXTEDITOR_INPUT_CLASS = "dx-texteditor-input",
@@ -26,6 +26,12 @@ var TEXTEDITOR_CLASS = "dx-texteditor",
     TEXTEDITOR_CLEAR_ICON_CLASS = "dx-icon-clear",
     TEXTEDITOR_CLEAR_BUTTON_CLASS = "dx-clear-button-area",
     TEXTEDITOR_EMPTY_INPUT_CLASS = "dx-texteditor-empty",
+    TEXTEDITOR_STYLING_MODE_PREFIX = "dx-editor-",
+    ALLOWED_STYLE_CLASSES = [
+        TEXTEDITOR_STYLING_MODE_PREFIX + "outlined",
+        TEXTEDITOR_STYLING_MODE_PREFIX + "filled",
+        TEXTEDITOR_STYLING_MODE_PREFIX + "underlined"
+    ],
 
     STATE_INVISIBLE_CLASS = "dx-state-invisible";
 
@@ -35,26 +41,20 @@ var EVENTS_LIST = [
 ];
 
 var CONTROL_KEYS = [
-    "Tab",
-    "Enter",
-    "Shift",
-    "Control",
-    "Alt",
-    "Escape",
-    "PageUp",
-    "PageDown",
-    "End",
-    "Home",
-    "ArrowLeft",
-    "ArrowUp",
-    "ArrowRight",
-    "ArrowDown",
-    // IE9 fallback:
-    "Esc",
-    "Left",
-    "Up",
-    "Right",
-    "Down"
+    "tab",
+    "enter",
+    "shift",
+    "control",
+    "alt",
+    "escape",
+    "pageUp",
+    "pageDown",
+    "end",
+    "home",
+    "leftArrow",
+    "upArrow",
+    "rightArrow",
+    "downArrow",
 ];
 
 /**
@@ -63,18 +63,6 @@ var CONTROL_KEYS = [
 * @hidden
 */
 var TextEditorBase = Editor.inherit({
-
-    _supportedKeys: function() {
-        var stop = function(e) {
-            e.stopPropagation();
-        };
-        return {
-            space: stop,
-            enter: stop,
-            leftArrow: stop,
-            rightArrow: stop
-        };
-    },
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
@@ -268,8 +256,8 @@ var TextEditorBase = Editor.inherit({
             text: undefined,
 
             valueFormat: function(value) {
-                return value;
-            }
+                return isDefined(value) && value !== false ? value : "";
+            },
 
             /**
             * @name dxTextEditorOptions.name
@@ -277,18 +265,38 @@ var TextEditorBase = Editor.inherit({
             * @hidden false
             * @inheritdoc
             */
+
+            /**
+            * @name dxTextEditorOptions.stylingMode
+            * @type Enums.EditorStylingMode
+            * @default 'outlined'
+            */
+            stylingMode: config().editorStylingMode || "outlined"
         });
     },
 
     _defaultOptionsRules: function() {
+        var themeName = themes.current();
+
         return this.callBase().concat([
             {
                 device: function() {
-                    var currentTheme = (themes.current() || "").split(".")[0];
-                    return currentTheme === "android5";
+                    return themes.isAndroid5(themeName);
                 },
                 options: {
                     validationMessageOffset: { v: -8 }
+                }
+            },
+            {
+                device: function() {
+                    return themes.isMaterial(themeName);
+                },
+                options: {
+                    /**
+                    * @name dxTextEditorOptions.stylingMode
+                    * @default 'underlined' @for Material
+                    */
+                    stylingMode: config().editorStylingMode || "underlined"
                 }
             }
         ]);
@@ -296,6 +304,10 @@ var TextEditorBase = Editor.inherit({
 
     _input: function() {
         return this.$element().find(TEXTEDITOR_INPUT_SELECTOR).first();
+    },
+
+    _isFocused: function() {
+        return focused(this._input()) || this.callBase();
     },
 
     _inputWrapper: function() {
@@ -310,12 +322,29 @@ var TextEditorBase = Editor.inherit({
         return CONTROL_KEYS.indexOf(key) !== -1;
     },
 
+    _renderStylingMode: function() {
+        const optionName = "stylingMode";
+        ALLOWED_STYLE_CLASSES.forEach(className => this.$element().removeClass(className));
+
+        let stylingModeClass = TEXTEDITOR_STYLING_MODE_PREFIX + this.option(optionName);
+
+        if(ALLOWED_STYLE_CLASSES.indexOf(stylingModeClass) === -1) {
+            const defaultOptionValue = this._getDefaultOptions()[optionName];
+            const platformOptionValue = this._convertRulesToOptions(this._defaultOptionsRules())[optionName];
+            stylingModeClass = TEXTEDITOR_STYLING_MODE_PREFIX + (platformOptionValue || defaultOptionValue);
+        }
+
+        this.$element().addClass(stylingModeClass);
+    },
+
     _initMarkup: function() {
-        this.$element().addClass(TEXTEDITOR_CLASS);
+        this.$element()
+            .addClass(TEXTEDITOR_CLASS);
+        this._renderStylingMode();
 
         this._renderInput();
         this._renderInputType();
-        this._renderPlaceholderMarkup();
+        this._renderPlaceholder();
 
         this._renderProps();
 
@@ -360,8 +389,8 @@ var TextEditorBase = Editor.inherit({
     },
 
     _renderValue: function() {
-        this._renderInputValue();
-        this._renderInputAddons();
+        var renderInputPromise = this._renderInputValue();
+        renderInputPromise.always(this._renderInputAddons.bind(this));
     },
 
     _renderInputValue: function(value) {
@@ -386,6 +415,8 @@ var TextEditorBase = Editor.inherit({
         } else {
             this._toggleEmptinessEventHandler();
         }
+
+        return new Deferred().resolve();
     },
 
     _renderDisplayText: function(text) {
@@ -473,7 +504,7 @@ var TextEditorBase = Editor.inherit({
 
         var $input = this._input(),
             placeholderText = this.option("placeholder"),
-            $placeholder = this._$placeholder = $('<div>')
+            $placeholder = this._$placeholder = $("<div>")
                 .attr("data-dx_placeholder", placeholderText);
 
         $placeholder.insertAfter($input);
@@ -538,10 +569,10 @@ var TextEditorBase = Editor.inherit({
         var $input = this._input();
         e.stopPropagation();
 
-        this._valueChangeEventHandler(e);
+        this._saveValueChangeEvent(e);
         this.reset();
 
-        !focused($input) && eventsEngine.trigger($input, "focus");
+        !this._isFocused() && eventsEngine.trigger($input, "focus");
         eventsEngine.trigger($input, "input");
     },
 
@@ -654,7 +685,7 @@ var TextEditorBase = Editor.inherit({
             return;
         }
 
-        if(e.which === 13) {
+        if(eventUtils.normalizeKeyName(e) === "enter") {
             this._enterKeyAction({
                 event: e
             });
@@ -724,6 +755,9 @@ var TextEditorBase = Editor.inherit({
             case "inputAttr":
                 this._applyInputAttributes(this._input(), args.value);
                 break;
+            case "stylingMode":
+                this._renderStylingMode();
+                break;
             case "valueFormat":
                 this._invalidate();
                 break;
@@ -770,7 +804,13 @@ var TextEditorBase = Editor.inherit({
     },
 
     reset: function() {
-        this.option("value", "");
+        var defaultOptions = this._getDefaultOptions();
+        if(this.option("value") === defaultOptions.value) {
+            this.option("text", "");
+            this._renderValue();
+        } else {
+            this.option("value", defaultOptions.value);
+        }
     },
 
     on: function(eventName, eventHandler) {

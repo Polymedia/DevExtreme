@@ -1,10 +1,8 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    grep = require("../../core/utils/common").grep,
-    each = require("../../core/utils/iterator").each,
-    isDefined = require("../../core/utils/type").isDefined;
+import $ from "../../core/renderer";
+import gridCoreUtils from "./ui.grid_core.utils";
+import { grep } from "../../core/utils/common";
+import { each } from "../../core/utils/iterator";
+import { isDefined } from "../../core/utils/type";
 
 var MASTER_DETAIL_CELL_CLASS = "dx-master-detail-cell",
     MASTER_DETAIL_ROW_CLASS = "dx-master-detail-row",
@@ -39,6 +37,7 @@ module.exports = {
                  * @type_function_param2 detailInfo:object
                  * @type_function_param2_field1 key:any
                  * @type_function_param2_field2 data:object
+                 * @type_function_param2_field3 watch:function
                  */
                 template: null
             }
@@ -52,6 +51,7 @@ module.exports = {
 
                     if(this.option("masterDetail.enabled")) {
                         expandColumns.push({
+                            type: "detailExpand",
                             cellTemplate: gridCoreUtils.getExpandCellTemplate()
                         });
                     }
@@ -110,7 +110,8 @@ module.exports = {
                     },
                     _changeRowExpandCore: function(key) {
                         var that = this,
-                            expandIndex;
+                            expandIndex,
+                            editingController;
 
                         if(Array.isArray(key)) {
                             return that.callBase.apply(that, arguments);
@@ -122,6 +123,11 @@ module.exports = {
                                 that._expandedItems[expandIndex].visible = !visible;
                             } else {
                                 that._expandedItems.push({ key: key, visible: true });
+
+                                editingController = that.getController("editing");
+                                if(editingController) {
+                                    editingController.correctEditRowIndexAfterExpand(key);
+                                }
                             }
 
                             that.updateItems({
@@ -282,52 +288,24 @@ module.exports = {
                         return $row;
                     },
 
-                    _getGroupCellOptions: function(options) {
-                        var row = options.row,
-                            groupColumns = this._columnsController.getGroupColumns(),
-                            columnIndex = groupColumns.length + options.columnsCountBeforeGroups,
-                            emptyCellsCount = columnIndex + Number(this.option("masterDetail.enabled"));
-
-                        if(row && this._isDetailRow(row)) {
-                            return {
-                                columnIndex: columnIndex,
-                                emptyCellsCount: emptyCellsCount,
-                                colspan: options.columns.length - emptyCellsCount
-                            };
-                        }
-
-                        return this.callBase(options);
-                    },
-
                     _renderCells: function($row, options) {
                         var row = options.row,
                             $detailCell,
-                            groupCellOptions,
-                            i;
+                            visibleColumns = this._columnsController.getVisibleColumns();
 
                         if(row.rowType && this._isDetailRow(row)) {
-                            groupCellOptions = this._getGroupCellOptions(options);
-                            for(i = 0; i < groupCellOptions.emptyCellsCount; i++) {
-                                this._renderCell($row, {
-                                    value: null,
-                                    row: row,
-                                    rowIndex: row.rowIndex,
-                                    column: options.columns[i]
-                                });
-                            }
-
                             $detailCell = this._renderCell($row, {
                                 value: null,
                                 row: row,
                                 rowIndex: row.rowIndex,
                                 column: { command: "detail" },
-                                columnIndex: groupCellOptions.columnIndex
+                                columnIndex: 0
                             });
 
                             $detailCell
                                 .addClass(CELL_FOCUS_DISABLED_CLASS)
                                 .addClass(MASTER_DETAIL_CELL_CLASS)
-                                .attr("colSpan", groupCellOptions.colspan);
+                                .attr("colSpan", visibleColumns.length);
                         } else {
                             this.callBase.apply(this, arguments);
                         }

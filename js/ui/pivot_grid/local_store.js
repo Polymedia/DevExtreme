@@ -1,5 +1,3 @@
-"use strict";
-
 var deferredUtils = require("../../core/utils/deferred"),
     when = deferredUtils.when,
     Deferred = deferredUtils.Deferred,
@@ -17,6 +15,8 @@ var deferredUtils = require("../../core/utils/deferred"),
     getFiltersByPath = pivotGridUtils.getFiltersByPath,
     setFieldProperty = pivotGridUtils.setFieldProperty,
     ArrayStore = require("../../data/array_store");
+
+const PATH_DELIMETER = "/./";
 
 exports.LocalStore = Class.inherit((function() {
 
@@ -123,7 +123,7 @@ exports.LocalStore = Class.inherit((function() {
 
         if(dimension) {
             dimensionValue = dimension.selector(options.data);
-            pathHash = pathHash !== undefined ? pathHash + "." + dimensionValue : dimensionValue + "";
+            pathHash = pathHash !== undefined ? pathHash + PATH_DELIMETER + dimensionValue : dimensionValue + "";
 
             hierarchyItem = addHierarchyItem(dimensionValue, children, pathHash, options.childrenHash);
 
@@ -178,7 +178,7 @@ exports.LocalStore = Class.inherit((function() {
         if(expandedPaths) {
             var hash = expandedPaths.hash = {};
             expandedPaths.forEach(function(path) {
-                var pathValue = path.map(function(value) { return value + ""; }).join(".");
+                var pathValue = path.map(function(value) { return value + ""; }).join(PATH_DELIMETER);
                 hash[pathValue] = true;
             });
         }

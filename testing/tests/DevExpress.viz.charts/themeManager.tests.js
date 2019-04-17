@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     themeManagerModule = require("viz/components/chart_theme_manager"),
     backgroundColor = '#ffffff',
@@ -107,7 +105,7 @@ function createThemeManager(options, themeGroupName) {
             alignment: "center",
             font: {
                 color: '#ffffff',
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
                 weight: 400,
                 size: 12,
                 cursor: 'default'
@@ -199,7 +197,7 @@ function createThemeManager(options, themeGroupName) {
         assert.deepEqual(theme.label, {
             font: {
                 color: '#ffffff',
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
                 weight: 400,
                 size: 12,
                 cursor: 'default'
@@ -336,7 +334,7 @@ function createThemeManager(options, themeGroupName) {
         assert.deepEqual(theme.label, {
             font: {
                 color: '#ffffff',
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
                 weight: 400,
                 size: 12,
                 cursor: 'default'
@@ -1543,7 +1541,7 @@ function createThemeManager(options, themeGroupName) {
                         rtl: false
                     }
                 }
-            }, "desktop");
+            }, "generic");
         }
     });
 
@@ -1581,7 +1579,7 @@ function createThemeManager(options, themeGroupName) {
                     }
                 }
             }
-        }, "desktop");
+        }, "generic");
 
         // act
         var options = { theme: 'rtlTheme1' },
@@ -1606,7 +1604,7 @@ function createThemeManager(options, themeGroupName) {
                     }
                 }
             }
-        }, "desktop");
+        }, "generic");
 
         // act
         var options = { theme: 'rtlTheme1', rtlEnabled: false },
@@ -1631,7 +1629,7 @@ function createThemeManager(options, themeGroupName) {
                     }
                 }
             }
-        }, "desktop");
+        }, "generic");
 
         var themeManager = createThemeManager({ theme: 'rtlTheme' });
         themeManager.setTheme('rtlTheme1');
@@ -1682,7 +1680,7 @@ function createThemeManager(options, themeGroupName) {
                 valueAxisTheme: true
             }
         }
-    }, "desktop");
+    }, "generic");
 
     QUnit.module("getOptions", {
         beforeEach: function() {
@@ -1810,7 +1808,7 @@ function createThemeManager(options, themeGroupName) {
         assert.deepEqual(themeManager.getOptions("crosshair").label.font, {
             color: "#ffffff",
             cursor: "default",
-            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
             size: 12,
             weight: 400
         });
@@ -2186,5 +2184,260 @@ function createThemeManager(options, themeGroupName) {
         assert.equal(valueOptions.logarithmBase, 2);
         assert.equal(valueOptions.someField, 'someValue');
         assert.equal(valueOptions.valueAxisTheme, true);
+    });
+})();
+
+(function zoomAndPan() {
+    QUnit.module("Get options - zoomAndPan");
+
+    QUnit.test("Ignore deprecated options if new options are used", function(assert) {
+        var themeManager = createThemeManager({
+            zoomAndPan: {
+                argumentAxis: "none",
+                valueAxis: "none"
+            },
+            zoomingMode: "all",
+            scrollingMode: "all"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                dragToZoom: "dragToZoomValue",
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: true, pan: false, zoom: false },
+            dragToZoom: true,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: true,
+            allowTouchGestures: true
+        });
+    });
+
+    QUnit.test("No user options. scrollingMode=all allows argument axis panning by mouse and touch", function(assert) {
+        var themeManager = createThemeManager({
+            scrollingMode: "all"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: true, zoom: false },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: false,
+            allowTouchGestures: true
+        });
+    });
+
+    QUnit.test("No user options. scrollingMode=mouse allows argument axis panning by mouse only", function(assert) {
+        var themeManager = createThemeManager({
+            scrollingMode: "mouse"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: true, zoom: false },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: false,
+            allowTouchGestures: false
+        });
+    });
+
+    QUnit.test("No user options. scrollingMode=touch allows argument axis panning by mouse and touch", function(assert) {
+        var themeManager = createThemeManager({
+            scrollingMode: "touch"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: true, zoom: false },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: false,
+            allowTouchGestures: true
+        });
+    });
+
+    QUnit.test("No user options. zoomingMode=all allows argument axis zooming by mousewheel and touch", function(assert) {
+        var themeManager = createThemeManager({
+            zoomingMode: "all"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: false, zoom: true },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: true,
+            allowTouchGestures: true
+        });
+    });
+
+    QUnit.test("No user options. zoomingMode=mouse allows argument axis zooming by mousewheel only", function(assert) {
+        var themeManager = createThemeManager({
+            zoomingMode: "mouse"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: false, zoom: true },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: true,
+            allowTouchGestures: false
+        });
+    });
+
+    QUnit.test("No user options. zoomingMode=touch allows argument axis zooming by touch only", function(assert) {
+        var themeManager = createThemeManager({
+            zoomingMode: "touch"
+        });
+        themeManager.setTheme({
+            zoomAndPan: {
+                allowTouchGestures: "allowTouchGesturesValue",
+                allowMouseWheel: "allowMouseWheelValue",
+                dragBoxStyle: {
+                    color: "dragBoxColor",
+                    opacity: "dragBoxOpacity"
+                },
+                panKey: "panKeyValue"
+            }
+        });
+
+        // act
+        var theme = themeManager.getOptions("zoomAndPan");
+
+        // assert
+        assert.deepEqual(theme, {
+            valueAxis: { none: true, pan: false, zoom: false },
+            argumentAxis: { none: false, pan: false, zoom: true },
+            dragToZoom: false,
+            dragBoxStyle: {
+                class: "dxc-shutter",
+                fill: "dragBoxColor",
+                opacity: "dragBoxOpacity"
+            },
+            panKey: "panKeyValue",
+            allowMouseWheel: false,
+            allowTouchGestures: true
+        });
     });
 })();

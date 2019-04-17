@@ -58,8 +58,7 @@
                         visibility: hidden;
                         background-color: transparent;
                         pointer-events: none;
-                        border-top-color: transparent;
-                        border-bottom-color: transparent;
+                        border-bottom-color: transparent; // T672281
                     }
                 }
 
@@ -158,20 +157,21 @@
             }
         }
 
-        .dx-row > td {
-            padding: @GRID_CELL_PADDING;
+        .dx-row {
+            & > td, & > tr > td {
+                padding: @GRID_CELL_PADDING;
+            }
         }
 
         .dx-error-row {
             .user-select(initial);
-        }
 
-        .dx-column-lines > td {
-            &:first-child {
-                border-left: none;
-            }
-            &:last-child {
-                border-right: none;
+            .dx-error-message {
+                user-select: text;
+
+                a {
+                    color: inherit;
+                }
             }
         }
     }
@@ -193,12 +193,12 @@
                 .dx-column-chooser-item {
                     opacity: 0.5;
                     margin-bottom: 10px;
-                    .box-shadow(0px 1px 3px -1px rgba(0, 0, 0, 0.2));
+                    box-shadow: 0px 1px 3px -1px rgba(0, 0, 0, 0.2);
 
                     &.dx-@{widgetName}-drag-action {
                         opacity: 1;
                         cursor: pointer;
-                        .touch-action(pinch-zoom);
+                        touch-action: pinch-zoom;
                     }
                 }
             }
@@ -237,7 +237,11 @@
         cursor: pointer;
         z-index: 10000;
         // T105728
-        .box-sizing(content-box);
+        box-sizing: content-box;
+
+        &.dx-drag-command-cell {
+            padding: 0px;
+        }
     }
 
     .dx-@{widgetName}-columns-separator {
@@ -310,8 +314,14 @@
         width: 0 !important;
     }
 
-    .dx-row > td {
-        border: none;
+    .dx-hidden-cell {
+        visibility: hidden;
+    }
+
+    .dx-row {
+        & > td, & > tr > td {
+            border: none;
+        }
     }
 
     .dx-@{widgetName}-content .dx-@{widgetName}-table {
@@ -374,25 +384,31 @@
             .dx-text-content-alignment-right {
                 margin-left: @GRID_TEXT_CONTENT_MARGIN;
             }
+
+            .dx-master-detail-cell {
+                max-width: 0;
+            }
         }
 
         [class*="column"] + [class*="column"]:last-child {
             float: none;
         }
 
-        .dx-row > td {
-            vertical-align: top;
+        .dx-row {
+            & > td, & > tr > td {
+                vertical-align: top;
 
-            &:first-child {
-                border-left: 0px;
-            }
+                &:first-child {
+                    border-left: 0px;
+                }
 
-            &.dx-@{widgetName}-group-space {
-                border-right: none;
-                vertical-align: middle;
+                &.dx-@{widgetName}-group-space {
+                    border-right: none;
+                    vertical-align: top;
 
-                & + td {
-                    border-left: none;
+                    & + td {
+                        border-left: none;
+                    }
                 }
             }
         }
@@ -410,6 +426,11 @@
 
                 .dx-@{widgetName}-invalid .dx-invalid-message.dx-overlay {
                     position: static;
+
+                    .dx-overlay-content {
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
                 }
 
             .dx-editor-cell {
@@ -454,6 +475,7 @@
                 width: @GRID_COMMAND_EXPAND_COLUMN_WIDTH;
                 min-width: @GRID_COMMAND_EXPAND_COLUMN_WIDTH;
                 max-width: @GRID_COMMAND_EXPAND_COLUMN_WIDTH;
+                .user-select(none);
             }
         }
 
@@ -517,7 +539,7 @@
     }
 
     .dx-row {
-        .dx-numberbox {
+        .dx-numberbox, .dx-textbox {
             &.dx-show-clear-button {
                 .dx-texteditor-input {
                     padding-right: @GRID_TEXTEDITOR_INPUT_PADDING;
@@ -584,7 +606,7 @@
     }
 
     .dx-@{widgetName}-filter-range-overlay {
-        .dx-texteditor {
+        .dx-editor-container .dx-texteditor {
             border-width: 0px;
 
             &.dx-state-focused:after {
@@ -709,7 +731,6 @@
 
     .dx-@{widgetName}-header-panel {
         text-align: left;
-        overflow: hidden;
 
         .dx-toolbar-menu-container {
             .dx-button {
@@ -732,6 +753,18 @@
 
     .dx-gridbase-container > .dx-@{widgetName}-rowsview {
         flex: auto;
+        height: auto; // T671939
+
+        &.dx-scrollable {
+            display: flex;
+
+            & > .dx-scrollable-wrapper {
+                flex: 1;
+                height: auto;
+                min-width: 0;
+                min-height: 0;
+            }
+        }
     }
 
     .dx-@{widgetName}-rowsview {
@@ -764,15 +797,17 @@
             outline: 0;
         }
 
-        .dx-row > td {
-            overflow: hidden;
-            -o-text-overflow: ellipsis;
-            text-overflow: ellipsis;
+        .dx-row {
+            & > td, & > tr > td {
+                overflow: hidden;
+                -o-text-overflow: ellipsis;
+                text-overflow: ellipsis;
+            }
         }
 
         .dx-row.dx-row-lines:first-child {
             border-top: none;
-            & > td {
+            & > td, & > tr > td {
                 border-top: none;
             }
         }
@@ -782,7 +817,7 @@
         }
 
         .dx-selection, .dx-selection.dx-row:hover {
-            & > td {
+            & > td, & > tr > td {
                 .dx-link {
                     color: inherit;
                 }
@@ -811,12 +846,8 @@
         }
 
         .dx-row > .dx-master-detail-cell {
-            max-width: 0;
             padding: @GRID_MASTERDETAIL_PADDING;
-            padding-left: 0;
-            &:first-child {
-                padding-left: @GRID_MASTERDETAIL_PADDING;
-            }
+
             &:focus{
                 outline: 0;
             }
@@ -897,7 +928,7 @@
         &.dx-popover-wrapper {
             .dx-overlay-content {
                 border: none;
-                .box-shadow(none);
+                box-shadow: none;
 
                 .dx-popup-content {
                     padding: 0;
@@ -953,16 +984,6 @@
     }
 
     .dx-rtl {
-        .dx-@{widgetName} .dx-column-lines > td {
-            &:first-child {
-                border-right: none;
-            }
-
-            &:last-child {
-                border-left: none;
-            }
-        }
-
         .dx-@{widgetName}-content .dx-@{widgetName}-table {
             direction: rtl;
 

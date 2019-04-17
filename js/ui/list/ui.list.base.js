@@ -1,9 +1,8 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     commonUtils = require("../../core/utils/common"),
     typeUtils = require("../../core/utils/type"),
+    iconUtils = require("../../core/utils/icon"),
     getPublicElement = require("../../core/utils/dom").getPublicElement,
     each = require("../../core/utils/iterator").each,
     compileGetter = require("../../core/utils/data").compileGetter,
@@ -22,13 +21,16 @@ var $ = require("../../core/renderer"),
     windowUtils = require("../../core/utils/window"),
     ScrollView = require("../scroll_view"),
     deviceDependentOptions = require("../scroll_view/ui.scrollable").deviceDependentOptions,
-    CollectionWidget = require("../collection/ui.collection_widget.edit"),
+    CollectionWidget = require("../collection/ui.collection_widget.live_update").default,
     BindableTemplate = require("../widget/bindable_template"),
-    Deferred = require("../../core/utils/deferred").Deferred;
+    Deferred = require("../../core/utils/deferred").Deferred,
+    DataConverterMixin = require("../shared/grouped_data_converter_mixin").default;
 
 var LIST_CLASS = "dx-list",
     LIST_ITEM_CLASS = "dx-list-item",
     LIST_ITEM_SELECTOR = "." + LIST_ITEM_CLASS,
+    LIST_ITEM_ICON_CONTAINER_CLASS = "dx-list-item-icon-container",
+    LIST_ITEM_ICON_CLASS = "dx-list-item-icon",
     LIST_GROUP_CLASS = "dx-list-group",
     LIST_GROUP_HEADER_CLASS = "dx-list-group-header",
     LIST_GROUP_BODY_CLASS = "dx-list-group-body",
@@ -119,6 +121,19 @@ var ListBase = CollectionWidget.inherit({
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
+
+            /**
+            * @name dxListOptions.repaintChangesOnly
+            * @type boolean
+            * @default false
+            */
+
+            /**
+             * @name dxListOptions.displayExpr
+             * @type string|function(item)
+             * @type_function_param1 item:object
+             * @default undefined
+             */
 
             /**
              * @name dxListOptions.hoverStateEnabled
@@ -334,13 +349,16 @@ var ListBase = CollectionWidget.inherit({
 
             /**
             * @name dxListOptions.onItemClick
-            * @type function(e)|string
             * @extends Action
+            * @type function(e)|string
             * @type_function_param1 e:object
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number | object
+            * @type_function_param1_field7 jQueryEvent:jQuery.Event:deprecated(event)
+            * @type_function_param1_field8 event:event
             * @action
+            * @inheritdoc
             */
 
             /**
@@ -348,7 +366,11 @@ var ListBase = CollectionWidget.inherit({
             * @extends Action
             * @type function(e)
             * @type_function_param1 e:object
+            * @type_function_param1_field4 itemData:object
+            * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number | object
+            * @type_function_param1_field7 jQueryEvent:jQuery.Event:deprecated(event)
+            * @type_function_param1_field8 event:event
             * @action
             * @inheritdoc
             */
@@ -358,30 +380,45 @@ var ListBase = CollectionWidget.inherit({
             * @extends Action
             * @type function(e)
             * @type_function_param1 e:object
+            * @type_function_param1_field4 itemData:object
+            * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number | object
+            * @type_function_param1_field7 jQueryEvent:jQuery.Event:deprecated(event)
+            * @type_function_param1_field8 event:event
             * @action
             * @inheritdoc
             */
 
+            /**
+             * @name dxListOptions.items
+             * @type Array<string, dxListItem, object>
+             * @fires dxListOptions.onOptionChanged
+             * @inheritdoc
+             */
+
             showChevronExpr: function(data) { return data ? data.showChevron : undefined; },
             badgeExpr: function(data) { return data ? data.badge : undefined; }
             /**
-            * @name dxListItemTemplate
-            * @inherits CollectionWidgetItemTemplate
+            * @name dxListItem
+            * @inherits CollectionWidgetItem
             * @type object
             */
             /**
-            * @name dxListItemTemplate.badge
+            * @name dxListItem.badge
             * @type String
             */
             /**
-            * @name dxListItemTemplate.showChevron
+            * @name dxListItem.showChevron
             * @type boolean
             */
             /**
-            * @name dxListItemTemplate.key
-            * @type String
-            */
+             * @name dxListItem.icon
+             * @type String
+             */
+            /**
+             * @name dxListItem.key
+             * @type String
+             */
         });
     },
 
@@ -391,6 +428,8 @@ var ListBase = CollectionWidget.inherit({
         * @default false @for desktop
         * @default true @for Mac
         */
+        var themeName = themes.current();
+
         return this.callBase().concat(deviceDependentOptions(), [
             {
                 device: function() {
@@ -439,7 +478,7 @@ var ListBase = CollectionWidget.inherit({
             },
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5(themeName);
                 },
                 options: {
                     useInkRipple: true
@@ -456,7 +495,7 @@ var ListBase = CollectionWidget.inherit({
             },
             {
                 device: function() {
-                    return themes.isMaterial();
+                    return themes.isMaterial(themeName);
                 },
                 options: {
                     /**
@@ -515,9 +554,9 @@ var ListBase = CollectionWidget.inherit({
             this._itemElementsCache = this._itemContainer().children(this._itemSelector());
         } else {
             this._itemElementsCache = this._itemContainer()
-                  .children("." + LIST_GROUP_CLASS)
-                  .children("." + LIST_GROUP_BODY_CLASS)
-                  .children(this._itemSelector());
+                .children("." + LIST_GROUP_CLASS)
+                .children("." + LIST_GROUP_BODY_CLASS)
+                .children(this._itemSelector());
         }
     },
 
@@ -582,6 +621,10 @@ var ListBase = CollectionWidget.inherit({
         });
     },
 
+    _getGroupedOption: function() {
+        return this.option("grouped");
+    },
+
     _dataSourceFromUrlLoadMode: function() {
         return "raw";
     },
@@ -637,6 +680,23 @@ var ListBase = CollectionWidget.inherit({
         }, ["key"], this.option("integrationOptions.watchMethod"));
     },
 
+    _prepareDefaultItemTemplate: function(data, $container) {
+        this.callBase(data, $container);
+
+        if(data.icon) {
+            var $icon = iconUtils.getImageContainer(data.icon).addClass(LIST_ITEM_ICON_CLASS),
+                $iconContainer = $("<div>").addClass(LIST_ITEM_ICON_CONTAINER_CLASS);
+
+            $iconContainer.append($icon);
+
+            $container.prepend($iconContainer);
+        }
+    },
+
+    _getBindableFields: function() {
+        return ["text", "html", "icon"];
+    },
+
     _updateLoadingState: function(tryLoadMore) {
         var isDataLoaded = !tryLoadMore || this._isLastPage(),
             scrollBottomMode = this._scrollBottomMode(),
@@ -679,7 +739,7 @@ var ListBase = CollectionWidget.inherit({
             this._scrollView && this._scrollView.scrollTo(0);
         }
 
-        this.callBase(newItems);
+        this.callBase.apply(this, arguments);
     },
 
     _refreshContent: function() {
@@ -850,6 +910,7 @@ var ListBase = CollectionWidget.inherit({
                 that._inkRipple.showWave(config);
             }
         } else {
+            clearTimeout(this._inkRippleTimer);
             this._inkRipple.hideWave(config);
         }
     },
@@ -1163,6 +1224,7 @@ var ListBase = CollectionWidget.inherit({
     * @publicName reload()
     */
     reload: function() {
+        this.callBase();
         this.scrollTo(0);
         this._pullDownHandler();
     },
@@ -1233,7 +1295,7 @@ var ListBase = CollectionWidget.inherit({
         this._scrollView.scrollToElement($item);
     }
 
-});
+}).include(DataConverterMixin);
 
 ListBase.ItemClass = ListItem;
 

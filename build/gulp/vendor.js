@@ -1,7 +1,3 @@
-// jshint node:true
-
-"use strict";
-
 const gulp = require('gulp');
 const rename = require('gulp-rename');
 const merge = require('merge-stream');
@@ -41,6 +37,15 @@ const VENDORS = [
         path: '/globalize/dist/globalize/@(number|currency|date|message).js',
         noUglyFile: true,
         base: '/globalize/dist/'
+    },
+    {
+        path: '/quill/dist/quill.js'
+    },
+    {
+        path: '/showdown/dist/showdown.js'
+    },
+    {
+        path: '/turndown/lib/turndown.browser.umd.js'
     }
 ];
 

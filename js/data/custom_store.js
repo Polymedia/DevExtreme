@@ -1,8 +1,8 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     dataUtils = require("./utils"),
+    arrayUtils = require("./array_utils"),
     isFunction = require("../core/utils/type").isFunction,
+    config = require("../core/config"),
     errors = require("./errors").errors,
     Store = require("./abstract_store"),
     arrayQuery = require("./array_query"),
@@ -123,7 +123,16 @@ function runRawLoad(pendingDeferred, store, userFuncOptions, continuation) {
     if(store.__rawData) {
         continuation(store.__rawData);
     } else {
-        invokeUserLoad(store, userFuncOptions)
+        var loadPromise = store.__rawDataPromise || invokeUserLoad(store, userFuncOptions);
+
+        if(store._cacheRawData) {
+            store.__rawDataPromise = loadPromise;
+        }
+
+        loadPromise
+            .always(function() {
+                delete store.__rawDataPromise;
+            })
             .done(function(rawData) {
                 if(store._cacheRawData) {
                     store.__rawData = rawData;
@@ -215,11 +224,11 @@ function runRawLoadWithKey(pendingDeferred, store, key) {
  * @name LoadOptions.filter
  * @type object
  */
- /**
+/**
  * @name LoadOptions.sort
  * @type object
  */
- /**
+/**
  * @name LoadOptions.select
  * @type object
  */
@@ -227,55 +236,55 @@ function runRawLoadWithKey(pendingDeferred, store, key) {
  * @name LoadOptions.group
  * @type object
  */
- /**
+/**
  * @name LoadOptions.skip
  * @type number
  */
- /**
+/**
  * @name LoadOptions.skip
  * @type number
  */
- /**
+/**
  * @name LoadOptions.take
  * @type number
  */
- /**
+/**
  * @name LoadOptions.userData
  * @type object
  */
- /**
+/**
  * @name LoadOptions.expand
  * @type object
  */
- /**
+/**
  * @name LoadOptions.requireTotalCount
  * @type boolean
  */
- /**
+/**
  * @name LoadOptions.searchValue
  * @type any
  */
- /**
+/**
  * @name LoadOptions.searchOperation
  * @type string
  */
- /**
+/**
  * @name LoadOptions.searchExpr
  * @type getter|Array<getter>
  */
- /**
+/**
  * @name LoadOptions.customQueryParams
  * @type Object
  */
- /**
+/**
  * @name LoadOptions.totalSummary
  * @type Object
  */
- /**
+/**
  * @name LoadOptions.groupSummary
  * @type Object
  */
- /**
+/**
  * @name LoadOptions.requireGroupCount
  * @type boolean
  */
@@ -319,7 +328,7 @@ var CustomStore = Store.inherit({
          * @name CustomStoreOptions.load
          * @type function
          * @type_function_param1 options:LoadOptions
-         * @type_function_return Promise<any>
+         * @type_function_return Promise<any>|Array<any>
          */
         this._loadFunc = options[LOAD];
 
@@ -394,6 +403,12 @@ var CustomStore = Store.inherit({
         return d.promise();
     },
 
+    _pushImpl: function(changes) {
+        if(this.__rawData) {
+            arrayUtils.applyBatch(this, this.__rawData, changes);
+        }
+    },
+
     _loadImpl: function(options) {
         var d = new Deferred();
 
@@ -429,19 +444,26 @@ var CustomStore = Store.inherit({
     },
 
     _insertImpl: function(values) {
-        var userFunc = this._insertFunc,
+        var that = this,
+            userFunc = that._insertFunc,
             userResult,
             d = new Deferred();
 
         ensureRequiredFuncOption(INSERT, userFunc);
-        userResult = userFunc.apply(this, [values]); // should return key only
+        userResult = userFunc.apply(that, [values]); // should return key or data
 
         if(!isPromise(userResult)) {
             userResult = trivialPromise(userResult);
         }
 
         fromPromise(userResult)
-            .done(function(newKey) { d.resolve(values, newKey); })
+            .done(function(serverResponse) {
+                if(config().useLegacyStoreResult) {
+                    d.resolve(values, serverResponse);
+                } else {
+                    d.resolve(serverResponse || values, that.keyOf(serverResponse));
+                }
+            })
             .fail(createUserFuncFailureHandler(d));
 
         return d.promise();
@@ -456,11 +478,17 @@ var CustomStore = Store.inherit({
         userResult = userFunc.apply(this, [key, values]);
 
         if(!isPromise(userResult)) {
-            userResult = trivialPromise();
+            userResult = trivialPromise(userResult);
         }
 
         fromPromise(userResult)
-            .done(function() { d.resolve(key, values); })
+            .done(function(serverResponse) {
+                if(config().useLegacyStoreResult) {
+                    d.resolve(key, values);
+                } else {
+                    d.resolve(serverResponse || values, key);
+                }
+            })
             .fail(createUserFuncFailureHandler(d));
 
         return d.promise();

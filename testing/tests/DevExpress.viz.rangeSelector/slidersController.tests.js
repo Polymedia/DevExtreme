@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     vizMocks = require("../../helpers/vizMocks.js"),
     SlidersController = require("viz/range_selector/sliders_controller").SlidersController,
@@ -46,7 +44,7 @@ var environment = {
     },
 
     setCategories: function(values) {
-        this.translator.update({ axisType: "discrete", categories: values }, { left: 1000, width: 3000 }, { isHorizontal: true });
+        this.translator.update({ axisType: "discrete", categories: values, min: values[0], max: values[values.length - 1] }, { left: 1000, width: 3000 }, { isHorizontal: true });
     },
 
     setDateTime: function(values) {
@@ -173,7 +171,7 @@ QUnit.test("Slider marker settings", function(assert) {
 QUnit.test("Slider text formatting", function(assert) {
     this.update({
         sliderMarker: {
-            format: "fixedPoint", precision: 3,
+            format: { type: "fixedPoint", precision: 3 },
             customizeText: function(arg) {
                 return arg.valueText + "###";
             }
@@ -186,7 +184,7 @@ QUnit.test("Slider text formatting", function(assert) {
 });
 
 QUnit.test("Slider text when no data", function(assert) {
-    this.translator.update({ stubData: true }, { left: 1000, width: 2000 }, { isHorizontal: true });
+    this.translator.update({ }, { left: 1000, width: 2000 }, { isHorizontal: true });
     this.update({
         sliderMarker: {
             format: "fixedPoint", precision: 3,
@@ -246,7 +244,7 @@ QUnit.test("Selected area cursor when range is full (categories)", function(asse
 });
 
 QUnit.test("Selected area cursor when range is full (no data)", function(assert) {
-    this.translator.update({ stubData: true }, { left: 1000, width: 3000 }, { isHorizontal: true });
+    this.translator.update({ }, { left: 1000, width: 3000 }, { isHorizontal: true });
     this.update();
 
     assert.deepEqual(this.selectedAreaTracker().attr.lastCall.args, [{ points: [1000, 15, 3000, 15, 3000, 25, 1000, 25] }], "position");
@@ -424,6 +422,36 @@ QUnit.test("values are not defined", function(assert) {
     this.check(assert, [1000, 3000], [10, 30]);
 });
 
+QUnit.test("values are not defined. Logarithmic", function(assert) {
+    this.translator.update({
+        min: 0.01,
+        max: 10000,
+        axisType: "logarithmic",
+        base: 10,
+        breaks: [{
+            from: 1,
+            to: 10,
+            cumulativeWidth: 0
+        }]
+    }, { left: 1000, width: 3000 }, { isHorizontal: true, breaksSize: 0 });
+
+    this.update();
+
+    this.setRange(undefined, undefined);
+
+    this.check(assert, [1000, 3000], [0.01, 10000]);
+});
+
+QUnit.test("values are not defined. Categories", function(assert) {
+    this.setCategories(["a", "b", "c", "d", "e"]);
+
+    this.update();
+
+    this.setRange(undefined, undefined);
+
+    this.check(assert, [1000, 3000], ["a", "e"]);
+});
+
 QUnit.test("values are not valid", function(assert) {
     this.update();
 
@@ -493,7 +521,7 @@ QUnit.test("'maxRange' is ignored", function(assert) {
 });
 
 QUnit.test("translator range is empty", function(assert) {
-    this.translator.update({ stubData: true }, { left: 1000, width: 3000 }, { isHorizontal: true });
+    this.translator.update({ }, { left: 1000, width: 3000 }, { isHorizontal: true });
     this.update();
 
     this.setRange(11, 12);
@@ -514,12 +542,17 @@ QUnit.test("number-like string values", function(assert) {
 });
 
 QUnit.test("data-like string values", function(assert) {
-    this.translator.update({ min: new Date("01/01/2010"), max: new Date("12/31/2010"), dataType: "datetime" }, { left: 1000, width: 3000 }, { isHorizontal: true });
+    this.translator.update({
+        min: new Date("01/01/2010"),
+        max: new Date("01/13/2010"),
+        dataType: "datetime"
+    },
+    { left: 1000, width: 3000 }, { isHorizontal: true });
     this.update();
 
-    this.setRange("02/01/2010", "05/01/2010");
+    this.setRange("01/02/2010", "01/05/2010");
 
-    this.check(assert, [1170, 1659], [new Date("02/01/2010"), new Date("05/01/2010")]);
+    this.check(assert, [1167, 1667], [new Date("01/02/2010"), new Date("01/05/2010")]);
 });
 
 QUnit.test("Start value in the scale break - start should be end of break", function(assert) {
@@ -827,17 +860,36 @@ QUnit.test("Docking with DateTime (irregular scale, from small range to big)", f
 });
 
 QUnit.test("Docking with DateTime (irregular scale, from big range to small)", function(assert) {
-    this.setDateTime();
+    this.translator.update({
+        axisType: "continuous",
+        dataType: "datetime",
+        min: new Date(2011, 0, 1),
+        max: new Date(2011, 0, 10)
+    }, { left: 1000, width: 3000 }, { isHorizontal: true });
+
     this.update({
         behavior: { snapToTicks: true },
-        fullTicks: [new Date(2011, 0, 1), new Date(2011, 1, 1), new Date(2011, 2, 1), new Date(2011, 3, 1), new Date(2011, 4, 1), new Date(2011, 5, 1), new Date(2011, 6, 1), new Date(2011, 7, 1), new Date(2011, 8, 1), new Date(2011, 9, 1), new Date(2011, 10, 1), new Date(2011, 11, 1), new Date(2012, 0, 1)]
+        fullTicks: [
+            new Date(2011, 0, 1),
+            new Date(2011, 0, 2),
+            new Date(2011, 0, 3),
+            new Date(2011, 0, 4),
+            new Date(2011, 0, 5),
+            new Date(2011, 0, 6),
+            new Date(2011, 0, 7),
+            new Date(2011, 0, 8),
+            new Date(2011, 0, 9),
+            new Date(2011, 0, 10),
+            new Date(2011, 0, 11),
+            new Date(2011, 0, 12),
+            new Date(2011, 0, 13)]
     });
-    this.setRange(new Date(2011, 0, 1), new Date(2011, 1, 1));
+    this.setRange(new Date(2011, 0, 1), new Date(2011, 0, 2));
 
     this.controller.moveSelectedArea(1800);
 
-    this.check(assert, [new Date(2011, 4, 1), new Date(2011, 5, 1)], [1789, 1993]);
-    assert.deepEqual(this.notifications, [[new Date(2011, 4, 1), new Date(2011, 5, 1)]], "notification");
+    this.check(assert, [new Date(2011, 0, 4), new Date(2011, 0, 5)], [1667, 1889]);
+    assert.deepEqual(this.notifications, [[new Date(2011, 0, 4), new Date(2011, 0, 5)]], "notification");
 });
 
 QUnit.test("Close to start", function(assert) {
@@ -942,21 +994,6 @@ QUnit.test("Categories", function(assert) {
     assert.deepEqual(this.notifications, [["c", "d"]], "notification");
 });
 
-QUnit.test("Notifications on moving, deprecated callSelectedRangeChanged option", function(assert) {
-    this.update({
-        behavior: { callSelectedRangeChanged: "OnMoving", snapToTicks: true },
-        fullTicks: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
-    });
-    this.setRange(11, 15);
-
-    var handler = this.controller.beginSelectedAreaMoving(1200);
-    handler(1340);
-    handler(1560);
-    handler.complete();
-
-    assert.deepEqual(this.notifications, [[12, 16], [14, 18]], "notifications");
-});
-
 QUnit.test("Notifications on moving, callValueChanged", function(assert) {
     this.update({
         behavior: { callValueChanged: "OnMoving", snapToTicks: true },
@@ -1059,23 +1096,6 @@ QUnit.test("Categories and snapping to axis ticks", function(assert) {
     handler.complete();
 
     this.check(assert, ["P", "F"], [1400, 3000]);
-});
-
-QUnit.test("Notifications on moving, deprecated callSelectedRangeChanged option", function(assert) {
-    this.update({
-        behavior: { callSelectedRangeChanged: "OnMoving", snapToTicks: true },
-        fullTicks: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
-    });
-    this.setRange(11, 15);
-
-    var handler = this.controller.beginSliderMoving(1, 1600);
-    handler(1700);
-    handler(2150);
-    handler.complete();
-
-    this.checkSliderMoves(assert, 1, [1600, 2050]);
-    this.check(assert, [11, 20], [1100, 2000]);
-    assert.deepEqual(this.notifications, [[11, 16], [11, 20]], "notification");
 });
 
 QUnit.test("Notifications on moving, callValueChanged option", function(assert) {
@@ -1245,21 +1265,6 @@ QUnit.test("Categories 2", function(assert) {
 
     this.checkSliderAnimated(assert, 0, 1400);
     this.check(assert, ["b", "d"], [1400, 2600]);
-});
-
-QUnit.test("Notifications on moving, deprecated callSelectedRangeChanged option", function(assert) {
-    this.update({
-        behavior: { callSelectedRangeChanged: "OnMoving", snapToTicks: true },
-        fullTicks: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
-    });
-    this.setRange(11, 13);
-
-    var handler = this.controller.placeSliderAndBeginMoving(1450, 2150);
-    handler(1550);
-    handler.complete();
-
-    this.check(assert, [14, 16], [1400, 1600]);
-    assert.deepEqual(this.notifications, [[14, 22], [14, 16]]);
 });
 
 QUnit.test("Notifications on moving, callValueChanged option", function(assert) {

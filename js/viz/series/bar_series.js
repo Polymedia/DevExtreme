@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
     scatterSeries = require("./scatter_series"),
@@ -100,7 +98,9 @@ var baseBarSeriesMethods = {
         return options;
     },
 
-    _defaultAggregator: "sum"
+    _defaultAggregator: "sum",
+
+    _defineDrawingState() {}
 };
 
 exports.chart.bar = _extend({}, chartSeries, baseBarSeriesMethods, {
@@ -153,7 +153,7 @@ exports.polar.bar = _extend({}, polarSeries, baseBarSeriesMethods, {
         markersSettings["class"] = "dxc-markers";
         that._applyMarkerClipRect(markersSettings);
         groupSettings = _extend({}, markersSettings);
-        delete groupSettings.opacity;                   // T110796
+        delete groupSettings.opacity; // T110796
         that._markersGroup.attr(groupSettings);
     },
 

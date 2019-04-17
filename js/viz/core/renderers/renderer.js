@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../../core/renderer"),
     domAdapter = require("../../../core/dom_adapter"),
     windowUtils = require("../../../core/utils/window"),
@@ -73,7 +71,8 @@ var objectCreate = (function() {
 
 var DEFAULTS = {
     scaleX: 1,
-    scaleY: 1
+    scaleY: 1,
+    "pointer-events": ""
 };
 
 var getBackup = callOnce(function() {
@@ -417,9 +416,7 @@ function baseCss(that, styles) {
     for(key in styles) {
         value = styles[key];
         if(_isDefined(value)) {
-            if(typeof value === "number" && !pxAddingExceptions[key]) {
-                value += "px";
-            }
+            value += typeof value === "number" && !pxAddingExceptions[key] ? "px" : "";
             elemStyles[key] = value !== "" ? value : null;
         }
     }
@@ -763,7 +760,7 @@ function createTspans(items, element, fieldName) {
         item[fieldName] = createElement("tspan");
         item[fieldName].appendChild(domAdapter.createTextNode(item.value));
         item.style && baseCss({ element: item[fieldName], _styles: {} }, item.style);
-        item.className && item[fieldName].setAttribute("class", item.className);    // EXPERIMENTAL
+        item.className && item[fieldName].setAttribute("class", item.className); // EXPERIMENTAL
         element.appendChild(item[fieldName]);
     }
 }
@@ -900,7 +897,7 @@ function createTextNodes(wrapper, text, isStroked) {
         items = [{ value: text.trim(), height: 0 }];
     }
     if(items) {
-        if(items.length) {     // T227388
+        if(items.length) { // T227388
             wrapper._texts = items;
             if(isStroked) {
                 createTspans(items, wrapper.element, KEY_STROKE);
@@ -930,7 +927,7 @@ function locateTextNodes(wrapper) {
         item = items[i];
         if(_parseFloat(item.height) >= 0) {
             setTextNodeAttribute(item, "x", x);
-            setTextNodeAttribute(item, "dy", item.inherits ? maxLengthFontSize(item.height, lineHeight) : (item.height || lineHeight));   // T177039
+            setTextNodeAttribute(item, "dy", item.inherits ? maxLengthFontSize(item.height, lineHeight) : (item.height || lineHeight)); // T177039
         }
     }
 }
@@ -1116,7 +1113,7 @@ SvgElement.prototype = {
         that._addFixIRICallback = function() {};
     },
 
-    dispose: function() {
+    _clearChildrenFuncIri: function() {
         var clearChildren = function(element) {
             var i;
 
@@ -1126,10 +1123,12 @@ SvgElement.prototype = {
             }
         };
 
-        removeFuncIriCallback(this.element._fixFuncIri);
         clearChildren(this.element);
+    },
 
-
+    dispose: function() {
+        removeFuncIriCallback(this.element._fixFuncIri);
+        this._clearChildrenFuncIri();
         this._getJQElement().remove();
         return this;
     },
@@ -1196,7 +1195,7 @@ SvgElement.prototype = {
             items = link.to._links,
             i,
             next;
-        for(i = link.i + 1; (next = items[i]) && !next._link.is; ++i) { }
+        for(i = link.i + 1; (next = items[i]) && !next._link.is; ++i);
         this._insert(link.to, next);
         link.is = true;
         return this;
@@ -1214,6 +1213,7 @@ SvgElement.prototype = {
     },
 
     clear: function() {
+        this._clearChildrenFuncIri();// T711457
         this._getJQElement().empty();
         return this;
     },
@@ -1351,7 +1351,7 @@ SvgElement.prototype = {
             bBox = _rotateBBox(bBox, [
                 (("rotateX" in transformation) ? transformation.rotateX : transformation.x) || 0,
                 (("rotateY" in transformation) ? transformation.rotateY : transformation.y) || 0
-            ], -transformation.rotate);     // Angle is transformed from svg to right-handed cartesian space
+            ], -transformation.rotate); // Angle is transformed from svg to right-handed cartesian space
         } else {
             bBox = _normalizeBBox(bBox);
         }
@@ -1479,7 +1479,7 @@ extend(TextSvgElement.prototype, {
 function updateIndexes(items, k) {
     var i,
         item;
-    for(i = k; !!(item = items[i]); ++i) {
+    for(i = k; (item = items[i]); ++i) {
         item._link.i = i;
     }
 }
@@ -1490,9 +1490,9 @@ function linkItem(target, container) {
         i,
         item;
     if(key) {
-        for(i = 0; (item = items[i]) && item._link.name !== key; ++i) { }
+        for(i = 0; (item = items[i]) && item._link.name !== key; ++i);
         if(item) {
-            for(++i; (item = items[i]) && item._link.after === key; ++i) { }
+            for(++i; (item = items[i]) && item._link.after === key; ++i);
         }
     } else {
         i = items.length;
@@ -1504,7 +1504,7 @@ function linkItem(target, container) {
 function unlinkItem(target) {
     var i,
         items = target._link.to._links;
-    for(i = 0; items[i] !== target; ++i) { }
+    for(i = 0; items[i] !== target; ++i);
     items.splice(i, 1);
     updateIndexes(items, i);
 }
@@ -1513,7 +1513,6 @@ function Renderer(options) {
     var that = this;
     that.root = that._createElement("svg", {
         xmlns: "http://www.w3.org/2000/svg",
-        "xmlns:xlink": "http://www.w3.org/1999/xlink",
         version: "1.1",
 
         // Backward compatibility
@@ -1725,6 +1724,20 @@ Renderer.prototype = {
         return elem.attr({ text: text, x: x || 0, y: y || 0 });
     },
 
+    linearGradient: function(stops) {
+        var gradient,
+            id = getNextDefsSvgId(),
+            that = this;
+        gradient = that._createElement("linearGradient", { id: id }).append(that._defs);
+        gradient.id = id;
+
+        stops.forEach((stop) => {
+            that._createElement("stop", { offset: stop.offset, 'stop-color': stop['stop-color'] }).append(gradient);
+        });
+
+        return gradient;
+    },
+
     // appended automatically
     pattern: function(color, hatching, _id) {
         hatching = hatching || {};
@@ -1911,7 +1924,7 @@ Renderer.prototype = {
             hash = storage.refToHash[ref],
             storageItem = storage.byHash[hash];
 
-        if(--storageItem.count === 0) {
+        if(storageItem && --storageItem.count === 0) {
             storageItem.pattern.dispose();
             delete storage.byHash[hash];
             delete storage.refToHash[ref];

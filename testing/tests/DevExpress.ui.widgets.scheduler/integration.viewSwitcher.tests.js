@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 QUnit.testStart(function() {
@@ -12,8 +10,7 @@ QUnit.testStart(function() {
 require("common.css!");
 require("generic_light.css!");
 
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop,
+var noop = require("core/utils/common").noop,
     DataSource = require("data/data_source/data_source").DataSource;
 
 require("ui/scheduler/ui.scheduler");

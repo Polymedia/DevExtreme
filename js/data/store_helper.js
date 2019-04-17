@@ -1,5 +1,3 @@
-"use strict";
-
 var grep = require("../core/utils/common").grep,
     extend = require("../core/utils/extend").extend,
     each = require("../core/utils/iterator").each,
@@ -37,45 +35,47 @@ function arrangeSortingInfo(groupInfo, sortInfo) {
 function queryByOptions(query, options, isCountQuery) {
     options = options || {};
 
-    var filter = options.filter,
-        sort = options.sort,
-        select = options.select,
-        group = options.group,
-        skip = options.skip,
-        take = options.take;
+    var filter = options.filter;
 
     if(filter) {
         query = query.filter(filter);
     }
 
-    if(group) {
-        group = normalizeSortingInfo(group);
+    if(isCountQuery) {
+        return query;
     }
 
-    if(!isCountQuery) {
-        if(sort || group) {
-            sort = normalizeSortingInfo(sort || []);
-            if(group) {
-                sort = arrangeSortingInfo(group, sort);
-            }
-            each(sort, function(index) {
-                query = query[index ? "thenBy" : "sortBy"](this.selector, this.desc, this.compare);
-            });
-        }
+    var sort = options.sort,
+        select = options.select,
+        group = options.group,
+        skip = options.skip,
+        take = options.take;
 
-        if(select) {
-            query = query.select(select);
+    if(group) {
+        group = normalizeSortingInfo(group);
+        group.keepInitialKeyOrder = !!options.group.keepInitialKeyOrder;
+    }
+
+    if(sort || group) {
+        sort = normalizeSortingInfo(sort || []);
+        if(group && !group.keepInitialKeyOrder) {
+            sort = arrangeSortingInfo(group, sort);
         }
+        each(sort, function(index) {
+            query = query[index ? "thenBy" : "sortBy"](this.selector, this.desc, this.compare);
+        });
+    }
+
+    if(select) {
+        query = query.select(select);
     }
 
     if(group) {
         query = multiLevelGroup(query, group);
     }
 
-    if(!isCountQuery) {
-        if(take || skip) {
-            query = query.slice(skip || 0, take);
-        }
+    if(take || skip) {
+        query = query.slice(skip || 0, take);
     }
 
     return query;

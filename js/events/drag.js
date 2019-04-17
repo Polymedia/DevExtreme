@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     dataUtils = require("../core/element_data"),
     wrapToArray = require("../core/utils/array").wrapToArray,
@@ -128,8 +126,8 @@ var getItemSize = function(dropTargetConfig, $element) {
     }
 
     return {
-        width: $element.width(),
-        height: $element.height()
+        width: $element.get(0).getBoundingClientRect().width,
+        height: $element.get(0).getBoundingClientRect().height
     };
 };
 

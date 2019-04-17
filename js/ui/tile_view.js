@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     devices = require("../core/devices"),
     registerComponent = require("../core/component_registrator"),
@@ -55,6 +53,13 @@ var TileView = CollectionWidget.inherit({
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
             items: null,
+
+            /**
+             * @name dxTileViewOptions.items
+             * @type Array<string, dxTileViewItem, object>
+             * @fires dxTileViewOptions.onOptionChanged
+             * @inheritdoc
+             */
 
             /**
             * @name dxTileViewOptions.direction
@@ -116,19 +121,19 @@ var TileView = CollectionWidget.inherit({
             indicateLoading: true
 
             /**
-            * @name dxTileViewItemTemplate
-            * @inherits CollectionWidgetItemTemplate
+            * @name dxTileViewItem
+            * @inherits CollectionWidgetItem
             * @type object
             */
 
             /**
-            * @name dxTileViewItemTemplate.widthRatio
+            * @name dxTileViewItem.widthRatio
             * @type number
             * @default 1
             */
 
             /**
-            * @name dxTileViewItemTemplate.heightRatio
+            * @name dxTileViewItem.heightRatio
             * @type number
             * @default 1
             */
@@ -531,6 +536,11 @@ var TileView = CollectionWidget.inherit({
 
     _optionChanged: function(args) {
         switch(args.name) {
+            case "items":
+                this.callBase(args);
+                this._renderGeometry();
+                this._updateScrollView();
+                break;
             case "showScrollbar":
                 this._initScrollView();
                 break;

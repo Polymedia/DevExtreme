@@ -1,15 +1,12 @@
-"use strict";
+import $ from "jquery";
+import { setupDataGridModules, MockDataController } from "../../helpers/dataGridMocks.js";
+import ArrayStore from "data/array_store";
+import Promise from "core/polyfills/promise";
+import fx from "animation/fx";
 
-var $ = require("jquery"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    ArrayStore = require("data/array_store"),
-    Promise = require("core/polyfills/promise");
-
-require("ui/data_grid/ui.data_grid");
-require("common.css!");
-require("generic_light.css!");
+import "ui/data_grid/ui.data_grid";
+import "common.css!";
+import "generic_light.css!";
 
 QUnit.testStart(function() {
     var markup = '<div id="container" class="dx-datagrid"></div>';
@@ -458,7 +455,7 @@ QUnit.module('State Storing with real controllers', {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
         this.setupDataGridModules = function(options, ignoreClockTick) {
-            setupDataGridModules(this, ['data', 'columns', 'rows', 'gridView', 'stateStoring', 'filterRow', 'headerFilter', 'search', 'pager', 'selection'], {
+            setupDataGridModules(this, ['data', 'columns', 'rows', 'gridView', 'stateStoring', 'columnHeaders', 'editorFactory', 'filterRow', 'headerFilter', 'search', 'pager', 'selection', 'virtualScrolling', 'focus', 'keyboardNavigation'], {
                 initDefaultOptions: true,
                 initViews: true,
                 options: options
@@ -471,6 +468,7 @@ QUnit.module('State Storing with real controllers', {
     },
     afterEach: function() {
         this.clock.restore();
+        this.dispose();
     }
 });
 
@@ -720,6 +718,89 @@ QUnit.test('Not Load pageSize from state when scrolling mode is virtual', functi
         loadingTimeout: null,
         dataSource: {
             store: [{ id: 1 }, { id: 2 }, { id: 3 }]
+        }
+    });
+
+    // assert
+    assert.strictEqual(this.dataController.pageSize(), 20);
+    assert.strictEqual(this.dataController.items().length, 3);
+});
+
+QUnit.test('Load pageSize from state when scrolling mode is virtual and pager.visible, pager.showPageSizeSelector is set', function(assert) {
+    // arrange, act
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return { pageSize: 2 };
+            },
+            customSave: function() {
+            }
+        },
+        scrolling: { mode: "virtual" },
+        loadingTimeout: null,
+        dataSource: {
+            store: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]
+        },
+        pager: {
+            visible: true,
+            showPageSizeSelector: true
+        }
+    });
+
+    // assert
+    assert.strictEqual(this.dataController.pageSize(), 2);
+    assert.strictEqual(this.dataController.items().length, 4);
+});
+
+QUnit.test('Load pageSize from state when scrolling mode is infinite and pager.visible, pager.showPageSizeSelector is set', function(assert) {
+    // arrange, act
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return { pageSize: 2 };
+            },
+            customSave: function() {
+            }
+        },
+        scrolling: { mode: "infinite" },
+        loadingTimeout: null,
+        dataSource: {
+            store: [{ id: 1 }, { id: 2 }, { id: 3 }]
+        },
+        pager: {
+            visible: true,
+            showPageSizeSelector: true
+        }
+    });
+
+    // assert
+    assert.strictEqual(this.dataController.pageSize(), 2);
+    assert.strictEqual(this.dataController.items().length, 2);
+});
+
+QUnit.test('Not Load pageSize from state when scrolling mode is virtual and pager.visible is not set, pager.showPageSizeSelector is set', function(assert) {
+    // arrange, act
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return { pageSize: 2 };
+            },
+            customSave: function() {
+            }
+        },
+        scrolling: { mode: "infinite" },
+        loadingTimeout: null,
+        dataSource: {
+            store: [{ id: 1 }, { id: 2 }, { id: 3 }]
+        },
+        pager: {
+            showPageSizeSelector: true
         }
     });
 
@@ -1200,6 +1281,54 @@ QUnit.test("Hide loading when dataSource is empty", function(assert) {
     assert.equal($(".dx-loadpanel-content.dx-state-invisible").length, 1, "loading panel should be hidden");
 });
 
+// T668808
+QUnit.test('Render data when rowRenderingMode is virtual', function(assert) {
+    var generateDataSource = function(n) {
+        return Array.apply(null, Array(n)).map(function(_, index) {
+            return { id: index };
+        });
+    };
+
+    this.$element = function() {
+        return $("#container");
+    };
+
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return { pageIndex: 3 };
+            },
+            customSave: function() {
+            }
+        },
+        paging: {
+            pageSize: 2
+        },
+        scrolling: {
+            timeout: 0,
+            mode: "virtual",
+            rowRenderingMode: "virtual"
+        },
+        height: 100,
+        loadingTimeout: null,
+        dataSource: {
+            store: generateDataSource(10)
+        }
+    });
+
+    this.gridView.render(this.$element().height(60));
+
+    this.gridView.update();
+    this.clock.tick(200);
+
+    var $dataRows = this.gridView.element().find("tr.dx-data-row");
+    assert.strictEqual(this.dataController.pageIndex(), 3);
+    assert.strictEqual($dataRows.eq(0).text(), "6");
+    assert.strictEqual($dataRows.length, 4);
+});
+
 QUnit.test("Show NoData message when dataSource is empty and state is loaded", function(assert) {
     // arrange, act
     this.$element = function() {
@@ -1284,4 +1413,205 @@ QUnit.test("The filter should be cleared after resetting the grid's state", func
     // assert
     assert.strictEqual(this.dataController.items().length, 3, "item count");
     assert.strictEqual(this.dataController.getCombinedFilter(true), undefined, "no filter");
+});
+
+// T630977
+QUnit.test("Render columns when the stateStoring.enabled=true and dataSource is not defined", function(assert) {
+    var $testElement = $("#container"),
+        deferred = $.Deferred(),
+        columns = [{
+            dataField: "field1",
+            dataType: "string"
+        }, {
+            dataField: "field2",
+            dataType: "string"
+        }];
+    // arrange
+    this.setupDataGridModules({
+        columns: columns,
+        stateStoring: {
+            enabled: true,
+            type: "custom",
+            customLoad: function() {
+                return deferred.promise();
+            }
+        }
+    });
+
+    this.columnHeadersView.render($testElement);
+    deferred.resolve({ columns: columns });
+    assert.equal(this.columnHeadersView.element().find("col").length, 2);
+});
+
+// T629814
+QUnit.test("Selected filter operation should be reset to the default state after resetting the filter value", function(assert) {
+    // arrange
+    fx.off = true;
+
+    try {
+        var filterMenu,
+            filterMenuItem;
+
+        this.$element = function() {
+            return $("#container");
+        };
+
+        this.setupDataGridModules({
+            loadingTimeout: undefined,
+            stateStoring: {
+                enabled: true,
+                type: "custom",
+                customLoad: function() {
+                    return {
+                        columns: [{ dataField: "id", filterValue: 2, selectedFilterOperation: "startswith" }]
+                    };
+                },
+                customSave: function(state) {
+                },
+                savingTimeout: 0
+            },
+            filterRow: {
+                visible: true
+            },
+            dataSource: {
+                store: [{ id: 1 }, { id: 2 }, { id: 3 }]
+            },
+            customizeColumns: function() {}
+        });
+
+        this.gridView.render(this.$element());
+        this.clock.tick();
+
+        filterMenu = this.$element().find('.dx-menu .dx-menu-item').first();
+        $(filterMenu).trigger("dxclick"); // open filter menu
+        filterMenuItem = $("body").find('.dx-overlay-content').first().find('.dx-menu-item').last();
+
+        // act
+        filterMenuItem.trigger('dxclick'); // Reset filter
+        this.clock.tick();
+
+        // assert
+        assert.strictEqual(this.columnOption("id", "filterValue"), null, "filterValue");
+        assert.strictEqual(this.columnOption("id", "selectedFilterOperation"), null, "selectedFilterOperation");
+    } finally {
+        fx.off = false;
+    }
+});
+
+// T643374
+QUnit.test("ScrollTop should be correct after loading pageIndex from state", function(assert) {
+    // arrange
+    this.clock.restore();
+
+    var that = this,
+        scrollTop,
+        done = assert.async(),
+        $testElement = $("#container").height(60);
+
+    that.$element = function() {
+        return $testElement;
+    };
+
+    that.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: "custom",
+            customLoad: function() {
+                return { pageIndex: 3 };
+            },
+            customSave: function() {
+            }
+        },
+        scrolling: {
+            mode: "virtual"
+        },
+        loadingTimeout: null,
+        dataSource: {
+            pageSize: 2,
+            store: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }, { id: 6 }, { id: 7 }, { id: 8 }, { id: 9 }, { id: 10 }]
+        }
+    });
+
+    // act
+    that.gridView.render($testElement);
+    that.gridView.update();
+
+    setTimeout(function() {
+        // assert
+        scrollTop = that.getScrollable().scrollTop();
+        assert.ok(scrollTop > 0, "scrollTop");
+        assert.ok($testElement.find(".dx-virtual-row").first().children().first().height() <= scrollTop, "scrollTop should be less than or equal to virtual row height");
+        done();
+    });
+});
+
+QUnit.test('Load focusedRowKey state', function(assert) {
+    // arrange, act
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return { focusedRowKey: 2 };
+            },
+            customSave: function() {
+            }
+        },
+        focusedRowEnabled: true,
+        loadingTimeout: null,
+        dataSource: {
+            store: {
+                type: "array",
+                data: [{ id: 1 }, { id: 2 }, { id: 3 }],
+                key: "id"
+            }
+        }
+    });
+
+    // assert
+    assert.strictEqual(this.option("focusedRowKey"), 2);
+});
+
+QUnit.test('Save focused row state when data changed', function(assert) {
+    // arrange, act
+    var userState;
+
+    this.setupDataGridModules({
+        stateStoring: {
+            enabled: true,
+            type: 'custom',
+            customLoad: function() {
+                return {};
+            },
+            customSave: function(state) {
+                userState = state;
+            }
+        },
+        focusedRowEnabled: true,
+        loadingTimeout: null,
+        dataSource: {
+            store: {
+                type: "array",
+                data: [{ id: 1 }, { id: 2 }, { id: 3 }],
+                key: "id"
+            }
+        }
+    });
+
+    // act
+    this.options.focusedRowKey = 1;
+    this.focusController.optionChanged({ name: "focusedRowKey", value: 1 });
+    this.clock.tick(2000);
+
+    // assert
+    assert.deepEqual(userState, {
+        columns: [{ visibleIndex: 0, dataField: 'id', visible: true, dataType: 'number' }],
+        pageIndex: 0,
+        pageSize: 20,
+        allowedPageSizes: [10, 20, 40],
+        focusedRowKey: 1,
+        searchText: '',
+        filterPanel: {},
+        filterValue: null
+    });
 });

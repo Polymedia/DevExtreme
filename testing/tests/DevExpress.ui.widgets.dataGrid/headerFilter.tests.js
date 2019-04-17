@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<div>\
@@ -9,23 +7,22 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("generic_light.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var $ = require("jquery"),
-    ArrayStore = require("data/array_store"),
-    noop = require("core/utils/common").noop,
-    ODataStore = require("data/odata/store"),
-    devices = require("core/devices"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    invertFilterExpression = require("ui/grid_core/ui.grid_core.header_filter").invertFilterExpression,
-    dragEvents = require("events/drag"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    MockColumnsController = dataGridMocks.MockColumnsController;
+import $ from "jquery";
+import ArrayStore from "data/array_store";
+import { noop } from "core/utils/common";
+import ODataStore from "data/odata/store";
+import devices from "core/devices";
+import { DataSource } from "data/data_source/data_source";
+import { invertFilterExpression } from "ui/grid_core/ui.grid_core.header_filter";
+import dragEvents from "events/drag";
+import { setupDataGridModules, MockDataController, MockColumnsController } from "../../helpers/dataGridMocks.js";
+import viewPortUtils from "core/utils/view_port";
+import fx from "animation/fx";
 
 QUnit.module("Header Filter dataController", {
     beforeEach: function() {
@@ -258,11 +255,15 @@ QUnit.module("Header Filter", {
     beforeEach: function() {
         this.items = [];
         this.columns = [{
-            dataField: "Test1", allowHeaderFiltering: true, calculateCellValue: function(data) {
+            dataField: "Test1",
+            allowHeaderFiltering: true,
+            calculateCellValue: function(data) {
                 return data.Test1;
             }
         }, {
-            dataField: "Test2", allowHeaderFiltering: true, calculateCellValue: function(data) {
+            dataField: "Test2",
+            allowHeaderFiltering: true,
+            calculateCellValue: function(data) {
                 return data.Test2;
             }
         }];
@@ -307,8 +308,8 @@ QUnit.module("Header Filter", {
     },
     afterEach: function() {
         this.clock.restore();
-        this.headerFilterController.hideHeaderFilterMenu();
-        this.dispose();
+        this.headerFilterController && this.headerFilterController.hideHeaderFilterMenu();
+        this.dispose && this.dispose();
     }
 });
 
@@ -1661,8 +1662,36 @@ QUnit.test("Show header filter with search bar", function(assert) {
 
     // assert
     assert.ok(list.option("searchEnabled"), "list with search bar");
-    assert.equal(list.option("searchExpr"), "Test1", "expr is correct");
+    assert.ok($.isFunction(list.option("searchExpr")), "expr is correct");
     assert.equal(list.option("searchTimeout"), 300, "search timeout is assigned");
+    assert.equal(list.option("searchMode"), "", "search mode is default");
+});
+
+QUnit.test("Show header filter with search bar with searchMode equals", function(assert) {
+    // arrange
+    var that = this,
+        $popupContent,
+        list,
+        testElement = $("#container");
+
+    that.options.headerFilter.allowSearch = true;
+    that.options.headerFilter.searchTimeout = 300;
+    that.columns[0].headerFilter = { searchMode: "equals" };
+
+    // act
+    that.setupDataGrid();
+    that.columnHeadersView.render(testElement);
+    that.headerFilterView.render(testElement);
+    that.headerFilterController.showHeaderFilterMenu(0);
+
+    $popupContent = that.headerFilterView.getPopupContainer().$content();
+    list = $popupContent.find(".dx-list").dxList("instance");
+
+    // assert
+    assert.ok(list.option("searchEnabled"), "list with search bar");
+    assert.ok($.isFunction(list.option("searchExpr")), "expr is correct");
+    assert.equal(list.option("searchTimeout"), 300, "search timeout is assigned");
+    assert.equal(list.option("searchMode"), "equals", "search mode is assigned");
 });
 
 QUnit.test("Show header filter when column with dataType date with search bar", function(assert) {
@@ -1688,6 +1717,7 @@ QUnit.test("Show header filter when column with dataType date with search bar", 
     // assert
     assert.ok(treeView.option("searchEnabled"), "treeView with search bar");
     assert.equal(treeView.option("searchTimeout"), 300, "search timeout is assigned");
+    assert.equal(treeView.option("searchMode"), "", "search mode is default");
 });
 
 QUnit.test("HeaderFilter should be without search bar when column allowSearch is disabled", function(assert) {
@@ -1921,6 +1951,141 @@ QUnit.test("Search by custom column", function(assert) {
     listItems = list.$element().find(".dx-list-item");
     assert.strictEqual(listItems.length, 1, "list item's count");
     assert.strictEqual(listItems.text(), "test2", "correct item's text");
+});
+
+// T643528
+QUnit.test("Search by value from calculateCellValue", function(assert) {
+    // arrange
+    var that = this,
+        list,
+        listItems,
+        testElement = $("#container"),
+        $popupContent;
+
+    that.options.headerFilter.allowSearch = true;
+    that.columns = [{
+        dataField: "Test1",
+        selector: function(data) {
+            return data.Test1;
+        },
+        calculateCellValue: function(data) {
+            return data.Test2 + data.Test1;
+        }
+    }];
+
+    that.items = [{ Test1: 111, Test2: "test2" }, { Test1: 2, Test2: "test4" }];
+    that.setupDataGrid();
+    that.columnHeadersView.render(testElement);
+    that.headerFilterView.render(testElement);
+
+    that.headerFilterController.showHeaderFilterMenu(0);
+
+    $popupContent = that.headerFilterView.getPopupContainer().$content();
+    list = $popupContent.find(".dx-list").dxList("instance");
+
+    // act
+    list.option("searchValue", "test2111");
+
+    // assert
+    listItems = list.$element().find(".dx-list-item");
+    assert.strictEqual(listItems.length, 1, "list item's count");
+    assert.strictEqual(listItems.text(), "test2111", "correct item's text");
+});
+
+// T629003
+QUnit.test("No exceptions on an attempt to filter a lookup column when valueExpr is not specified", function(assert) {
+    // arrange
+    try {
+        var that = this,
+            $testElement = $("#container"),
+            $popupContent,
+            headerFilterDataSource = [
+                { value: 1, text: "test1" },
+                { value: 2, text: "test2" }
+            ];
+
+        that.columns[0].lookup = {
+            displayExpr: "text",
+            dataSource: headerFilterDataSource
+        };
+        that.items = [{ Test1: 1, Test2: "test2" }, { Test1: 2, Test2: "test4" }];
+
+        that.setupDataGrid();
+        that.columnHeadersView.render($testElement);
+        that.headerFilterView.render($testElement);
+        that.headerFilterController.showHeaderFilterMenu(0);
+
+        // assert
+        assert.deepEqual(that.headerFilterView.getListContainer().option("items"), [
+            {
+                "text": "(Blanks)",
+                "value": null
+            },
+            {
+                "text": "test1",
+                "value": headerFilterDataSource[0]
+            },
+            {
+                "text": "test2",
+                "value": headerFilterDataSource[1]
+            }], "list items");
+
+        $popupContent = that.headerFilterView.getPopupContainer().$content();
+
+        // act
+        $($popupContent.find(".dx-list-item").last()).trigger("dxclick");
+
+        // assert
+        assert.ok($popupContent.find(".dx-list-item").last().find(".dx-checkbox-checked").length, "checkbox checked");
+    } catch(e) {
+        assert.ok(false, "the error is thrown");
+    }
+});
+
+// T644753
+QUnit.testInActiveWindow("No scroll on opening the header filter when the popup is cropped", function(assert) {
+    if(devices.real().deviceType !== "desktop") {
+        assert.ok(true, "focus is disabled for not desktop devices");
+        return;
+    }
+    // arrange
+    var that = this,
+        $popupContent,
+        viewPort = viewPortUtils.value(),
+        $testElement = $("#container").wrap($("<div/>").css({
+            position: "absolute",
+            width: "100%",
+            height: "300px",
+            overflowY: "scroll",
+            top: 10000,
+            left: 10000
+        }));
+
+    fx.off = true;
+    viewPortUtils.value($testElement.parent());
+
+    try {
+        that.items = [{ Test1: "test1", Test2: "test2" }, { Test1: "test3", Test2: "test4" }];
+        that.setupDataGrid();
+        that.columnHeadersView.render($testElement);
+        that.headerFilterView.render($testElement);
+
+        // assert
+        assert.equal($testElement.find(".dx-header-filter-menu").length, 1, "has header filter menu");
+
+        // act
+        that.headerFilterController.showHeaderFilterMenu(0);
+        that.clock.tick();
+
+        // assert
+        $popupContent = that.headerFilterView.getPopupContainer().$content();
+        assert.strictEqual($testElement.parent().scrollTop(), 0, "scrollTop");
+        assert.ok($popupContent.is(":visible"), "visible popup");
+        assert.ok($popupContent.find(".dx-checkbox").first().hasClass("dx-state-focused"));
+    } finally {
+        fx.off = false;
+        viewPortUtils.value(viewPort);
+    }
 });
 
 QUnit.module("Header Filter with real columnsController", {
@@ -3131,7 +3296,7 @@ QUnit.test("Header Filter with calculateFilterExpression", function(assert) {
 
     // assert
     filter = that.getCombinedFilter();
-    assert.strictEqual(filter[2], "customFilterValue3", "filter values of the first column");
+    assert.strictEqual(filter[2], "customFilterValue2", "filter values of the first column");
 });
 
 QUnit.test("Apply header filter", function(assert) {

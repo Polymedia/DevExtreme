@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import pointModule from "viz/series/points/base_point";
@@ -122,6 +120,17 @@ QUnit.module("Point coordinates translation", {
     setVerticalCategoryTranslators: function() {
         this.translators = getTranslators(this.translateXData, { cat1: 20, cat2: 30, cat3: 40, cat4: 50, cat5: 60 }, this.opt);
     }
+});
+
+QUnit.test("Value translator's argument on point translating", function(assert) {
+    this.setContinuousTranslators();
+    var point = createPoint(this.series, { argument: 1, value: 5 }, this.opt);
+
+    this.translators.val.translate = sinon.spy(this.translators.arg.translate);
+
+    point.translate();
+
+    assert.deepEqual(this.translators.val.translate.getCall(0).args, [5, 1]);
 });
 
 QUnit.test("Continuous", function(assert) {
@@ -903,6 +912,41 @@ QUnit.test("draw errorBar when argument out of the canvas", function(assert) {
 
     assert.equal(this.renderer.path.lastCall.returnValue.append.callCount, 1);
     assert.deepEqual(this.renderer.path.lastCall.returnValue.append.lastCall.args, [this.errorBarGroup]);
+});
+
+QUnit.test("draw error bar with relative edgeLength", function(assert) {
+    this.options.errorBars = {
+        lineWidth: 3,
+        edgeLength: 0.2,
+        opacity: 1
+    };
+    var point = createPoint(this.series, { argument: 1, value: 1, lowError: 1, highError: 2 }, this.options);
+    point.width = 44;
+
+    point.translate();
+
+    point.draw(this.renderer, this.groups);
+
+    assert.ok(point.graphic);
+
+    assert.deepEqual(this.renderer.path.lastCall.args[0], [[129, 222, 137, 222], [133, 222, 133, 111], [137, 111, 129, 111]]);
+});
+
+QUnit.test("draw error bar with relative edgeLength. Rotated", function(assert) {
+    this.options.rotated = true;
+    this.options.errorBars = {
+        lineWidth: 3,
+        edgeLength: 0.2,
+        opacity: 1
+    };
+    var point = createPoint(this.series, { argument: 1, value: 1, lowError: 1, highError: 2 }, this.options);
+    point.height = 44;
+
+    point.translate();
+
+    point.draw(this.renderer, this.groups);
+
+    assert.deepEqual(this.renderer.path.lastCall.args[0], [[222, 137, 222, 129], [111, 133, 222, 133], [111, 129, 111, 137]]);
 });
 
 QUnit.test("Marker. animationEnabled", function(assert) {

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     animation = require("viz/core/renderers/animation"),
     renderers = require("viz/core/renderers/renderer"),
@@ -82,7 +80,6 @@ QUnit.test('Creation', function(assert) {
     assert.strictEqual(renderer.root.attr.callCount, 2, "root's attr call count");
     assert.deepEqual(renderer.root.attr.firstCall.args, [{
         xmlns: "http://www.w3.org/2000/svg",
-        "xmlns:xlink": "http://www.w3.org/1999/xlink",
         version: "1.1",
         // backward compatibility
         fill: "none",
@@ -1155,6 +1152,12 @@ QUnit.test("init", function(assert) {
     this.renderer.initHatching();
     assert.strictEqual(renderers.SvgElement.returnValues[2].dispose.callCount, 1, "pattern 1");
     assert.strictEqual(renderers.SvgElement.returnValues[3].dispose.callCount, 1, "pattern 2");
+});
+
+QUnit.test("release after init", function(assert) {
+    this.renderer.initHatching();
+    this.renderer.releaseHatching("DevExpressId-hatching-0");
+    assert.ok(true);
 });
 
 if("pushState" in history) {

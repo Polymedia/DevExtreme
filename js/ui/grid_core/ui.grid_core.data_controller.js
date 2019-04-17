@@ -1,20 +1,16 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    ArrayStore = require("../../data/array_store"),
-    CustomStore = require("../../data/custom_store"),
-    errors = require("../widget/ui.errors"),
-    commonUtils = require("../../core/utils/common"),
-    each = require("../../core/utils/iterator").each,
-    typeUtils = require("../../core/utils/type"),
-    extend = require("../../core/utils/extend").extend,
-    DataHelperMixin = require("../../data_helper"),
-    equalKeys = commonUtils.equalByValue,
-    deferredUtils = require("../../core/utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred;
+import $ from "../../core/renderer";
+import modules from "./ui.grid_core.modules";
+import gridCoreUtils from "./ui.grid_core.utils";
+import ArrayStore from "../../data/array_store";
+import CustomStore from "../../data/custom_store";
+import errors from "../widget/ui.errors";
+import { noop, deferRender, equalByValue } from "../../core/utils/common";
+import { each } from "../../core/utils/iterator";
+import typeUtils from "../../core/utils/type";
+import { extend } from "../../core/utils/extend";
+import DataHelperMixin from "../../data_helper";
+import { when, Deferred } from "../../core/utils/deferred";
+import { findChanges } from "../../core/utils/array_compare";
 
 module.exports = {
     defaultOptions: function() {
@@ -32,6 +28,18 @@ module.exports = {
              * @default true
              */
             cacheEnabled: true,
+            /**
+             * @name GridBaseOptions.repaintChangesOnly
+             * @type boolean
+             * @default false
+             */
+            repaintChangesOnly: false,
+            /**
+             * @name GridBaseOptions.highlightChanges
+             * @type boolean
+             * @default false
+             */
+            highlightChanges: false,
             /**
              * @name GridBaseOptions.onDataErrorOccurred
              * @extends Action
@@ -196,11 +204,13 @@ module.exports = {
                     that._loadingChangedHandler = that._handleLoadingChanged.bind(that);
                     that._loadErrorHandler = that._handleLoadError.bind(that);
                     that._customizeStoreLoadOptionsHandler = that._handleCustomizeStoreLoadOptions.bind(that);
+                    that._changingHandler = that._handleChanging.bind(that);
 
                     that._columnsController.columnsChanged.add(that._columnsChangedHandler);
 
                     that._isLoading = false;
                     that._isCustomLoading = false;
+                    that._repaintChangesOnly = undefined;
                     that._changes = [];
 
                     that.createAction("onDataErrorOccurred");
@@ -242,27 +252,35 @@ module.exports = {
                         "repaintRows"
                     ];
                 },
+                reset: function() {
+                    this._columnsController.reset();
+                    this._items = [];
+                    this._refreshDataSource();
+                },
                 optionChanged: function(args) {
-                    var that = this;
+                    var that = this,
+                        dataSource;
 
                     function handled() {
                         args.handled = true;
                     }
 
-                    function reload() {
-                        that._columnsController.reset();
-                        that._items = [];
-                        that._refreshDataSource();
-                    }
-
-                    if(args.name === "dataSource" && args.name === args.fullName && args.value === args.previousValue) {
+                    if(args.name === "dataSource" && args.name === args.fullName && (args.value === args.previousValue || (that.option("columns") && Array.isArray(args.value) && Array.isArray(args.previousValue)))) {
+                        if(args.value !== args.previousValue) {
+                            var store = that.store();
+                            if(store) {
+                                store._array = args.value;
+                            }
+                        }
                         handled();
-                        that.refresh();
+                        that.refresh(that.option("repaintChangesOnly"));
                         return;
                     }
 
                     switch(args.name) {
                         case "cacheEnabled":
+                        case "repaintChangesOnly":
+                        case "highlightChanges":
                         case "loadingTimeout":
                         case "remoteOperations":
                             handled();
@@ -270,14 +288,26 @@ module.exports = {
                         case "keyExpr":
                         case "dataSource":
                         case "scrolling":
-                        case "paging":
                             handled();
                             if(!that.skipProcessingPagingChange(args.fullName)) {
-                                reload();
+                                that.reset();
                             }
                             break;
+                        case "paging":
+                            dataSource = that.dataSource();
+                            if(dataSource && that._setPagingOptions(dataSource)) {
+                                dataSource.load().done(that.pageChanged.fire.bind(that.pageChanged));
+                            }
+                            handled();
+                            break;
                         case "rtlEnabled":
-                            reload();
+                            that.reset();
+                            break;
+                        case "columns":
+                            dataSource = that.dataSource();
+                            if(dataSource && dataSource.isLoading() && args.name === args.fullName) {
+                                dataSource.load();
+                            }
                             break;
                         default:
                             that.callBase(args);
@@ -331,7 +361,8 @@ module.exports = {
 
                     if(changes.length) {
                         this._changes = [];
-                        this.updateItems(changes.length === 1 ? changes[0] : {});
+                        var repaintChangesOnly = changes.every(change => change.repaintChangesOnly);
+                        this.updateItems(changes.length === 1 ? changes[0] : { repaintChangesOnly: repaintChangesOnly });
                     }
                 },
                 // Handlers
@@ -361,8 +392,6 @@ module.exports = {
                     storeLoadOptions.sort = columnsController.getSortDataSourceParameters(!dataSource.remoteOperations().sorting);
 
                     e.group = columnsController.getGroupDataSourceParameters(!dataSource.remoteOperations().grouping);
-                    this._isFirstLoading = false;
-
                 },
                 _handleColumnsChanged: function(e) {
                     var that = this,
@@ -384,7 +413,6 @@ module.exports = {
                             that._dataSource.sort(that._columnsController.getSortDataSourceParameters());
                             that.reload();
                         }
-                        that.pageChanged.fire();
                     } else if(changeTypes.columns) {
                         if(optionNames.filterValues || optionNames.filterValue || optionNames.selectedFilterOperation) {
                             filterValue = that._columnsController.columnOption(e.columnIndex, "filterValue");
@@ -419,6 +447,8 @@ module.exports = {
                         columnsController = that._columnsController,
                         isAsyncDataSourceApplying = false;
 
+                    this._isFirstLoading = false;
+
                     if(dataSource && !that._isDataSourceApplying) {
                         that._isDataSourceApplying = true;
 
@@ -433,16 +463,19 @@ module.exports = {
 
                             that._isDataSourceApplying = false;
 
-                            var additionalFilter = that._calculateAdditionalFilter(),
+                            var hasAdditionalFilter = () => {
+                                    var additionalFilter = that._calculateAdditionalFilter();
+                                    return additionalFilter && additionalFilter.length;
+                                },
                                 needApplyFilter = that._needApplyFilter;
 
                             that._needApplyFilter = false;
 
-                            if(needApplyFilter && additionalFilter && additionalFilter.length && !that._isAllDataTypesDefined) {
+                            if(needApplyFilter && !that._isAllDataTypesDefined && hasAdditionalFilter()) {
                                 errors.log("W1005", that.component.NAME);
                                 that._applyFilter();
                             } else {
-                                that.updateItems(e);
+                                that.updateItems(e, true);
                             }
                         }).fail(function() {
                             that._isDataSourceApplying = false;
@@ -463,24 +496,34 @@ module.exports = {
                 _handleLoadError: function(e) {
                     this.dataErrorOccurred.fire(e);
                 },
+                fireError: function() {
+                    this.dataErrorOccurred.fire(errors.Error.apply(errors, arguments));
+                },
                 _setPagingOptions: function(dataSource) {
                     var pageIndex = this.option("paging.pageIndex"),
                         pageSize = this.option("paging.pageSize"),
                         pagingEnabled = this.option("paging.enabled"),
                         scrollingMode = this.option("scrolling.mode"),
                         appendMode = scrollingMode === "infinite",
-                        virtualMode = scrollingMode === "virtual";
+                        virtualMode = scrollingMode === "virtual",
+                        paginate = pagingEnabled || virtualMode || appendMode,
+                        isChanged = false;
 
                     dataSource.requireTotalCount(!appendMode);
-                    if(pagingEnabled !== undefined) {
-                        dataSource.paginate(pagingEnabled || virtualMode || appendMode);
+                    if(pagingEnabled !== undefined && dataSource.paginate() !== paginate) {
+                        dataSource.paginate(paginate);
+                        isChanged = true;
                     }
-                    if(pageSize !== undefined) {
+                    if(pageSize !== undefined && dataSource.pageSize() !== pageSize) {
                         dataSource.pageSize(pageSize);
+                        isChanged = true;
                     }
-                    if(pageIndex !== undefined) {
+                    if(pageIndex !== undefined && dataSource.pageIndex() !== pageIndex) {
                         dataSource.pageIndex(pageIndex);
+                        isChanged = true;
                     }
+
+                    return isChanged;
                 },
                 _getSpecificDataSourceOption: function() {
                     var dataSource = this.option("dataSource");
@@ -513,7 +556,8 @@ module.exports = {
                     }
                 },
                 _loadDataSource: function() {
-                    var dataSource = this._dataSource,
+                    var that = this,
+                        dataSource = that._dataSource,
                         result = new Deferred();
 
                     when(this._columnsController.refresh(true)).always(function() {
@@ -535,7 +579,7 @@ module.exports = {
                 _processItems: function(items, changeType) {
                     var that = this,
                         rowIndexDelta = that.getRowIndexDelta(),
-                        visibleColumns = that._columnsController.getVisibleColumns(),
+                        visibleColumns = that._columnsController.getVisibleColumns(null, changeType === "loadingAll"),
                         visibleItems = that._items,
                         dataIndex = changeType === "append" && visibleItems.length > 0 ? visibleItems[visibleItems.length - 1].dataIndex + 1 : 0,
                         options = {
@@ -554,7 +598,7 @@ module.exports = {
                     return result;
                 },
                 _processItem: function(item, options) {
-                    item = this._generateDataItem(item);
+                    item = this._generateDataItem(item, options);
                     item = this._processDataItem(item, options);
                     item.dataIndex = options.dataIndex++;
                     return item;
@@ -570,31 +614,46 @@ module.exports = {
                     dataItem.values = this.generateDataValues(dataItem.data, options.visibleColumns);
                     return dataItem;
                 },
-                generateDataValues: function(data, columns) {
+                generateDataValues: function(data, columns, isModified) {
                     var values = [],
                         column,
                         value;
 
                     for(var i = 0; i < columns.length; i++) {
                         column = columns[i];
-                        value = null;
-                        if(column.command) {
-                            value = null;
-                        } else if(column.calculateCellValue) {
-                            value = column.calculateCellValue(data);
-                        } else if(column.dataField) {
-                            value = data[column.dataField];
+                        value = isModified ? undefined : null;
+                        if(!column.command) {
+                            if(column.calculateCellValue) {
+                                value = column.calculateCellValue(data);
+                            } else if(column.dataField) {
+                                value = data[column.dataField];
+                            }
                         }
                         values.push(value);
 
                     }
                     return values;
                 },
+                _applyChange: function(change) {
+                    var that = this;
+
+                    if(change.changeType === "update") {
+                        that._applyChangeUpdate(change);
+                    } else if(that.items().length && change.repaintChangesOnly && change.changeType === "refresh") {
+                        that._applyChangesOnly(change);
+                    } else if(change.changeType === "refresh") {
+                        that._applyChangeFull(change);
+                    }
+                },
+                _applyChangeFull: function(change) {
+                    this._items = change.items.slice(0);
+                },
                 _applyChangeUpdate: function(change) {
                     var that = this,
                         items = change.items,
                         rowIndices = change.rowIndices.slice(0),
                         rowIndexDelta = that.getRowIndexDelta(),
+                        repaintChangesOnly = that.option("repaintChangesOnly"),
                         prevIndex = -1,
                         rowIndexCorrection = 0,
                         changeType;
@@ -610,10 +669,11 @@ module.exports = {
 
                     change.items = [];
                     change.rowIndices = [];
+                    change.columnIndices = [];
                     change.changeTypes = [];
 
                     var equalItems = function(item1, item2, strict) {
-                        var result = item1 && item2 && equalKeys(item1.key, item2.key);
+                        var result = item1 && item2 && equalByValue(item1.key, item2.key);
                         if(result && strict) {
                             result = item1.rowType === item2.rowType && (item2.rowType !== "detail" || item1.isEditing === item2.isEditing);
                         }
@@ -625,7 +685,8 @@ module.exports = {
                             newItem,
                             oldNextItem,
                             newNextItem,
-                            strict;
+                            strict,
+                            columnIndices;
 
                         rowIndex += rowIndexCorrection + rowIndexDelta;
 
@@ -640,6 +701,7 @@ module.exports = {
                         strict = equalItems(oldItem, oldNextItem) || equalItems(newItem, newNextItem);
 
                         if(newItem) {
+                            newItem.rowIndex = rowIndex;
                             change.items.push(newItem);
                         }
 
@@ -648,6 +710,9 @@ module.exports = {
                             that._items[rowIndex] = newItem;
                             if(oldItem.visible !== newItem.visible) {
                                 change.items.splice(-1, 1, { visible: newItem.visible });
+                            } else if(repaintChangesOnly && !change.isFullUpdate) {
+                                newItem.cells = oldItem.cells;
+                                columnIndices = that._getChangedColumnIndices(oldItem, newItem, rowIndex);
                             }
                         } else if(newItem && !oldItem || (newNextItem && equalItems(oldItem, newNextItem, strict))) {
                             changeType = "insert";
@@ -667,20 +732,155 @@ module.exports = {
 
                         change.rowIndices.push(rowIndex - rowIndexDelta);
                         change.changeTypes.push(changeType);
+                        change.columnIndices.push(columnIndices);
                     });
                 },
-                _applyChange: function(change) {
-                    var that = this;
+                _isCellChanged: function(oldRow, newRow, rowIndex, columnIndex, isLiveUpdate) {
+                    if(JSON.stringify(oldRow.values[columnIndex]) !== JSON.stringify(newRow.values[columnIndex])) {
+                        return true;
+                    }
 
-                    if(change.changeType === "update") {
-                        that._applyChangeUpdate(change);
-                    } else {
-                        that._items = change.items.slice(0);
+                    function isCellModified(row, columnIndex) {
+                        return row.modifiedValues ? row.modifiedValues[columnIndex] !== undefined : false;
+                    }
+
+                    if(isCellModified(oldRow, columnIndex) !== isCellModified(newRow, columnIndex)) {
+                        return true;
+                    }
+
+                    return false;
+                },
+                _getChangedColumnIndices: function(oldItem, newItem, rowIndex, isLiveUpdate) {
+                    if(oldItem.rowType === newItem.rowType && newItem.rowType !== "group" && newItem.rowType !== "groupFooter") {
+                        var columnIndices = [];
+
+                        for(var columnIndex = 0; columnIndex < oldItem.values.length; columnIndex++) {
+                            if(this._isCellChanged(oldItem, newItem, rowIndex, columnIndex, isLiveUpdate)) {
+                                columnIndices.push(columnIndex);
+                            } else {
+                                var cell = oldItem.cells && oldItem.cells[columnIndex];
+                                if(cell && cell.update) {
+                                    cell.update(newItem);
+                                }
+                            }
+                        }
+
+                        oldItem.update && oldItem.update(newItem);
+
+                        return columnIndices;
                     }
                 },
+                _applyChangesOnly: function(change) {
+                    var rowIndices = [],
+                        columnIndices = [],
+                        changeTypes = [],
+                        items = [],
+                        newIndexByKey = {};
+
+                    function getRowKey(row) {
+                        if(row) {
+                            return row.rowType + "," + JSON.stringify(row.key);
+                        }
+                    }
+
+                    function isItemEquals(item1, item2) {
+                        if(JSON.stringify(item1.values) !== JSON.stringify(item2.values)) {
+                            return false;
+                        }
+
+                        if(item1.modified !== item2.modified || item1.inserted !== item2.inserted || item1.removed !== item2.removed) {
+                            return false;
+                        }
+
+                        if(item1.rowType === "group" || item1.rowType === "groupFooter") {
+                            if(item1.isExpanded !== item2.isExpanded || JSON.stringify(item1.summaryCells) !== JSON.stringify(item2.summaryCells)) {
+                                return false;
+                            }
+                        }
+
+                        if(item1.cells) {
+                            item1.update && item1.update(item2);
+                            item1.cells.forEach(function(cell) {
+                                if(cell && cell.update) {
+                                    cell.update(item2);
+                                }
+                            });
+                        }
+
+                        return true;
+                    }
+
+                    var oldItems = this._items.slice();
+                    change.items.forEach(function(item, index) {
+                        var key = getRowKey(item);
+                        newIndexByKey[key] = index;
+                        item.rowIndex = index;
+                    });
+
+                    var result = findChanges(oldItems, change.items, getRowKey, isItemEquals);
+
+                    if(!result) {
+                        this._applyChangeFull(change);
+                        return;
+                    }
+
+                    result.forEach((change) => {
+                        switch(change.type) {
+                            case "update": {
+                                let index = change.index,
+                                    newItem = change.data,
+                                    oldItem = change.oldItem,
+                                    currentColumnIndices = this._getChangedColumnIndices(oldItem, newItem, index, true);
+
+                                rowIndices.push(index);
+                                changeTypes.push("update");
+                                items.push(newItem);
+                                this._items[index] = newItem;
+                                newItem.cells = oldItem.cells;
+                                newItem.oldValues = oldItem.values;
+                                columnIndices.push(currentColumnIndices);
+                                break;
+                            }
+                            case "insert":
+                                rowIndices.push(change.index);
+                                changeTypes.push("insert");
+                                items.push(change.data);
+                                columnIndices.push(undefined);
+                                this._items.splice(change.index, 0, change.data);
+                                break;
+                            case "remove":
+                                rowIndices.push(change.index);
+                                changeTypes.push("remove");
+                                this._items.splice(change.index, 1);
+                                items.push(change.oldItem);
+                                columnIndices.push(undefined);
+                                break;
+                        }
+                    });
+
+                    change.repaintChangesOnly = true;
+                    change.changeType = "update";
+                    change.rowIndices = rowIndices;
+                    change.columnIndices = columnIndices;
+                    change.changeTypes = changeTypes;
+                    change.items = items;
+                    if(oldItems.length) {
+                        change.isLiveUpdate = true;
+                    }
+
+                    this._correctRowIndices(function getRowIndexCorrection(rowIndex) {
+                        var oldItem = oldItems[rowIndex],
+                            key = getRowKey(oldItem),
+                            newRowIndex = newIndexByKey[key];
+
+                        return newRowIndex >= 0 ? newRowIndex - rowIndex : 0;
+                    });
+                },
+                _correctRowIndices: noop,
                 _updateItemsCore: function(change) {
                     var that = this,
                         items,
+                        oldItems,
                         dataSource = that._dataSource,
                         changeType = change.changeType || "refresh";
 
@@ -692,19 +892,60 @@ module.exports = {
                         items = that._processItems(items, changeType);
 
                         change.items = items;
+                        oldItems = that._items.length === items.length && that._items;
 
                         that._applyChange(change);
 
                         each(that._items, function(index, item) {
                             item.rowIndex = index;
+                            if(oldItems) {
+                                item.cells = oldItems[index].cells;
+                            }
                         });
                     } else {
                         that._items = [];
                     }
                 },
-                updateItems: function(change) {
+                _handleChanging: function(e) {
+                    var that = this,
+                        rows = that.getVisibleRows(),
+                        dataSource = that.dataSource();
+
+                    if(dataSource) {
+                        e.changes.forEach(function(change) {
+                            if(change.type === "insert" && change.index >= 0) {
+                                var dataIndex = 0,
+                                    row;
+
+                                for(var i = 0; i < change.index; i++) {
+                                    row = rows[i];
+                                    if(row && (row.rowType === "data" || row.rowType === "group")) {
+                                        dataIndex++;
+                                    }
+                                }
+
+                                change.index = dataIndex;
+                            }
+                        });
+                    }
+                },
+                updateItems: function(change, isDataChanged) {
                     change = change || {};
                     var that = this;
+
+                    if(that._repaintChangesOnly !== undefined) {
+                        change.repaintChangesOnly = that._repaintChangesOnly;
+                    } else if(change.changes) {
+                        change.repaintChangesOnly = that.option("repaintChangesOnly");
+                    } else if(isDataChanged) {
+                        var operationTypes = that.dataSource().operationTypes();
+
+                        change.repaintChangesOnly = operationTypes && !operationTypes.grouping && !operationTypes.filtering && that.option("repaintChangesOnly");
+                        change.isDataChanged = true;
+                        if(operationTypes && (operationTypes.reload || operationTypes.paging || operationTypes.groupExpanding)) {
+                            change.needUpdateDimensions = true;
+                        }
+                    }
 
                     if(that._updateLockCount) {
                         that._changes.push(change);
@@ -719,7 +960,7 @@ module.exports = {
                 },
                 _fireChanged: function(change) {
                     var that = this;
-                    commonUtils.deferRender(function() {
+                    deferRender(function() {
                         that.changed.fire(change);
                     });
                 },
@@ -827,7 +1068,7 @@ module.exports = {
 
                     that.changed.add(changedHandler);
                 },
-                _getDataSourceAdapter: commonUtils.noop,
+                _getDataSourceAdapter: noop,
                 _createDataSourceAdapterCore: function(dataSource, remoteOperations) {
                     var dataSourceAdapterProvider = this._getDataSourceAdapter(),
                         dataSourceAdapter = dataSourceAdapterProvider.create(this.component);
@@ -870,6 +1111,8 @@ module.exports = {
                         oldDataSource.loadingChanged.remove(that._loadingChangedHandler);
                         oldDataSource.loadError.remove(that._loadErrorHandler);
                         oldDataSource.customizeStoreLoadOptions.remove(that._customizeStoreLoadOptionsHandler);
+                        oldDataSource.changing.remove(that._changingHandler);
+                        oldDataSource.cancelAll();
                         oldDataSource.dispose(that._isSharedDataSource);
                     }
 
@@ -888,6 +1131,7 @@ module.exports = {
                         dataSource.loadingChanged.add(that._loadingChangedHandler);
                         dataSource.loadError.add(that._loadErrorHandler);
                         dataSource.customizeStoreLoadOptions.add(that._customizeStoreLoadOptionsHandler);
+                        dataSource.changing.add(that._changingHandler);
                     }
                 },
                 items: function() {
@@ -921,7 +1165,7 @@ module.exports = {
                             var options = {
                                 data: data,
                                 isCustomLoading: true,
-                                storeLoadOptions: {},
+                                storeLoadOptions: { isLoadingAll: true },
                                 loadOptions: {
                                     filter: that.getCombinedFilter(),
                                     group: dataSource.group(),
@@ -934,7 +1178,7 @@ module.exports = {
                                 d.resolve(that._processItems(data, "loadingAll"), options.extra && options.extra.summary);
                             }).fail(d.reject);
                         } else {
-                            if(!that.isLoading()) {
+                            if(!dataSource.isLoading()) {
                                 var loadOptions = extend({}, dataSource.loadOptions(), { isLoadingAll: true, requireTotalCount: false });
                                 dataSource.load(loadOptions).done(function(items, extra) {
                                     items = that._beforeProcessItems(items);
@@ -1081,14 +1325,44 @@ module.exports = {
                  * @publicName refresh()
                  * @return Promise<void>
                  */
-                refresh: function() {
+                /**
+                 * @name GridBaseMethods.refresh
+                 * @publicName refresh(changesOnly)
+                 * @param1 changesOnly:boolean
+                 * @return Promise<void>
+                 */
+                refresh: function(options) {
+                    if(options === true) {
+                        options = { reload: true, changesOnly: true };
+                    } else if(!options) {
+                        options = { lookup: true, selection: true, reload: true };
+                    }
+
                     var that = this,
+                        dataSource = that.getDataSource(),
+                        changesOnly = options.changesOnly,
                         d = new Deferred();
 
-                    when(this._columnsController.refresh()).always(function() {
-                        when(that.reload(true)).done(d.resolve).fail(d.reject);
+
+                    var customizeLoadResult = function() {
+                        that._repaintChangesOnly = !!changesOnly;
+                    };
+
+                    when(!options.lookup || that._columnsController.refresh()).always(function() {
+                        if(options.load || options.reload) {
+                            dataSource && dataSource.on("customizeLoadResult", customizeLoadResult);
+
+                            when(that.reload(options.reload, changesOnly)).always(function() {
+                                dataSource && dataSource.off("customizeLoadResult", customizeLoadResult);
+                                that._repaintChangesOnly = undefined;
+                            }).done(d.resolve).fail(d.reject);
+                        } else {
+                            that.updateItems({ repaintChangesOnly: options.changesOnly });
+                            d.resolve();
+                        }
                     });
-                    return d;
+
+                    return d.promise();
                 },
                 /**
                  * @name dxDataGridMethods.getVisibleRows
@@ -1112,11 +1386,11 @@ module.exports = {
                 * @publicName repaintRows(rowIndexes)
                 * @param1 rowIndexes:Array<number>
                 */
-                repaintRows: function(rowIndexes) {
+                repaintRows: function(rowIndexes, changesOnly) {
                     rowIndexes = Array.isArray(rowIndexes) ? rowIndexes : [rowIndexes];
 
                     if(rowIndexes.length > 1 || typeUtils.isDefined(rowIndexes[0])) {
-                        this.updateItems({ changeType: "update", rowIndices: rowIndexes });
+                        this.updateItems({ changeType: "update", rowIndices: rowIndexes, isFullUpdate: !changesOnly });
                     }
                 },
 
@@ -1135,6 +1409,7 @@ module.exports = {
 
             gridCoreUtils.proxyMethod(members, "load");
             gridCoreUtils.proxyMethod(members, "reload");
+            gridCoreUtils.proxyMethod(members, "push");
             gridCoreUtils.proxyMethod(members, "itemsCount", 0);
             gridCoreUtils.proxyMethod(members, "totalItemsCount", 0);
             gridCoreUtils.proxyMethod(members, "hasKnownLastPage", true);

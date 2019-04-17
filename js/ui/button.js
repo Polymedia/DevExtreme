@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     iconUtils = require("../core/utils/icon"),
@@ -20,6 +18,12 @@ var BUTTON_CLASS = "dx-button",
     BUTTON_CONTENT_CLASS = "dx-button-content",
     BUTTON_HAS_TEXT_CLASS = "dx-button-has-text",
     BUTTON_HAS_ICON_CLASS = "dx-button-has-icon",
+    BUTTON_STYLING_MODE_CLASS_PREFIX = "dx-button-mode-",
+    ALLOWED_STYLE_CLASSES = [
+        BUTTON_STYLING_MODE_CLASS_PREFIX + "contained",
+        BUTTON_STYLING_MODE_CLASS_PREFIX + "text",
+        BUTTON_STYLING_MODE_CLASS_PREFIX + "outlined"
+    ],
 
     TEMPLATE_WRAPPER_CLASS = "dx-template-wrapper",
 
@@ -32,6 +36,7 @@ var BUTTON_CLASS = "dx-button",
 /**
 * @name dxButton
 * @inherits Widget
+* @hasTranscludedContent
 * @module ui/button
 * @export default
 */
@@ -131,7 +136,14 @@ var Button = Widget.inherit({
             */
             useSubmitBehavior: false,
 
-            useInkRipple: false
+            useInkRipple: false,
+
+            /**
+            * @name dxButtonOptions.stylingMode
+            * @type Enums.ButtonStylingMode
+            * @default 'contained'
+            */
+            stylingMode: "contained"
 
             /**
             * @name dxButtonDefaultTemplate
@@ -166,7 +178,8 @@ var Button = Widget.inherit({
             },
             {
                 device: function() {
-                    return /(android5|material)/.test(themes.current());
+                    var themeName = themes.current();
+                    return themes.isMaterial(themeName) || themes.isAndroid5(themeName);
                 },
                 options: {
                     useInkRipple: true
@@ -196,6 +209,7 @@ var Button = Widget.inherit({
     _initMarkup: function() {
         this.$element().addClass(BUTTON_CLASS);
         this._renderType();
+        this._renderStylingMode();
 
         this.option("useInkRipple") && this._renderInkRipple();
         this._renderClick();
@@ -243,7 +257,7 @@ var Button = Widget.inherit({
     },
 
     _updateContent: function() {
-        var $element = this.$element(),
+        const $element = this.$element(),
             data = this._getContentData();
 
         if(this._$content) {
@@ -258,10 +272,12 @@ var Button = Widget.inherit({
             .toggleClass(BUTTON_HAS_ICON_CLASS, !!data.icon)
             .toggleClass(BUTTON_HAS_TEXT_CLASS, !!data.text);
 
-        var template = this._getTemplateByOption("template"),
+        const transclude = this._getAnonymousTemplateName() === this.option("template"),
+            template = this._getTemplateByOption("template"),
             $result = $(template.render({
                 model: data,
-                container: domUtils.getPublicElement(this._$content)
+                container: domUtils.getPublicElement(this._$content),
+                transclude
             }));
 
         if($result.hasClass(TEMPLATE_WRAPPER_CLASS)) {
@@ -288,6 +304,7 @@ var Button = Widget.inherit({
 
         this._$submitInput = $("<input>")
             .attr("type", "submit")
+            .attr("tabindex", -1)
             .addClass("dx-button-submit-input")
             .appendTo(this._$content);
 
@@ -342,7 +359,7 @@ var Button = Widget.inherit({
 
         if(iconUtils.getImageSourceType(icon) === "image") {
             if(icon.indexOf("base64") === -1) {
-                icon = icon.replace(/.+\/([^\.]+)\..+$/, "$1");
+                icon = icon.replace(/.+\/([^.]+)\..+$/, "$1");
             } else {
                 icon = "Base64";
             }
@@ -359,6 +376,17 @@ var Button = Widget.inherit({
         if(type) {
             this.$element().addClass("dx-button-" + type);
         }
+    },
+
+    _renderStylingMode: function() {
+        const optionName = "stylingMode";
+        ALLOWED_STYLE_CLASSES.forEach(className => this.$element().removeClass(className));
+        let stylingModeClass = BUTTON_STYLING_MODE_CLASS_PREFIX + this.option(optionName);
+        if(ALLOWED_STYLE_CLASSES.indexOf(stylingModeClass) === -1) {
+            const defaultOptionValue = this._getDefaultOptions()[optionName];
+            stylingModeClass = BUTTON_STYLING_MODE_CLASS_PREFIX + defaultOptionValue;
+        }
+        this.$element().addClass(stylingModeClass);
     },
 
     _refreshType: function(prevType) {
@@ -391,9 +419,10 @@ var Button = Widget.inherit({
             case "template":
                 this._updateContent();
                 break;
-            case "useInkRipple":
-                this._invalidate();
+            case "stylingMode":
+                this._renderStylingMode();
                 break;
+            case "useInkRipple":
             case "useSubmitBehavior":
                 this._invalidate();
                 break;
@@ -403,9 +432,9 @@ var Button = Widget.inherit({
     },
 
     _clean: function() {
+        delete this._inkRipple;
         this.callBase();
         delete this._$content;
-        delete this._inkRipple;
     }
 
 }).include(ValidationMixin);

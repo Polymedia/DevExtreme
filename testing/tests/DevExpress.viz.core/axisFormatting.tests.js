@@ -1,6 +1,6 @@
-"use strict";
 import $ from "jquery";
 import translator2DModule from "viz/translators/translator2d";
+import { Range } from "viz/translators/range";
 import tickGeneratorModule from "viz/axes/tick_generator";
 import { Axis } from "viz/axes/base_axis";
 import vizMocks from "../../helpers/vizMocks.js";
@@ -53,7 +53,7 @@ var environment = {
         });
 
         this.translator = new StubTranslator();
-        this.translator.stub("getBusinessRange").returns({ addRange: sinon.stub() });
+        this.translator.stub("getBusinessRange").returns(new Range());
         this.translator.stub("getCanvasVisibleArea").returns({ min: 0, max: 200 }); // for horizontal only
     },
     createAxis: function(options) {
@@ -72,7 +72,7 @@ var environment = {
         this.axis.updateOptions($.extend(true, {
             crosshairMargin: 0,
             label: {
-                visible: false, indentFromAxis: 10, overlappingBehavior: { mode: "none" }
+                visible: false, indentFromAxis: 10, overlappingBehavior: "none"
             },
             isHorizontal: options.isHorizontal !== undefined ? options.isHorizontal : true,
             grid: {},
@@ -90,6 +90,7 @@ var environment = {
     testFormat: function(assert, options, ticks, tickInterval, texts, constantLineValue) {
         // arrange
         this.createAxis(options);
+        this.axis.setBusinessRange({ min: 0, max: 10 });
 
         this.generatedTicks = ticks;
         this.generatedTickInterval = tickInterval;
@@ -232,18 +233,21 @@ QUnit.test("No formats for logarithmic ticks with logarithmBase !== 10", functio
             visible: true
         }
     }, [512, 1024, 2048, 4096], 1,
-        ["512", "1024", "2048", "4096"]);
+    ["512", "1024", "2048", "4096"]);
 });
 
 QUnit.test("Label's hint - use auto formatter", function(assert) {
     // arrange
     var spy = sinon.spy();
     this.createAxis({
+        isHorizontal: true,
         label: {
             visible: true,
             customizeHint: spy
         }
     });
+
+    this.axis.setBusinessRange({ min: 1000, max: 2000 });
 
     this.generatedTicks = [1500];
     this.generatedTickInterval = 100;
@@ -255,163 +259,7 @@ QUnit.test("Label's hint - use auto formatter", function(assert) {
     assert.strictEqual(spy.getCall(0).args[0].valueText, "1.5K");
 });
 
-QUnit.module("Auto formatting. Constant line labels. Numeric.", environment);
-
-QUnit.test("format numbers with non zero precision", function(assert) {
-    this.testConstantLineLabelFormat(assert, [1200, 1300, 1400, 1500, 1600], 100, "1.5K", 1500);
-});
-
-QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to millions)", function(assert) {
-    this.testConstantLineLabelFormat(assert, [1000000, 2000000, 3000000], 1000000, "1.52M", 1520000);
-});
-
-QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to millions and difference equal to thousands)", function(assert) {
-    this.testConstantLineLabelFormat(assert, [1000000, 2000000, 3000000], 1000000, "1,032K", 1032000);
-});
-
-QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to hundreds)", function(assert) {
-    this.testConstantLineLabelFormat(assert, [1200, 1400, 1600], 200, "1.5K", 1500);
-});
-
-QUnit.test("formatting numbers with a value not equal to tick (tickInterval == 1)", function(assert) {
-    this.testConstantLineLabelFormat(assert, [1, 2, 3, 4, 5], 1, "1.5", 1.5);
-});
-
-QUnit.test("formatting numbers with a value not equal to tick (tickInterval == 0.1)", function(assert) {
-    this.testConstantLineLabelFormat(assert, [0.1, 0.2, 0.3, 0.4, 0.5], 0.1, "0.375", 0.375);
-});
-
-QUnit.module("Auto formatting. Constant line labels. Datetime.", environment);
-
-QUnit.test("format datetime - difference is measured in milliseconds", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 21),
-        new Date(2010, 4, 28),
-        new Date(2010, 5, 4),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "15.2s", new Date(2010, 4, 28, 0, 0, 15, 200), true);
-});
-
-QUnit.test("format datetime - difference is measured in longtime", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 21),
-        new Date(2010, 4, 28),
-        new Date(2010, 5, 4),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "12:00:15 AM", new Date(2010, 4, 28, 0, 0, 15), true);
-});
-
-QUnit.test("format datetime - difference is measured in shorttime", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 21),
-        new Date(2010, 4, 28),
-        new Date(2010, 5, 4),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "8:50 AM", new Date(2010, 4, 28, 8, 50), true);
-});
-
-QUnit.test("format datetime - difference is measured in days and shorttime", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 21),
-        new Date(2010, 4, 28),
-        new Date(2010, 5, 4),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "29 8:50 AM", new Date(2010, 4, 29, 8, 50), true);
-});
-
-QUnit.test("format datetime - difference is measured in days", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 21),
-        new Date(2010, 4, 28),
-        new Date(2010, 5, 4),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "29", new Date(2010, 4, 29), true);
-});
-
-QUnit.test("format datetime - difference is measured in month and days", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 4, 18),
-        new Date(2010, 4, 25),
-        new Date(2010, 5, 1),
-        new Date(2010, 5, 11),
-        new Date(2010, 5, 18)
-    ], { days: 7 }, "May 31", new Date(2010, 4, 31), true);
-});
-
-QUnit.test("format datetime - difference is measured in month and years", function(assert) {
-    this.testConstantLineLabelFormat(assert, [
-        new Date(2010, 6, 1),
-        new Date(2010, 9, 1),
-        new Date(2011, 0, 1),
-        new Date(2011, 3, 1),
-        new Date(2011, 6, 1)
-    ], { months: 3 }, "December 2010", new Date(2010, 11, 12), true);
-});
-
-QUnit.module("Auto formatting. Tick labels. Datetime.", environment);
-
-QUnit.module("Discrete axis.", environment);
-
-QUnit.test("Datetime - single format by ticks", function(assert) {
-    this.testFormat(assert, {
-        type: "discrete",
-        argumentType: "datetime",
-        label: {
-            visible: true
-        }
-    }, [
-        new Date(2009, 11, 1),
-        new Date(2010, 0, 1),
-        new Date(2010, 1, 1)
-    ], 1, // tickGenerator returns that tickInterval for discrete data
-    ["December 2009", "January 2010", "February 2010"]);
-});
-
-QUnit.test("Numeric - no format", function(assert) {
-    this.testFormat(assert, {
-        type: "discrete",
-        argumentType: "numeric",
-        label: {
-            visible: true
-        }
-    }, [
-        10010,
-        11001,
-        20000
-    ], 1, // tickGenerator returns that tickInterval for discrete data
-    ["10010", "11001", "20000"]);
-});
-
 QUnit.module("Auto formatting. Tick labels. Datetime. Continuous axis", environment);
-
-QUnit.test("format is calculated by single tick", function(assert) {
-    this.testFormat(assert, {
-        argumentType: "datetime",
-        label: {
-            visible: true
-        }
-    }, [
-        new Date(2010, 0, 1, 15, 10)
-    ], { milliseconds: 1000 },
-    ["1/1/2010 3:10 PM"]);
-});
-
-QUnit.test("format is calculated by single tick (milliseconds)", function(assert) {
-    this.testFormat(assert, {
-        argumentType: "datetime",
-        label: {
-            visible: true
-        }
-    }, [
-        new Date(2010, 0, 1, 15, 0, 2, 100)
-    ], { milliseconds: 1000 },
-    ["1/1/2010 3:00:02 PM 100"]);
-});
 
 QUnit.test("format is calculated by ticks and tickInterval in years", function(assert) {
     this.testFormat(assert, {
@@ -1046,16 +894,84 @@ QUnit.test("format is calculated by ticks and tickInterval in milliseconds (mont
     ["11:59 PM 59.2s", "59.4s", "59.6s", "59.8s", "Jun 1 12:00 AM", "0.2s"]);
 });
 
+QUnit.module("Auto formatting. Tick labels. Discrete axis", environment);
+
+QUnit.test("Datetime - single format by ticks", function(assert) {
+    this.testFormat(assert, {
+        type: "discrete",
+        argumentType: "datetime",
+        label: {
+            visible: true
+        }
+    }, [
+        new Date(2009, 11, 1),
+        new Date(2010, 0, 1),
+        new Date(2010, 1, 1)
+    ], 1, // tickGenerator returns that tickInterval for discrete data
+    ["December 2009", "January 2010", "February 2010"]);
+});
+
+QUnit.test("Numeric - no format", function(assert) {
+    this.testFormat(assert, {
+        type: "discrete",
+        argumentType: "numeric",
+        label: {
+            visible: true
+        }
+    }, [
+        10010,
+        11001,
+        20000
+    ], 1, // tickGenerator returns that tickInterval for discrete data
+    ["10010", "11001", "20000"]);
+});
+
+QUnit.module("Auto formatting. Tick labels. Single tick, no tickInterval", environment);
+
+QUnit.test("DateTime - format is calculated by tick (minutes)", function(assert) {
+    this.testFormat(assert, {
+        argumentType: "datetime",
+        label: {
+            visible: true
+        }
+    }, [
+        new Date(2010, 0, 1, 15, 10)
+    ], undefined,
+    ["1/1/2010 3:10 PM"]);
+});
+
+QUnit.test("DateTime - format is calculated by tick (milliseconds)", function(assert) {
+    this.testFormat(assert, {
+        argumentType: "datetime",
+        label: {
+            visible: true
+        }
+    }, [
+        new Date(2010, 0, 1, 15, 0, 2, 100)
+    ], undefined,
+    ["1/1/2010 3:00:02 PM 100"]);
+});
+
+QUnit.test("Numeric", function(assert) {
+    this.testTickLabelFormat(assert, [0.0000000000014], undefined, ["0.0000000000014"]);
+    this.testTickLabelFormat(assert, [0.000000013], undefined, ["0.000000013"]);
+    this.testTickLabelFormat(assert, [-0.000000013], undefined, ["-0.000000013"]);
+    this.testTickLabelFormat(assert, [0.13], undefined, ["0.13"]);
+    this.testTickLabelFormat(assert, [1000], undefined, ["1,000"]);
+    this.testTickLabelFormat(assert, [1234567], undefined, ["1,234,567"]);
+    this.testTickLabelFormat(assert, [-1234567], undefined, ["-1,234,567"]);
+});
+
 QUnit.module("Custom formatting. Tick labels", environment);
 
 QUnit.test("Currency format", function(assert) {
     this.createAxis({
         label: {
-            format: "currency",
-            precision: 3,
+            format: { type: "currency", precision: 3 },
             visible: true
         }
     });
+    this.axis.setBusinessRange({ min: 0, max: 10 });
     this.generatedTicks = [0, 1, 2];
     this.translator.stub("translate").withArgs(1).returns(100);
     this.translator.stub("translate").withArgs(2).returns(100);
@@ -1073,10 +989,10 @@ QUnit.test("Date format with custom", function(assert) {
     this.createAxis({
         label: {
             format: "month",
-            precision: 2,
             visible: true
         }
     });
+    this.axis.setBusinessRange({ min: new Date(2010, 1, 1), max: new Date(2010, 3, 1) });
     this.generatedTicks = [new Date(2010, 1, 1), new Date(2010, 2, 1), new Date(2010, 3, 1)];
     this.axis.draw(this.canvas);
 
@@ -1147,6 +1063,104 @@ QUnit.test("resetAutoLabelFormat for user format", function(assert) {
     this.axis.resetAutoLabelFormat();
 
     assert.equal(this.axis.getOptions().label.format, "fixedPoint", "user format");
+});
+
+QUnit.module("Auto formatting. Constant line labels. Numeric.", environment);
+
+QUnit.test("format numbers with non zero precision", function(assert) {
+    this.testConstantLineLabelFormat(assert, [1200, 1300, 1400, 1500, 1600], 100, "1.5K", 1500);
+});
+
+QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to millions)", function(assert) {
+    this.testConstantLineLabelFormat(assert, [1000000, 2000000, 3000000], 1000000, "1.52M", 1520000);
+});
+
+QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to millions and difference equal to thousands)", function(assert) {
+    this.testConstantLineLabelFormat(assert, [1000000, 2000000, 3000000], 1000000, "1,032K", 1032000);
+});
+
+QUnit.test("formatting numbers with a value not equal to tick (tickInterval equal to hundreds)", function(assert) {
+    this.testConstantLineLabelFormat(assert, [1200, 1400, 1600], 200, "1.5K", 1500);
+});
+
+QUnit.test("formatting numbers with a value not equal to tick (tickInterval == 1)", function(assert) {
+    this.testConstantLineLabelFormat(assert, [1, 2, 3, 4, 5], 1, "1.5", 1.5);
+});
+
+QUnit.test("formatting numbers with a value not equal to tick (tickInterval == 0.1)", function(assert) {
+    this.testConstantLineLabelFormat(assert, [0.1, 0.2, 0.3, 0.4, 0.5], 0.1, "0.375", 0.375);
+});
+
+QUnit.module("Auto formatting. Constant line labels. Datetime.", environment);
+
+QUnit.test("format datetime - difference is measured in milliseconds", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 21),
+        new Date(2010, 4, 28),
+        new Date(2010, 5, 4),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "15.2s", new Date(2010, 4, 28, 0, 0, 15, 200), true);
+});
+
+QUnit.test("format datetime - difference is measured in longtime", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 21),
+        new Date(2010, 4, 28),
+        new Date(2010, 5, 4),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "12:00:15 AM", new Date(2010, 4, 28, 0, 0, 15), true);
+});
+
+QUnit.test("format datetime - difference is measured in shorttime", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 21),
+        new Date(2010, 4, 28),
+        new Date(2010, 5, 4),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "8:50 AM", new Date(2010, 4, 28, 8, 50), true);
+});
+
+QUnit.test("format datetime - difference is measured in days and shorttime", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 21),
+        new Date(2010, 4, 28),
+        new Date(2010, 5, 4),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "29 8:50 AM", new Date(2010, 4, 29, 8, 50), true);
+});
+
+QUnit.test("format datetime - difference is measured in days", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 21),
+        new Date(2010, 4, 28),
+        new Date(2010, 5, 4),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "29", new Date(2010, 4, 29), true);
+});
+
+QUnit.test("format datetime - difference is measured in month and days", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 4, 18),
+        new Date(2010, 4, 25),
+        new Date(2010, 5, 1),
+        new Date(2010, 5, 11),
+        new Date(2010, 5, 18)
+    ], { days: 7 }, "May 31", new Date(2010, 4, 31), true);
+});
+
+QUnit.test("format datetime - difference is measured in month and years", function(assert) {
+    this.testConstantLineLabelFormat(assert, [
+        new Date(2010, 6, 1),
+        new Date(2010, 9, 1),
+        new Date(2011, 0, 1),
+        new Date(2011, 3, 1),
+        new Date(2011, 6, 1)
+    ], { months: 3 }, "December 2010", new Date(2010, 11, 12), true);
 });
 
 QUnit.module("getFormattedValue", environment);
@@ -1290,7 +1304,7 @@ QUnit.test("No custom format - use auto formatting", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date4, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date4, invert: false });
 
     this.generatedTicks = [date0, date1, date2, date3, date4];
     this.generatedTickInterval = "hour";
@@ -1324,7 +1338,7 @@ QUnit.test("Custom format - use custom format", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date4, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date4, invert: false });
 
     this.generatedTicks = [date0, date1, date2, date3, date4];
     this.generatedTickInterval = "hour";
@@ -1359,7 +1373,7 @@ QUnit.test("Tick labels do not show date transition", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date3, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date3, invert: false });
 
     this.generatedTicks = [date0, date1, date2, date3];
     this.generatedTickInterval = "hour";
@@ -1394,7 +1408,7 @@ QUnit.test("Custom format for tick labels - use custom format", function(assert)
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date3, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date3, invert: false });
 
     this.generatedTicks = [date0, date1, date2, date3];
     this.generatedTickInterval = "hour";
@@ -1480,7 +1494,7 @@ QUnit.module("Format numeric range.", {
     afterEach: environment.afterEach
 });
 
-QUnit.test("Nimuric axis. Format range", function(assert) {
+QUnit.test("Numeric axis. Format range", function(assert) {
     // act
     this.createAxis();
     assert.strictEqual(this.axis.formatRange(10000, 15000, 5000), "10K - 15K");

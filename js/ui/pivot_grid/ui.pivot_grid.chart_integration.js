@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     extend = require("../../core/utils/extend").extend,
     pivotUtils = require("./ui.pivot_grid.utils"),
@@ -191,10 +189,7 @@ function createValueAxisOptions(dataSource, options) {
                 name: dataField.caption,
                 title: dataField.caption,
                 valueType: FORMAT_DICTIONARY[dataField.dataType] || dataField.dataType,
-                label: {
-                    format: dataField.format,
-                    precision: dataField.precision
-                }
+                label: { format: dataField.format }
             };
 
             if(dataField.customizeText) {

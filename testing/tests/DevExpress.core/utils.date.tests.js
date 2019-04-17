@@ -1,5 +1,3 @@
-"use strict";
-
 var dateUtils = require("core/utils/date");
 
 QUnit.module('normalizeDate', {
@@ -222,6 +220,15 @@ QUnit.test('addInterval day overflow', function(assert) {
     // assert
     assert.deepEqual(newDate, new Date(2012, 1, 1));
 });
+
+QUnit.test('addInterval date with numeric interval', function(assert) {
+    // arrange, act
+    var newDate = dateUtils.addInterval(new Date(2012, 2, 2), 24 * 60 * 60 * 1000);
+
+    // assert
+    assert.deepEqual(newDate, new Date(2012, 2, 3));
+});
+
 QUnit.test('getDateUnitInterval with millisecond tickInterval', function(assert) {
     // arrange
     var getDateUnitInterval = dateUtils.getDateUnitInterval,
@@ -432,12 +439,12 @@ QUnit.test('convertMillisecondsToDateUnits', function(assert) {
     // arrange
     var convertMillisecondsToDateUnits = dateUtils.convertMillisecondsToDateUnits;
     // assert
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2010, 1, 3) - new Date(2010, 1, 1)), { days: 2 }, 'days interval');
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2010, 9, 14) - new Date(2010, 4, 14)), { days: 3, months: 5 }, 'months and days');
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2010, 9, 14) - new Date(2010, 8, 14)), { months: 1 }, 'months');
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2010, 9, 14, 3, 30) - new Date(2010, 9, 14, 1, 30)), { hours: 2 }, 'hours');
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2008, 9, 14, 1, 30, 45) - new Date(2007, 4, 14, 1, 30, 45)), { days: 4, months: 5, years: 1 }, 'big interval');
-    assert.deepEqual(convertMillisecondsToDateUnits(new Date(2008, 9, 14, 0, 0, 0) - new Date(2008, 4, 10, 1, 30, 45)), { seconds: 15, minutes: 29, hours: 22, days: 6, months: 5 });
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2010, 1, 3)) - new Date(Date.UTC(2010, 1, 1))), { days: 2 }, 'days interval');
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2010, 9, 14)) - new Date(Date.UTC(2010, 4, 14))), { days: 3, months: 5 }, 'months and days');
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2010, 9, 14)) - new Date(Date.UTC(2010, 8, 14))), { months: 1 }, 'months');
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2010, 9, 14, 3, 30)) - new Date(Date.UTC(2010, 9, 14, 1, 30))), { hours: 2 }, 'hours');
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2008, 9, 14, 1, 30, 45)) - new Date(Date.UTC(2007, 4, 14, 1, 30, 45))), { days: 4, months: 5, years: 1 }, 'big interval');
+    assert.deepEqual(convertMillisecondsToDateUnits(new Date(Date.UTC(2008, 9, 14, 0, 0, 0)) - new Date(Date.UTC(2008, 4, 10, 1, 30, 45))), { seconds: 15, minutes: 29, hours: 22, days: 6, months: 5 });
 });
 
 QUnit.test('correctDateWithUnitBeginning without gap correction', function(assert) {
@@ -514,6 +521,20 @@ QUnit.test("trimming time of date", function(assert) {
     assert.deepEqual(dateUtils.trimTime(date), new Date(2015, 7, 16), "Date is correct after time trimming");
 });
 
+QUnit.test("setting to the day end", function(assert) {
+    var date = new Date(2015, 7, 16, 2, 30, 17, 100);
+
+    assert.deepEqual(dateUtils.setToDayEnd(date), new Date(2015, 7, 16, 23, 59, 59, 999), "Date is correct after time setting day end");
+});
+
+QUnit.test("rounding date by startDayHour", function(assert) {
+    var date = new Date(2015, 7, 16, 8, 30);
+
+    var result = dateUtils.roundDateByStartDayHour(date, 9.5);
+
+    assert.deepEqual(result, new Date(2015, 7, 16, 9, 30), "Date is correct after time trimming");
+});
+
 QUnit.module('Quarter number for different months');
 
 QUnit.test('quarter 1', function(assert) {
@@ -571,4 +592,24 @@ QUnit.test("getViewMaxBoundaryDate", function(assert) {
 
     resultDate = dateUtils.getViewMaxBoundaryDate("century", initialDate);
     assert.deepEqual(resultDate, new Date(2099, 11, 31), "last decade, last year, last month and last day are set for century");
+});
+
+QUnit.test("the getViewMaxBoundaryDate method is should be return value with corrected time", function(assert) {
+    var initialDate = new Date(2018, 7, 31, 12, 13, 23);
+    var resultDate = dateUtils.getViewMaxBoundaryDate("month", initialDate);
+    assert.deepEqual(resultDate, new Date(initialDate), "last day of a month should be equal to an initial date and a time");
+});
+
+QUnit.test("the getDatesBetween method should return array of dates", function(assert) {
+    var startDate = new Date(2018, 7, 31, 12, 13, 0),
+        endDate = new Date(2018, 8, 5, 12, 13, 0);
+
+    var dates = dateUtils.getDatesOfInterval(startDate, endDate, "day");
+
+    assert.equal(dates.length, 5);
+    assert.deepEqual(dates[0], new Date(2018, 7, 31, 12, 13, 0), "Date in interval is correct");
+    assert.deepEqual(dates[1], new Date(2018, 8, 1, 12, 13, 0), "Date in interval is correct");
+    assert.deepEqual(dates[2], new Date(2018, 8, 2, 12, 13, 0), "Date in interval is correct");
+    assert.deepEqual(dates[3], new Date(2018, 8, 3, 12, 13, 0), "Date in interval is correct");
+    assert.deepEqual(dates[4], new Date(2018, 8, 4, 12, 13, 0), "Date in interval is correct");
 });

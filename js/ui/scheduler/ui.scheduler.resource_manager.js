@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../../core/class"),
     arrayUtils = require("../../core/utils/array"),
     grep = require("../../core/utils/common").grep,
@@ -154,8 +152,8 @@ var ResourceManager = Class.inherit({
                 that._resourceLoader[field]
                     .done(function(data) {
                         var filteredData = query(data)
-                                            .filter(valueExpr, value)
-                                            .toArray();
+                            .filter(valueExpr, value)
+                            .toArray();
 
                         delete that._resourceLoader[field];
                         result.resolve(filteredData[0]);
@@ -243,6 +241,7 @@ var ResourceManager = Class.inherit({
         });
 
         if(!deferreds.length) {
+            that._resourcesData = [];
             return result.resolve([]);
         }
 

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     Class = require("../core/class"),
@@ -10,6 +8,7 @@ var $ = require("../core/renderer"),
     typeUtils = require("../core/utils/type"),
     extend = require("../core/utils/extend").extend,
     clickEvent = require("../events/click"),
+    pointerEvents = require("../events/pointer"),
     messageLocalization = require("../localization/message"),
     Widget = require("./widget/ui.widget"),
     SelectBox = require("./select_box"),
@@ -285,7 +284,7 @@ var Pager = Widget.inherit({
             that._pageClickHandler = function(e) {
                 clickPagesIndexAction({ event: e });
             };
-            eventsEngine.on(that._$pagesChooser, eventUtils.addNamespace(clickEvent.name, that.Name + "Pages"), '.' + PAGER_PAGE_CLASS, that._pageClickHandler);
+            eventsEngine.on(that._$pagesChooser, eventUtils.addNamespace([pointerEvents.up, clickEvent.name], that.Name + "Pages"), '.' + PAGER_PAGE_CLASS, that._pageClickHandler);
         }
 
         for(var i = 0; i < pagesLength; i++) {
@@ -517,7 +516,16 @@ var Pager = Widget.inherit({
         if(that.option("showNavigationButtons") || that.option("lightModeEnabled")) {
             $button = $("<div>").addClass(PAGER_NAVIGATE_BUTTON);
 
-            eventsEngine.on($button, eventUtils.addNamespace(clickEvent.name, that.Name + "Pages"), function(e) {
+            var pointerUpHappened = false;
+
+            eventsEngine.on($button, eventUtils.addNamespace([pointerEvents.up, clickEvent.name], that.Name + "Pages"), function(e) {
+                if(e.type === "dxpointerup") {
+                    pointerUpHappened = true;
+                } else if(pointerUpHappened) {
+                    pointerUpHappened = false;
+                    return;
+                }
+
                 clickAction({ event: e });
             });
 
@@ -660,7 +668,7 @@ var Pager = Widget.inherit({
     },
 
     _clean: function() {
-        this._$pagesChooser && eventsEngine.off(this._$pagesChooser, eventUtils.addNamespace(clickEvent.name, this.Name + "Pages"), '.' + PAGER_PAGE_CLASS, this._pageClickHandler);
+        this._$pagesChooser && eventsEngine.off(this._$pagesChooser, eventUtils.addNamespace([pointerEvents.up, clickEvent.name], this.Name + "Pages"), '.' + PAGER_PAGE_CLASS, this._pageClickHandler);
 
         this.callBase();
     },

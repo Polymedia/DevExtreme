@@ -1,12 +1,13 @@
-"use strict";
-
 var Class = require("../../core/class"),
     extend = require("../../core/utils/extend").extend,
     typeUtils = require("../../core/utils/type"),
+    iteratorUtils = require("../../core/utils/iterator"),
     each = require("../../core/utils/iterator").each,
     ajax = require("../../core/utils/ajax"),
     Guid = require("../../core/guid"),
     isDefined = typeUtils.isDefined,
+    isPlainObject = typeUtils.isPlainObject,
+    grep = require("../../core/utils/common").grep,
     Deferred = require("../../core/utils/deferred").Deferred,
 
     errors = require("../errors").errors,
@@ -20,37 +21,48 @@ var ISO8601_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[-+]{1}
 // Request processing
 var JSON_VERBOSE_MIME_TYPE = "application/json;odata=verbose";
 
+var makeArray = function(value) {
+    return typeUtils.type(value) === "string" ? value.split() : value;
+};
+
+var hasDot = function(x) {
+    return /\./.test(x);
+};
+
+var pad = function(text, length, right) {
+    text = String(text);
+    while(text.length < length) {
+        text = right ? (text + "0") : ("0" + text);
+    }
+    return text;
+};
+
 function formatISO8601(date, skipZeroTime, skipTimezone) {
     var bag = [];
-
-    var pad = function(n) {
-        if(n < 10) {
-            return "0".concat(n);
-        }
-        return String(n);
-    };
 
     var isZeroTime = function() {
         return date.getHours() + date.getMinutes() + date.getSeconds() + date.getMilliseconds() < 1;
     };
 
+    var padLeft2 = function(text) { return pad(text, 2); };
+
     bag.push(date.getFullYear());
     bag.push("-");
-    bag.push(pad(date.getMonth() + 1));
+    bag.push(padLeft2(date.getMonth() + 1));
     bag.push("-");
-    bag.push(pad(date.getDate()));
+    bag.push(padLeft2(date.getDate()));
 
     if(!(skipZeroTime && isZeroTime())) {
         bag.push("T");
-        bag.push(pad(date.getHours()));
+        bag.push(padLeft2(date.getHours()));
         bag.push(":");
-        bag.push(pad(date.getMinutes()));
+        bag.push(padLeft2(date.getMinutes()));
         bag.push(":");
-        bag.push(pad(date.getSeconds()));
+        bag.push(padLeft2(date.getSeconds()));
 
         if(date.getMilliseconds()) {
             bag.push(".");
-            bag.push(date.getMilliseconds());
+            bag.push(pad(date.getMilliseconds(), 3));
         }
 
         if(!skipTimezone) {
@@ -75,7 +87,10 @@ function parseISO8601(isoString) {
         result.setHours(Number(time[1]));
         result.setMinutes(Number(time[2]));
         result.setSeconds(Number(time[3]));
-        result.setMilliseconds(Number(String(time[4]).substr(0, 3)) || 0);
+
+        var fractional = (time[4] || "").slice(0, 3);
+        fractional = pad(fractional, 3, true);
+        result.setMilliseconds(Number(fractional));
     }
 
     return result;
@@ -210,7 +225,7 @@ var sendRequest = function(protocolVersion, request, options) {
                 deserializeDates: options.deserializeDates,
                 fieldTypes: options.fieldTypes
             },
-            tuple = interpretJsonFormat(obj, textStatus, transformOptions),
+            tuple = interpretJsonFormat(obj, textStatus, transformOptions, ajaxOptions),
             error = tuple.error,
             data = tuple.data,
             nextUrl = tuple.nextUrl,
@@ -271,14 +286,17 @@ var formatDotNetError = function(errorObj) {
 };
 
 // TODO split: decouple HTTP errors from OData errors
-var errorFromResponse = function(obj, textStatus) {
+var errorFromResponse = function(obj, textStatus, ajaxOptions) {
     if(textStatus === "nocontent") {
         return null; // workaround for http://bugs.jquery.com/ticket/13292
     }
 
-    var httpStatus = 200,
-        message = "Unknown error",
-        response = obj;
+    var message = "Unknown error",
+        response = obj,
+        httpStatus = 200,
+        errorData = {
+            requestOptions: ajaxOptions
+        };
 
     if(textStatus !== "success") {
         httpStatus = obj.status;
@@ -296,30 +314,35 @@ var errorFromResponse = function(obj, textStatus) {
 
     if(errorObj) {
         message = formatDotNetError(errorObj) || message;
+        errorData.errorDetails = errorObj;
 
         if(httpStatus === 200) {
             httpStatus = 500;
         }
-        if(errorObj.code) {
-            httpStatus = Number(errorObj.code);
-        }
-        return extend(Error(message), { httpStatus: httpStatus, errorDetails: errorObj });
-    } else {
-        if(httpStatus !== 200) {
-            return extend(Error(message), { httpStatus: httpStatus });
+
+        var customCode = Number(errorObj.code);
+        if(isFinite(customCode) && customCode >= 400) {
+            httpStatus = customCode;
         }
     }
+
+    if(httpStatus >= 400) {
+        errorData.httpStatus = httpStatus;
+        return extend(Error(message), errorData);
+    }
+
+    return null;
 };
 
-var interpretJsonFormat = function(obj, textStatus, transformOptions) {
-    var error = errorFromResponse(obj, textStatus),
+var interpretJsonFormat = function(obj, textStatus, transformOptions, ajaxOptions) {
+    var error = errorFromResponse(obj, textStatus, ajaxOptions),
         value;
 
     if(error) {
         return { error: error };
     }
 
-    if(!typeUtils.isPlainObject(obj)) {
+    if(!isPlainObject(obj)) {
         return { data: obj };
     }
 
@@ -340,7 +363,6 @@ var interpretVerboseJsonFormat = function(obj) {
         return { error: Error("Malformed or unsupported JSON response received") };
     }
 
-    data = data;
     if(isDefined(data.results)) {
         data = data.results;
     }
@@ -485,7 +507,7 @@ var serializeValue = function(value, protocolVersion) {
 };
 
 var serializeKey = function(key, protocolVersion) {
-    if(typeUtils.isPlainObject(key)) {
+    if(isPlainObject(key)) {
         var parts = [];
         each(key, function(k, v) {
             parts.push(serializePropName(k) + "=" + serializeValue(v, protocolVersion));
@@ -496,7 +518,7 @@ var serializeKey = function(key, protocolVersion) {
 };
 
 /**
-* @name Utils.keyConverters
+* @const Utils.keyConverters
 * @publicName odata.keyConverters
 * @type object
 * @namespace DevExpress.data.utils.odata
@@ -555,12 +577,150 @@ var convertPrimitiveValue = function(type, value) {
     return converter(value);
 };
 
+var generateSelect = function(oDataVersion, select) {
+    if(!select) {
+        return;
+    }
+
+    if(oDataVersion < 4) {
+        return serializePropName(select.join());
+    }
+
+    return grep(select, hasDot, true).join();
+};
+
+var generateExpand = function(oDataVersion, expand, select) {
+    var generatorV2 = function() {
+        var hash = {};
+
+        if(expand) {
+            iteratorUtils.each(makeArray(expand), function() {
+                hash[serializePropName(this)] = 1;
+            });
+        }
+
+        if(select) {
+            iteratorUtils.each(makeArray(select), function() {
+                var path = this.split(".");
+                if(path.length < 2) {
+                    return;
+                }
+
+                path.pop();
+                hash[serializePropName(path.join("."))] = 1;
+            });
+        }
+
+        return iteratorUtils.map(hash, function(k, v) { return v; }).join();
+    };
+
+    var generatorV4 = function() {
+        var format = function(hash) {
+            var formatCore = function(hash) {
+                var result = "",
+                    selectValue = [],
+                    expandValue = [];
+
+                iteratorUtils.each(hash, function(key, value) {
+                    if(Array.isArray(value)) {
+                        [].push.apply(selectValue, value);
+                    }
+
+                    if(isPlainObject(value)) {
+                        expandValue.push(key + formatCore(value));
+                    }
+                });
+
+                if(selectValue.length || expandValue.length) {
+                    result += "(";
+
+                    if(selectValue.length) {
+                        result += "$select=" + iteratorUtils.map(selectValue, serializePropName).join();
+                    }
+
+                    if(expandValue.length) {
+                        if(selectValue.length) {
+                            result += ";";
+                        }
+
+                        result += "$expand=" + iteratorUtils.map(expandValue, serializePropName).join();
+                    }
+                    result += ")";
+                }
+
+                return result;
+            };
+
+            var result = [];
+
+            iteratorUtils.each(hash, function(key, value) {
+                result.push(key + formatCore(value));
+            });
+
+            return result.join();
+        };
+
+        var parseTree = function(exprs, root, stepper) {
+            var parseCore = function(exprParts, root, stepper) {
+                var result = stepper(root, exprParts.shift(), exprParts);
+                if(result === false) {
+                    return;
+                }
+
+                parseCore(exprParts, result, stepper);
+            };
+
+            iteratorUtils.each(exprs, function(_, x) {
+                parseCore(x.split("."), root, stepper);
+            });
+        };
+
+        var hash = {};
+
+        if(expand || select) {
+            if(expand) {
+                parseTree(makeArray(expand), hash, function(node, key, path) {
+                    node[key] = node[key] || {};
+
+                    if(!path.length) {
+                        return false;
+                    }
+
+                    return node[key];
+                });
+            }
+
+            if(select) {
+                parseTree(grep(makeArray(select), hasDot), hash, function(node, key, path) {
+                    if(!path.length) {
+                        node[key] = node[key] || [];
+                        node[key].push(key);
+                        return false;
+                    }
+
+                    return (node[key] = node[key] || {});
+                });
+            }
+
+            return format(hash);
+        }
+    };
+
+    if(oDataVersion < 4) {
+        return generatorV2();
+    }
+
+    return generatorV4();
+};
+
 exports.sendRequest = sendRequest;
 exports.serializePropName = serializePropName;
 exports.serializeValue = serializeValue;
 exports.serializeKey = serializeKey;
 exports.keyConverters = keyConverters;
 exports.convertPrimitiveValue = convertPrimitiveValue;
+exports.generateExpand = generateExpand;
+exports.generateSelect = generateSelect;
 
 exports.EdmLiteral = EdmLiteral;
 

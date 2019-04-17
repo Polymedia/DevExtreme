@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     themeModule = require("viz/themes"),
     uiThemeModule = require("ui/themes");
@@ -208,6 +206,8 @@ QUnit.test("Patched properties on register theme", function(assert) {
     assert.deepEqual(theme.barGauge.export, theme.export, "export");
     assert.deepEqual(theme.map.export, theme.export, "export");
     assert.deepEqual(theme.rangeSelector.export, theme.export, "export");
+    assert.deepEqual(theme.sparkline.export, theme.export, "export");
+    assert.deepEqual(theme.bullet.export, theme.export, "export");
 
     // legend
     assert.deepEqual(theme.chart.legend, theme.legend, "legend");
@@ -321,18 +321,6 @@ QUnit.test("currentTheme return registered default theme", function(assert) {
 
 QUnit.module("currentTheme method. deprecated arguments");
 
-QUnit.test("Get/set custom theme(ios)", function(assert) {
-    themeModule.currentTheme("ios");
-
-    assert.strictEqual(themeModule.currentTheme(), "ios7.default", "valid custom theme");
-});
-
-QUnit.test("Get/set custom theme(android)", function(assert) {
-    themeModule.currentTheme("android");
-
-    assert.strictEqual(themeModule.currentTheme(), "android5.light", "valid custom theme");
-});
-
 QUnit.test("Set custom theme (with colorScheme)", function(assert) {
     themeModule.currentTheme("win8", "light");
 
@@ -355,26 +343,6 @@ QUnit.test("Invalid input data (with color scheme)", function(assert) {
     themeModule.currentTheme("invalid_data", "light");
 
     assert.strictEqual(themeModule.currentTheme(), "generic.light");
-});
-
-QUnit.module("deprecated theme");
-
-QUnit.test("Set custom theme (with colorScheme)", function(assert) {
-    themeModule.currentTheme("desktop-dark");
-
-    assert.strictEqual(themeModule.currentTheme(), "generic.dark", "valid custom theme");
-});
-
-QUnit.test("Set custom theme (with colorScheme)", function(assert) {
-    themeModule.currentTheme("android-holo-light");
-
-    assert.strictEqual(themeModule.currentTheme(), "android5.light", "valid custom theme");
-});
-
-QUnit.test("Set custom theme (with colorScheme)", function(assert) {
-    themeModule.currentTheme("win8-white");
-
-    assert.strictEqual(themeModule.currentTheme(), "win8.white", "valid custom theme");
 });
 
 QUnit.module("refresh all", {

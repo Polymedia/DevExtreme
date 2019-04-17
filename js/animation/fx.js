@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     window = require("../core/utils/window").getWindow(),
     eventsEngine = require("../events/core/events_engine"),
@@ -318,7 +316,7 @@ var FrameAnimationStrategy = {
     _parseTransform: function(transformString) {
         var result = {};
 
-        iteratorUtils.each(transformString.match(/(\w|\d)+\([^\)]*\)\s*/g), function(i, part) {
+        iteratorUtils.each(transformString.match(/(\w|\d)+\([^)]*\)\s*/g), function(i, part) {
             var translateData = translator.parseTranslate(part),
                 scaleData = part.match(/scale\((.+?)\)/),
                 rotateData = part.match(/(rotate.)\((.+)deg\)/);
@@ -824,13 +822,24 @@ var setupPosition = function($element, config) {
         return;
     }
 
-    var position = positionUtils.calculate($element, config.position),
+    var win = $(window),
+        left = 0,
+        top = 0,
+        position = positionUtils.calculate($element, config.position),
         offset = $element.offset(),
         currentPosition = $element.position();
 
+    if(currentPosition.top > offset.top) {
+        top = win.scrollTop();
+    }
+
+    if(currentPosition.left > offset.left) {
+        left = win.scrollLeft();
+    }
+
     extend(config, {
-        left: position.h.location - offset.left + currentPosition.left,
-        top: position.v.location - offset.top + currentPosition.top
+        left: position.h.location - offset.left + currentPosition.left - left,
+        top: position.v.location - offset.top + currentPosition.top - top
     });
 
     delete config.position;

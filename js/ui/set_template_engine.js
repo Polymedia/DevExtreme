@@ -1,5 +1,3 @@
-"use strict";
-
 /**
 * @name ui
 * @namespace DevExpress
@@ -24,4 +22,4 @@
 * @export default
 */
 
-module.exports = require("./widget/jquery.template").setTemplateEngine;
+module.exports = require("./widget/template_engine_registry").setTemplateEngine;

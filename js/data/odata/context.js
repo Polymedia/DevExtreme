@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../../core/class"),
     extend = require("../../core/utils/extend").extend,
     typeUtils = require("../../core/utils/type"),
@@ -57,6 +55,10 @@ var ODataContext = Class.inherit({
          * @default false
          */
         /**
+         * @name ODataContextOptions.filterToLower
+         * @type boolean
+         */
+        /**
          * @name ODataContextOptions.deserializeDates
          * @type boolean
          */
@@ -65,6 +67,10 @@ var ODataContext = Class.inherit({
         /**
          * @name ODataContextOptions.errorHandler
          * @type function
+         * @type_function_param1 e:Error
+         * @type_function_param1_field1 httpStatus:number
+         * @type_function_param1_field2 errorDetails:object
+         * @type_function_param1_field3 requestOptions:object
          */
         that._errorHandler = options.errorHandler;
 
@@ -160,6 +166,6 @@ var ODataContext = Class.inherit({
     }
 
 })
-.include(mixins.SharedMethods);
+    .include(mixins.SharedMethods);
 
 module.exports = ODataContext;

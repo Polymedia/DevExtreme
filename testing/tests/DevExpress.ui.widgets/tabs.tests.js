@@ -1,13 +1,12 @@
-"use strict";
+import $ from "jquery";
+import domUtils from "core/utils/dom";
+import holdEvent from "events/hold";
+import config from "core/config";
+import pointerMock from "../../helpers/pointerMock.js";
+import { DataSource } from "data/data_source/data_source";
 
-var $ = require("jquery"),
-    domUtils = require("core/utils/dom"),
-    holdEvent = require("events/hold"),
-    config = require("core/config"),
-    pointerMock = require("../../helpers/pointerMock.js");
-
-require("ui/tabs");
-require("common.css!");
+import "ui/tabs";
+import "common.css!";
 
 QUnit.testStart(function() {
     var markup =
@@ -54,9 +53,9 @@ QUnit.module("general");
 QUnit.test("mouseup switch selected tab", function(assert) {
     var tabsElement = $("#tabs").dxTabs({
             items: [
-            { text: "0" },
-            { text: "1" },
-            { text: "2" }
+                { text: "0" },
+                { text: "1" },
+                { text: "2" }
             ]
         }),
         tabsInstance = tabsElement.dxTabs("instance");
@@ -79,9 +78,9 @@ QUnit.test("mouseup switch selected tab", function(assert) {
 QUnit.test("repeated click doesn't change selected tab state", function(assert) {
     var tabsElement = $("#tabs").dxTabs({
             items: [
-            { text: "0" },
-            { text: "1" },
-            { text: "2" }
+                { text: "0" },
+                { text: "1" },
+                { text: "2" }
             ]
         }),
         tabsInstance = tabsElement.dxTabs("instance");
@@ -102,12 +101,12 @@ QUnit.test("repeated click doesn't change selected tab state", function(assert) 
 QUnit.test("disabled tab can't be selected by click", function(assert) {
     var tabsElement = $("#tabs").dxTabs({
             items: [
-            { text: "1" },
+                { text: "1" },
                 {
                     text: "2",
                     disabled: true
                 },
-            { text: "3" }
+                { text: "3" }
             ]
         }),
         tabsInstance = tabsElement.dxTabs("instance");
@@ -256,53 +255,14 @@ QUnit.test("regression: B251795", function(assert) {
     assert.equal(itemSelectFired, 0);
 });
 
-QUnit.module("widget sizing render");
-
-QUnit.test("change width", function(assert) {
-    var $element = $("#widget").dxTabs({ items: [1, 2, 3] }),
-        instance = $element.dxTabs("instance"),
-        customWidth = 400;
-
-    instance.option("width", customWidth);
-
-    assert.strictEqual($element.outerWidth(), customWidth, "outer width of the element must be equal to custom width");
-});
-
-QUnit.test("nav buttons should be rendered when widget is rendered invisible", function(assert) {
-    var $container = $("<div>");
-
-    try {
-        var $element = $("<div>").appendTo($container).dxTabs({
-            items: [
-                    { text: "user" },
-                    { text: "analytics" },
-                    { text: "customers" },
-                    { text: "search" },
-                    { text: "favorites" }
-            ],
-            wordWrap: false,
-            scrollingEnabled: true,
-            showNavButtons: true,
-            width: 100
-        });
-
-        $container.appendTo("#qunit-fixture");
-        domUtils.triggerShownEvent($container);
-
-        assert.equal($element.find("." + TABS_NAV_BUTTON_CLASS).length, 2, "nav buttons are rendered");
-    } finally {
-        $container.remove();
-    }
-});
-
 QUnit.test("Tabs in multiple mode", function(assert) {
     var $element = $("#widget").dxTabs({
             items: [
-            { text: "user" },
-            { text: "analytics" },
-            { text: "customers" },
-            { text: "search" },
-            { text: "favorites" }
+                { text: "user" },
+                { text: "analytics" },
+                { text: "customers" },
+                { text: "search" },
+                { text: "favorites" }
             ], width: 400,
             selectionMode: "multiple",
             selectedIndex: 2
@@ -336,6 +296,27 @@ QUnit.test("tabs should be wrapped into scrollable if scrollingEnabled=true", fu
     assert.ok($scrollable.length, "scroll created");
     assert.ok($scrollable.hasClass(TABS_SCROLLABLE_CLASS), "wrapper class added");
     assert.ok($scrollable.find("." + TABS_ITEM_CLASS).length, "items wrapped into scrollable");
+});
+
+QUnit.test("tabs should be wrapped into scrollable for some disabled items", function(assert) {
+    var $element = $("#scrollableTabs").dxTabs({
+            items: [{ text: "item 1" }, { text: "item 2", disabled: true }, { text: "item 3", disabled: true }, { text: "item 4", disabled: true }],
+            width: 200
+        }),
+        $scrollable = $element.children("." + SCROLLABLE_CLASS);
+
+    assert.ok($scrollable.length, "scroll created");
+    assert.ok($scrollable.hasClass(TABS_SCROLLABLE_CLASS), "wrapper class added");
+    assert.ok($scrollable.find("." + TABS_ITEM_CLASS).length, "items wrapped into scrollable");
+});
+
+QUnit.test("tabs should not be wrapped into scrollable for some invisible items", function(assert) {
+    var $element = $("#scrollableTabs").dxTabs({
+        items: [{ text: "item 1" }, { text: "item 2", visible: false }, { text: "item 3", visible: false }, { text: "item 4", visible: false }],
+        width: 200
+    });
+
+    assert.notOk(!!$element.children("." + SCROLLABLE_CLASS).length, "no scroll for invisible items");
 });
 
 QUnit.test("scrollable should have correct option scrollByContent", function(assert) {
@@ -378,6 +359,33 @@ QUnit.test("nav buttons class should be added if showNavButtons=true", function(
     assert.ok($element.hasClass(TABS_NAV_BUTTONS_CLASS), "navs class added");
 });
 
+QUnit.test("nav buttons should be rendered when widget is rendered invisible", function(assert) {
+    var $container = $("<div>");
+
+    try {
+        var $element = $("<div>").appendTo($container).dxTabs({
+            items: [
+                { text: "user" },
+                { text: "analytics" },
+                { text: "customers" },
+                { text: "search" },
+                { text: "favorites" }
+            ],
+            wordWrap: false,
+            scrollingEnabled: true,
+            showNavButtons: true,
+            width: 100
+        });
+
+        $container.appendTo("#qunit-fixture");
+        domUtils.triggerShownEvent($container);
+
+        assert.equal($element.find("." + TABS_NAV_BUTTON_CLASS).length, 2, "nav buttons are rendered");
+    } finally {
+        $container.remove();
+    }
+});
+
 QUnit.test("right nav button should be rendered if showNavButtons=true and possible to scroll right", function(assert) {
     var $element = $("#scrollableTabs").dxTabs({
             items: [{ text: "item 1" }, { text: "item 1" }, { text: "item 1" }, { text: "item 1" }],
@@ -410,7 +418,7 @@ QUnit.test("click on right nav button should scroll tabs to right", function(ass
 QUnit.test("hold on right nav button should scroll tabs to right to end", function(assert) {
     var $element = $("#scrollableTabs").dxTabs({
             items: [{ text: "item 1" }, { text: "item 2" }, { text: "item 3" }, { text: "item 4" },
-        { text: "item 5" }],
+                { text: "item 5" }],
             wordWrap: false,
             showNavButtons: true,
             scrollingEnabled: true,
@@ -465,7 +473,7 @@ QUnit.test("click on left nav button should scroll tabs to left", function(asser
 QUnit.test("hold on left nav button should scroll tabs to left to end", function(assert) {
     var $element = $("#scrollableTabs").dxTabs({
             items: [{ text: "item 1" }, { text: "item 2" }, { text: "item 3" }, { text: "item 4" },
-        { text: "item 5" }, { text: "item 6" }, { text: "item 7" }, { text: "item 8" }],
+                { text: "item 5" }, { text: "item 6" }, { text: "item 7" }, { text: "item 8" }],
             wordWrap: false,
             showNavButtons: true,
             scrollingEnabled: true,
@@ -601,7 +609,6 @@ QUnit.test("tabs should hide navigation if scrollable is not allowed after resiz
         instance = $element.dxTabs("instance");
 
     instance.option("width", 700);
-    $($element).trigger("dxresize");
 
     assert.equal($element.find("." + TABS_NAV_BUTTON_CLASS).length, 0, "nav buttons was removed");
     assert.equal($element.find("." + TABS_SCROLLABLE_CLASS).length, 0, "scrollable was removed");
@@ -678,4 +685,107 @@ QUnit.test("tabs should be scrolled to the right position on init in RTL mode", 
     var scrollable = $element.find(".dx-scrollable").dxScrollable("instance");
 
     assert.equal(scrollable.scrollLeft(), Math.round(scrollable.scrollWidth() - scrollable.clientWidth()), "items are scrolled");
+});
+
+QUnit.module("Live Update", {
+    beforeEach: function() {
+        this.itemRenderedSpy = sinon.spy();
+        this.itemDeletedSpy = sinon.spy();
+        this.data = [{
+            id: 0,
+            text: "0",
+            content: "0 tab content"
+        },
+        {
+            id: 1,
+            text: "1",
+            content: "1 tab content"
+        }];
+        this.createTabs = (dataSourceOptions, repaintChangesOnly) => {
+            var dataSource = new DataSource($.extend({
+                paginate: false,
+                pushAggregationTimeout: 0,
+                load: () => this.data,
+                key: "id"
+            }, dataSourceOptions));
+
+            return $("#tabs").dxTabs({
+                dataSource: dataSource,
+                repaintChangesOnly: repaintChangesOnly,
+                onContentReady: (e) => {
+                    e.component.option("onItemRendered", this.itemRenderedSpy);
+                    e.component.option("onItemDeleted", this.itemDeletedSpy);
+                }
+            }).dxTabs("instance");
+        };
+    }
+}, function() {
+    QUnit.test("update item", function(assert) {
+        var store = this.createTabs().getDataSource().store();
+
+        var pushData = [{ type: "update", data: {
+            id: 1,
+            text: "1 Updated",
+            content: "1 tab content"
+        }, key: 1 }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData, pushData[0].data, "check updated item");
+    });
+
+    QUnit.test("add item", function(assert) {
+        var store = this.createTabs().getDataSource().store();
+
+        var pushData = [{ type: "insert", data: {
+            id: 2,
+            text: "2 Inserted",
+            content: "2 tab content"
+        } }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData, pushData[0].data, "check added item");
+        assert.ok($(this.itemRenderedSpy.firstCall.args[0].itemElement).parent().hasClass("dx-tabs-wrapper"), "check item container");
+    });
+
+    QUnit.test("remove item", function(assert) {
+        var store = this.createTabs().getDataSource().store();
+
+        var pushData = [{ type: "remove", key: 1 }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 0, "items are not refreshed after remove");
+        assert.equal(this.itemDeletedSpy.callCount, 1, "removed items count");
+        assert.deepEqual(this.itemDeletedSpy.firstCall.args[0].itemData.text, "1", "check removed item");
+    });
+
+    QUnit.test("repaintChangesOnly, update item instance", function(assert) {
+        var dataSource = this.createTabs({}, true).getDataSource();
+
+        this.data[0] = {
+            id: 0,
+            text: "0 Updated",
+            content: "0 tab content"
+        };
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after reload");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData.text, "0 Updated", "check updated item");
+    });
+
+    QUnit.test("repaintChangesOnly, add item", function(assert) {
+        var dataSource = this.createTabs({}, true).getDataSource();
+
+        this.data.push({
+            id: 2,
+            text: "2 Inserted",
+            content: "2 tab content"
+        });
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData.text, "2 Inserted", "check added item");
+        assert.ok($(this.itemRenderedSpy.firstCall.args[0].itemElement).parent().hasClass("dx-tabs-wrapper"), "check item container");
+    });
 });

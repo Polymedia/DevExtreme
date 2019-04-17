@@ -1,5 +1,3 @@
-"use strict";
-
 // there stackedline, fullstackedline, stackedbar, fullstackedbar, stackedarea, fullstackedarea
 var _noop = require("../../core/utils/common").noop,
     _extend = require("../../core/utils/extend").extend,
@@ -89,7 +87,7 @@ exports.chart["stackedarea"] = _extend({}, chartAreaSeries, baseStackedSeries, {
 function getPointsByArgFromPrevSeries(prevSeries, argument) {
     var result;
     while(!result && prevSeries) {
-        result = prevSeries._segmentByArg && prevSeries._segmentByArg[argument];    // T357324
+        result = prevSeries._segmentByArg && prevSeries._segmentByArg[argument]; // T357324
         prevSeries = prevSeries._prevSeries;
     }
     return result;

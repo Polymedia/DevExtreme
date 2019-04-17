@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     errors = require("./ui.errors"),
@@ -13,7 +11,8 @@ var $ = require("../../core/renderer"),
     domAdapter = require("../../core/dom_adapter"),
     devices = require("../../core/devices"),
     DOMComponent = require("../../core/dom_component"),
-    Template = require("./jquery.template"),
+    Template = require("./template"),
+    TemplateBase = require("./ui.template_base"),
     FunctionTemplate = require("./function_template"),
     EmptyTemplate = require("./empty_template"),
     ChildDefaultTemplate = require("./child_default_template"),
@@ -52,7 +51,11 @@ var DX_POLYMORPH_WIDGET_TEMPLATE = new FunctionTemplate(function(options) {
             errors.log("W0001", "dxToolbar - 'widget' item field", deprecatedName, "16.1", "Use: '" + widgetName + "' instead");
         }
 
-        widgetElement[widgetName](widgetOptions);
+        if(options.parent) {
+            options.parent._createComponent(widgetElement, widgetName, widgetOptions);
+        } else {
+            widgetElement[widgetName](widgetOptions);
+        }
 
         return widgetElement;
     }
@@ -66,7 +69,7 @@ var DX_POLYMORPH_WIDGET_TEMPLATE = new FunctionTemplate(function(options) {
  */
 
 /**
-* @name dxItem
+* @const dxItem
 * @type object
 * @section uiWidgetMarkupComponents
 */
@@ -242,10 +245,33 @@ var Widget = DOMComponent.inherit({
         this._extractAnonymousTemplate();
     },
 
-    _extractTemplates: function() {
-        var templates = this.option("integrationOptions.templates"),
-            templateElements = this.$element().contents().filter(TEMPLATE_SELECTOR);
+    _clearInnerOptionCache: function(optionContainer) {
+        this[optionContainer + "Cache"] = {};
+    },
 
+    _cacheInnerOptions: function(optionContainer, optionValue) {
+        var cacheName = optionContainer + "Cache";
+        this[cacheName] = extend(this[cacheName], optionValue);
+    },
+
+    _getInnerOptionsCache: function(optionContainer) {
+        return this[optionContainer + "Cache"];
+    },
+
+    _initInnerOptionCache: function(optionContainer) {
+        this._clearInnerOptionCache(optionContainer);
+        this._cacheInnerOptions(optionContainer, this.option(optionContainer));
+    },
+
+    _bindInnerWidgetOptions: function(innerWidget, optionsContainer) {
+        this._options[optionsContainer] = extend({}, innerWidget.option());
+        innerWidget.on("optionChanged", function(e) {
+            this._options[optionsContainer] = extend({}, e.component.option());
+        }.bind(this));
+    },
+
+    _extractTemplates: function() {
+        var templateElements = this.$element().contents().filter(TEMPLATE_SELECTOR);
         var templatesMap = {};
 
         templateElements.each(function(_, template) {
@@ -267,9 +293,14 @@ var Widget = DOMComponent.inherit({
         each(templatesMap, (function(templateName, value) {
             var deviceTemplate = this._findTemplateByDevice(value);
             if(deviceTemplate) {
-                templates[templateName] = this._createTemplate(deviceTemplate);
+                this._saveTemplate(templateName, deviceTemplate);
             }
         }).bind(this));
+    },
+
+    _saveTemplate: function(name, template) {
+        var templates = this.option("integrationOptions.templates");
+        templates[name] = this._createTemplate(template);
     },
 
     _findTemplateByDevice: function(templates) {
@@ -354,31 +385,50 @@ var Widget = DOMComponent.inherit({
             return this._defaultTemplates[templateSource.name];
         }
 
-        // TODO: templateSource.render is needed for angular2 integration. Try to remove it after supporting TypeScript modules.
-        if(typeUtils.isFunction(templateSource.render) && !typeUtils.isRenderer(templateSource)) {
+        if(templateSource instanceof TemplateBase) {
             return templateSource;
         }
 
-        if(templateSource.nodeType || typeUtils.isRenderer(templateSource)) {
-            templateSource = $(templateSource);
+        // TODO: templateSource.render is needed for angular2 integration. Try to remove it after supporting TypeScript modules.
+        if(typeUtils.isFunction(templateSource.render) && !typeUtils.isRenderer(templateSource)) {
+            return this._addOneRenderedCall(templateSource);
+        }
 
-            return createTemplate(templateSource);
+        if(templateSource.nodeType || typeUtils.isRenderer(templateSource)) {
+            return createTemplate($(templateSource));
         }
 
         if(typeof templateSource === "string") {
-            var userTemplate = this.option("integrationOptions.templates")[templateSource];
-            if(userTemplate) {
-                return userTemplate;
-            }
-
-            var dynamicTemplate = this._defaultTemplates[templateSource];
-            if(dynamicTemplate) {
-                return dynamicTemplate;
-            }
-            return createTemplate(templateSource);
+            return this._renderIntegrationTemplate(templateSource)
+                || this._defaultTemplates[templateSource]
+                || createTemplate(templateSource);
         }
 
         return this._acquireTemplate(templateSource.toString(), createTemplate);
+    },
+
+    _addOneRenderedCall: (template) => {
+        const render = template.render.bind(template);
+        return extend({}, template, {
+            render(options) {
+                const templateResult = render(options);
+                options && options.onRendered && options.onRendered();
+                return templateResult;
+            }
+        });
+    },
+
+    _renderIntegrationTemplate: function(templateSource) {
+        let integrationTemplate = this.option("integrationOptions.templates")[templateSource];
+
+        if(integrationTemplate && !(integrationTemplate instanceof TemplateBase)) {
+            const isAsyncTemplate = this.option("templatesRenderAsynchronously");
+            if(!isAsyncTemplate) {
+                return this._addOneRenderedCall(integrationTemplate);
+            }
+        }
+
+        return integrationTemplate;
     },
 
     _createTemplateIfNeeded: function(templateSource) {
@@ -458,20 +508,24 @@ var Widget = DOMComponent.inherit({
     },
 
     _renderContent: function() {
-        var that = this;
-
-        commonUtils.deferRender(function() {
-            that._renderContentImpl();
+        commonUtils.deferRender(() => {
+            if(this._disposed) {
+                return;
+            }
+            return this._renderContentImpl();
+        }).done(() => {
+            if(this._disposed) {
+                return;
+            }
+            this._fireContentReadyAction();
         });
-
-        that._fireContentReadyAction();
     },
 
     _renderContentImpl: commonUtils.noop,
 
-    _fireContentReadyAction: function() {
+    _fireContentReadyAction: commonUtils.deferRenderer(function() {
         this._contentReadyAction();
-    },
+    }),
 
     _dispose: function() {
         this._cleanTemplates();
@@ -480,9 +534,13 @@ var Widget = DOMComponent.inherit({
         this.callBase();
     },
 
+    _resetActiveState: function() {
+        this._toggleActiveState(this._eventBindingTarget(), false);
+    },
+
     _clean: function() {
         this._cleanFocusState();
-
+        this._resetActiveState();
         this.callBase();
         this.$element().empty();
     },
@@ -631,6 +689,10 @@ var Widget = DOMComponent.inherit({
         return $focusTarget.hasClass(FOCUSED_STATE_CLASS);
     },
 
+    _isFocused: function() {
+        return this._hasFocusClass();
+    },
+
     _attachKeyboardEvents: function() {
         var processor = this.option("_keyboardProcessor");
 
@@ -647,11 +709,12 @@ var Widget = DOMComponent.inherit({
     },
 
     _keyboardHandler: function(options) {
-        var e = options.originalEvent,
-            key = options.key;
+        var e = options.originalEvent;
+        var keyName = options.keyName;
+        var keyCode = options.which;
 
-        var keys = this._supportedKeys(),
-            func = keys[key];
+        var keys = this._supportedKeys(e),
+            func = keys[keyName] || keys[keyCode];
 
         if(func !== undefined) {
             var handler = func.bind(this);
@@ -674,6 +737,10 @@ var Widget = DOMComponent.inherit({
         this._toggleFocusClass(false);
         $element.removeAttr("tabIndex");
 
+        this._disposeKeyboardProcessor();
+    },
+
+    _disposeKeyboardProcessor() {
         if(this._keyboardProcessor) {
             this._keyboardProcessor.dispose();
             delete this._keyboardProcessor;

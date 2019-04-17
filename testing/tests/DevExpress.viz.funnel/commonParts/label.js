@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     common = require("./common.js"),
     labelModule = require("viz/series/points/label"),
@@ -23,13 +21,13 @@ exports.labelEnvironment = $.extend({}, environment, {
         stubAlgorithm.getFigures.returns([[0, 0, 1, 1]]);
 
         var labelBoxes = [
-            {
-                height: 10,
-                width: 100
-            }, {
-                height: 10,
-                width: 45
-            }
+                {
+                    height: 10,
+                    width: 100
+                }, {
+                    height: 10,
+                    width: 45
+                }
             ],
             labelBoxesIndex = 0;
 

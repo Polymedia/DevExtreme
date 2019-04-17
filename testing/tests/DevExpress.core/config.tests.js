@@ -1,5 +1,3 @@
-"use strict";
-
 var config = require("core/config");
 
 require("bundles/modules/core");
@@ -53,4 +51,9 @@ QUnit.test("default DevExpress.config contains 'forceIsoDateParsing' with true v
 
 QUnit.test("default DevExpress.config contains 'useJQuery' with true value", function(assert) {
     assert.ok("useJQuery" in config());
+});
+
+QUnit.test("default DevExpress.config contains 'editorStylingMode' with undefined value", function(assert) {
+    assert.ok("editorStylingMode" in config());
+    assert.strictEqual(config().editorStylingMode, undefined);
 });

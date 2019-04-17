@@ -1,5 +1,3 @@
-"use strict";
-
 var escapeRegExp = require("../../core/utils/common").escapeRegExp;
 
 var FORMAT_TYPES = {
@@ -59,11 +57,16 @@ var PATTERN_REGEXPS = {
 
 var parseNumber = Number;
 
+var caseInsensitiveIndexOf = function(array, value) {
+    return array.map((item) => item.toLowerCase()).indexOf(value.toLowerCase());
+};
+
 var monthPatternParser = function(text, count, dateParts) {
     if(count > 2) {
         return ["format", "standalone"].map(function(type) {
             return Object.keys(FORMAT_TYPES).map(function(count) {
-                return dateParts.getMonthNames(FORMAT_TYPES[count], type).indexOf(text);
+                var monthNames = dateParts.getMonthNames(FORMAT_TYPES[count], type);
+                return caseInsensitiveIndexOf(monthNames, text);
             });
         }).reduce(function(a, b) {
             return a.concat(b);
@@ -91,10 +94,12 @@ var PATTERN_PARSERS = {
         return parseNumber(text) - 1;
     },
     E: function(text, count, dateParts) {
-        return dateParts.getDayNames(FORMAT_TYPES[count < 3 ? 3 : count], "format").indexOf(text);
+        var dayNames = dateParts.getDayNames(FORMAT_TYPES[count < 3 ? 3 : count], "format");
+        return caseInsensitiveIndexOf(dayNames, text);
     },
     a: function(text, count, dateParts) {
-        return dateParts.getPeriodNames(FORMAT_TYPES[count < 3 ? 3 : count], "format").indexOf(text);
+        var periodNames = dateParts.getPeriodNames(FORMAT_TYPES[count < 3 ? 3 : count], "format");
+        return caseInsensitiveIndexOf(periodNames, text);
     },
     d: parseNumber,
     H: parseNumber,
@@ -113,7 +118,6 @@ var PATTERN_PARSERS = {
 };
 
 var ORDERED_PATTERNS = ["y", "M", "d", "h", "m", "s", "S"];
-
 var PATTERN_SETTERS = {
     y: "setFullYear",
     M: "setMonth",
@@ -156,10 +160,17 @@ var createPattern = function(char, count) {
 
 var getRegExpInfo = function(format, dateParts) {
     var regexpText = "",
+        stubText = "",
         isEscaping,
         patterns = [];
 
-    format = escapeRegExp(format);
+    var addPreviousStub = function() {
+        if(stubText) {
+            patterns.push("'" + stubText + "'");
+            regexpText += escapeRegExp(stubText) + ")";
+            stubText = "";
+        }
+    };
 
     for(var i = 0; i < format.length; i++) {
         var char = format[i],
@@ -177,17 +188,29 @@ var getRegExpInfo = function(format, dateParts) {
             var count = getSameCharCount(format, i),
                 pattern = createPattern(char, count);
 
+            addPreviousStub();
             patterns.push(pattern);
+
             regexpText += "(" + regexpPart(count, dateParts) + ")";
             i += count - 1;
         } else {
-            regexpText += char;
+            if(!stubText) {
+                regexpText += "(";
+            }
+            stubText += char;
         }
     }
+
+    addPreviousStub();
+
     return {
         patterns: patterns,
-        regexp: new RegExp("^" + regexpText + "$")
+        regexp: new RegExp("^" + regexpText + "$", "i")
     };
+};
+
+var getPatternSetters = function() {
+    return PATTERN_SETTERS;
 };
 
 var setPatternPart = function(date, pattern, text, dateParts) {
@@ -214,7 +237,11 @@ var setPatternPartFromNow = function(date, pattern, now) {
 
 var getShortPatterns = function(fullPatterns) {
     return fullPatterns.map(function(pattern) {
-        return pattern[0] === "H" ? "h" : pattern[0];
+        if(pattern[0] === "'") {
+            return "";
+        } else {
+            return pattern[0] === "H" ? "h" : pattern[0];
+        }
     });
 };
 
@@ -248,7 +275,9 @@ var getParser = function(format, dateParts) {
                 orderedFormatPatterns = getOrderedFormatPatterns(formatPatterns);
 
             orderedFormatPatterns.forEach(function(pattern, index) {
-                if(index < ORDERED_PATTERNS.length && index > maxPatternIndex) return;
+                if(!pattern || (index < ORDERED_PATTERNS.length && index > maxPatternIndex)) {
+                    return;
+                }
 
                 var patternIndex = formatPatterns.indexOf(pattern);
                 if(patternIndex >= 0) {
@@ -266,3 +295,5 @@ var getParser = function(format, dateParts) {
 };
 
 exports.getParser = getParser;
+exports.getRegExpInfo = getRegExpInfo;
+exports.getPatternSetters = getPatternSetters;

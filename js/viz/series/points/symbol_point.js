@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../../core/utils/extend").extend,
     each = require("../../../core/utils/iterator").each,
     noop = require("../../../core/utils/common").noop,
@@ -174,20 +172,20 @@ module.exports = {
     correctValue: function(correction) {
         var that = this;
         if(that.hasValue()) {
-            that.value = that.initialValue + correction;
+            that.value = that.properValue = that.initialValue + correction;
             that.minValue = correction;
         }
     },
 
     resetCorrection: function() {
-        this.value = this.initialValue;
+        this.value = this.properValue = this.initialValue;
         this.minValue = CANVAS_POSITION_DEFAULT;
     },
 
     resetValue: function() {
         var that = this;
         if(that.hasValue()) {
-            that.value = that.initialValue = 0;
+            that.value = that.properValue = that.initialValue = 0;
             that.minValue = 0;
 
             that._label.setDataField("value", that.value);
@@ -435,6 +433,10 @@ module.exports = {
         return { visibility: "visible" };
     },
 
+    _getErrorBarBaseEdgeLength() {
+        return this.getPointRadius() * 2;
+    },
+
     _drawErrorBar: function(renderer, group) {
         if(!this._options.errorBars) {
             return;
@@ -450,9 +452,16 @@ module.exports = {
             displayMode = _normalizeEnum(errorBarOptions.displayMode),
             isHighDisplayMode = displayMode === "high",
             isLowDisplayMode = displayMode === "low",
-            edgeLength = _floor(parseInt(errorBarOptions.edgeLength) / 2),
             highErrorOnly = (isHighDisplayMode || !_isDefined(low)) && (_isDefined(high) && !isLowDisplayMode),
             lowErrorOnly = (isLowDisplayMode || !_isDefined(high)) && (_isDefined(low) && !isHighDisplayMode);
+
+        let edgeLength = errorBarOptions.edgeLength;
+
+        if(edgeLength <= 1 && edgeLength > 0) {
+            edgeLength = this._getErrorBarBaseEdgeLength() * errorBarOptions.edgeLength;
+        }
+
+        edgeLength = _floor(parseInt(edgeLength) / 2);
 
         highErrorOnly && (low = that._baseErrorBarPos);
         lowErrorOnly && (high = that._baseErrorBarPos);
@@ -506,7 +515,7 @@ module.exports = {
                 that.rightHole /= absTotal - rightHoleTotal;
                 that.minRightHole /= absTotal - rightHoleTotal;
             }
-            that.value = valuePercent;
+            that.value = that.properValue = valuePercent;
             that.minValue = !minValuePercent ? that.minValue : minValuePercent;
         }
     },
@@ -564,7 +573,7 @@ module.exports = {
 
     _updateData: function(data) {
         var that = this;
-        that.value = that.initialValue = that.originalValue = data.value;
+        that.value = that.properValue = that.initialValue = that.originalValue = data.value;
         that.minValue = that.initialMinValue = that.originalMinValue = _isDefined(data.minValue) ? data.minValue : CANVAS_POSITION_DEFAULT;
     },
 
@@ -579,7 +588,7 @@ module.exports = {
     getCrosshairData: function() {
         var that = this,
             r = that._options.rotated,
-            value = that.value,
+            value = that.properValue,
             argument = that.argument;
         return {
             x: that.vx,
@@ -653,15 +662,19 @@ module.exports = {
         var that = this,
             labelFormatObject = that._label.getData();
 
-        return _extend({}, labelFormatObject, {
-            argumentText: tooltip.formatValue(that.initialArgument, "argument"),
-            valueText: tooltip.formatValue(that.initialValue)
-        },
+        return _extend(
+            {},
+            labelFormatObject,
+            {
+                argumentText: tooltip.formatValue(that.initialArgument, "argument"),
+                valueText: tooltip.formatValue(that.initialValue)
+            },
             _isDefined(labelFormatObject.percent) ? { percentText: tooltip.formatValue(labelFormatObject.percent, "percent") } : {},
-            _isDefined(labelFormatObject.total) ? { totalText: tooltip.formatValue(labelFormatObject.total) } : {});
+            _isDefined(labelFormatObject.total) ? { totalText: tooltip.formatValue(labelFormatObject.total) } : {}
+        );
     },
 
-    _getMarkerVisibility: function() {
+    getMarkerVisibility: function() {
         return this._options.visible;
     },
 
@@ -694,6 +707,5 @@ module.exports = {
         } else {
             return this.value;
         }
-
-    },
+    }
 };

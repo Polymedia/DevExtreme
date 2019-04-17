@@ -1,0 +1,77 @@
+.dx-htmleditor {
+    .dx-htmleditor-toolbar-wrapper:first-child {
+        border-bottom: 1px solid @htmleditor-toolbar-border-color;
+    }
+
+    border-color: @htmleditor-border-color;
+
+    &.dx-invalid {
+        border-color: @htmleditor-invalid-faded-border-color;
+        
+        &.dx-state-focused {
+            border-color: @htmleditor-invalid-border-color;
+        }
+    }
+
+}
+
+.dx-htmleditor-content {
+    pre {
+        color: fade(@base-text-color, 80%);
+    }
+
+    blockquote {
+        color: fade(@base-text-color, 80%);
+        border-left-color: @htmleditor-toolbar-border-color;
+
+        .dx-rtl & {
+            border-right-color: @htmleditor-toolbar-border-color;
+        }
+    }
+
+    .dx-variable {
+        & > span {
+            background: @htmleditor-variable-bg;
+        }
+    }
+}
+
+.dx-htmleditor-toolbar {
+    background-color: transparent;
+    
+    .dx-format-active:not(.dx-color-format):not(.dx-background-format) {
+        background-color: @htmleditor-normal-format-active-bg;
+
+        &.dx-button-success {
+            background-color: @htmleditor-success-format-active-bg;
+        }
+
+        &.dx-button-default {
+            background-color: @htmleditor-default-format-active-bg;
+        }
+
+        &.dx-button-danger {
+            background-color: @htmleditor-danger-format-active-bg;
+        }
+    }
+}
+
+.dx-htmleditor-toolbar-format {
+    &.dx-dropdowneditor.dx-editor-filled{
+        background-color: transparent;
+    }
+
+    &.dx-color-format, &.dx-background-format {
+        .dx-button-content {
+            padding-bottom: @GENERIC_BUTTON_ICON_HORIZONTAL_PADDING - 3px;
+        }
+    }
+}
+
+.dx-htmleditor-toolbar-separator {
+    border-left-color: @htmleditor-toolbar-border-color;
+}
+
+.dx-htmleditor-toolbar-menu-separator {
+    border-top-color: @htmleditor-toolbar-border-color;
+}

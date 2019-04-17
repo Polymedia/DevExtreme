@@ -1,6 +1,5 @@
-"use strict";
 (function(root, factory) {
-    /* global define, DevExpress */
+    /* global window, define, DevExpress */
     if(typeof define === 'function' && define.amd) {
         define(function(require, exports, module) {
             module.exports = factory(
@@ -15,7 +14,7 @@
         root.DevExpress.layouts.NavbarLayout = factory(
             DevExpress.framework.html.layoutSets,
             DevExpress.framework.html.DefaultLayoutController
-         );
+        );
         root.DevExpress.framework.html.NavBarController = root.DevExpress.layouts.NavbarLayout.NavBarController;
     }
 }(window, function(layoutSets, DefaultLayoutController) {

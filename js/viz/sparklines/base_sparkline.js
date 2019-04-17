@@ -1,5 +1,3 @@
-"use strict";
-
 var eventsEngine = require("../../events/core/events_engine"),
     domAdapter = require("../../core/dom_adapter"),
     ready = require("../../core/utils/ready_callbacks").add,
@@ -61,21 +59,12 @@ function createAxis(isHorizontal) {
         update: function(range, canvas, options) {
             translator.update(range, canvas, options);
         },
-        getViewport: _noop,
+        visualRange: _noop,
         calculateInterval: _noop
     };
 }
 
 var BaseSparkline = BaseWidget.inherit({
-    _setDeprecatedOptions: function() {
-        this.callBase();
-
-        _extend(this._deprecatedOptions, {
-            "tooltip.verticalAlignment": { since: "15.1", message: "Now tooltips are aligned automatically" },
-            "tooltip.horizontalAlignment": { since: "15.1", message: "Now tooltips are aligned automatically" }
-        });
-    },
-
     _getLayoutItems: _noop,
     _useLinks: false,
 

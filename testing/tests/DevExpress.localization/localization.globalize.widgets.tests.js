@@ -1,5 +1,3 @@
-"use strict";
-
 var likelySubtags = require("../../../node_modules/cldr-core/supplemental/likelySubtags.json!"),
     numberingSystems = require("../../../node_modules/cldr-core/supplemental/numberingSystems.json!"),
     Globalize = require("globalize");
@@ -22,6 +20,7 @@ var $ = require("jquery"),
     dateLocalization = require("localization/date");
 
 require("ui/date_box");
+require("viz/chart");
 
 var TEXTEDITOR_INPUT_SELECTOR = ".dx-texteditor-input",
     DATEVIEW_ITEM_SELECTOR = ".dx-dateview-item",
@@ -30,23 +29,24 @@ var TEXTEDITOR_INPUT_SELECTOR = ".dx-texteditor-input",
     DATEVIEW_DAYS_SELECTOR = DATEVIEW_ROLLER_DAY_SELECTOR + " " + DATEVIEW_ITEM_SELECTOR,
     DATEVIEW_YEARS_SELECTOR = DATEVIEW_ROLLER_YEAR_SELECTOR + " " + DATEVIEW_ITEM_SELECTOR,
     CALENDAR_NAVIGATOR_TEXT_SELECTOR = ".dx-calendar-caption-button",
-    CALENDAR_CELL_SELECTOR = ".dx-calendar-cell";
+    CALENDAR_CELL_SELECTOR = ".dx-calendar-cell",
+    commonEnvironment = {
+        beforeEach: function() {
+            var markup =
+                '<div id="dateBox"></div>\
+                    <div id="dateBoxWithPicker"></div>\
+                    <div id="widthRootStyle" style="width: 300px;"></div>\
+                    <div id="calendar"></div>';
 
-QUnit.module("DateBox", {
-    beforeEach: function() {
-        var markup =
-            '<div id="dateBox"></div>\
-                <div id="dateBoxWithPicker"></div>\
-                <div id="widthRootStyle" style="width: 300px;"></div>\
-                <div id="calendar"></div>';
+            $("#qunit-fixture").html(markup);
+        },
 
-        $("#qunit-fixture").html(markup);
-    },
+        afterEach: function() {
+            $("#qunit-fixture").empty();
+        }
+    };
 
-    afterEach: function() {
-        $("#qunit-fixture").empty();
-    }
-});
+QUnit.module("DateBox", commonEnvironment);
 
 QUnit.test("Date and serializing date in locales different than EN", function(assert) {
     var originalCulture = Globalize.locale().locale;
@@ -215,4 +215,25 @@ QUnit.test("parse string format date", function(assert) {
     } finally {
         Globalize.locale(originalCulture);
     }
+});
+
+QUnit.module("Chart", commonEnvironment);
+
+QUnit.test("Chart", function(assert) {
+    $("#widthRootStyle").dxChart({
+        dataSource: [{
+            arg: "Sun",
+            val: 332837
+        }, {
+            arg: "Europa (Jupiter's Moon)",
+            val: 0.00803
+        }],
+        series: {},
+        valueAxis: {
+            tickInterval: 2,
+            type: "logarithmic"
+        }
+    });
+
+    assert.strictEqual($($(".dxc-val-elements").children()[0]).text(), "0.0001");
 });

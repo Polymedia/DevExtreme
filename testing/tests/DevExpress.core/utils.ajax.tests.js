@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 var ajax = require("core/utils/ajax");
 var compareVersion = require("core/utils/version").compare;
@@ -304,7 +302,7 @@ QUnit.test("Send data with request (jsonp)", function(assert) {
         var params = {},
             urlParts = url.split("?")[1].split("&");
 
-        for(var i in urlParts) {
+        for(var i = 0; i < urlParts.length; i++) {
             var paramParts = urlParts[i].split("=");
             params[paramParts[0]] = paramParts[1];
         }
@@ -391,7 +389,7 @@ QUnit.test("Send data with request (cached resources)", function(assert) {
         }
     ];
 
-    for(var i in testData) {
+    for(var i = 0; i < testData.length; i++) {
         ajax.sendRequest({
             url: testData[i].optionUrl || "/some-url",
             data: { top: 20, skip: 5, filter: "%any value%" },
@@ -418,19 +416,19 @@ QUnit.test("Send data with request (cached resources)", function(assert) {
 
 QUnit.test("Accept headers for different dataTypes", function(assert) {
     var dataTypes = [
-            { type: "", header: "*/*" },
-            { type: "someType", header: "*/*" },
-            { type: undefined, header: "*/*" },
-            { type: null, header: "*/*" },
-            { type: "*", header: "*/*" },
-            { type: "text", header: "text/plain, */*; q=0.01" },
-            { type: "html", header: "text/html, */*; q=0.01" },
-            { type: "json", header: "application/json, text/javascript, */*; q=0.01" },
-            { type: "xml", header: "application/xml, text/xml, */*; q=0.01" },
-            { type: "script", header: "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01" },
-            { type: "jsonp", header: "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01" }];
+        { type: "", header: "*/*" },
+        { type: "someType", header: "*/*" },
+        { type: undefined, header: "*/*" },
+        { type: null, header: "*/*" },
+        { type: "*", header: "*/*" },
+        { type: "text", header: "text/plain, */*; q=0.01" },
+        { type: "html", header: "text/html, */*; q=0.01" },
+        { type: "json", header: "application/json, text/javascript, */*; q=0.01" },
+        { type: "xml", header: "application/xml, text/xml, */*; q=0.01" },
+        { type: "script", header: "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01" },
+        { type: "jsonp", header: "text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01" }];
 
-    for(var i in dataTypes) {
+    for(var i = 0; i < dataTypes.length; i++) {
         ajax.sendRequest({
             url: "/some-url",
             dataType: dataTypes[i].type
@@ -439,7 +437,7 @@ QUnit.test("Accept headers for different dataTypes", function(assert) {
 
     assert.equal(this.requests.length, dataTypes.length);
 
-    for(var index in dataTypes) {
+    for(var index = 0; index < dataTypes.length; index++) {
         assert.equal(this.requests[index].requestHeaders["Accept"], dataTypes[index].header);
     }
 
@@ -489,7 +487,7 @@ QUnit.test("Post process of data with different dataType (same domain)", functio
         status = statusText;
     };
 
-    for(var i in dataTypes) {
+    for(var i = 0; i < dataTypes.length; i++) {
         ajax.sendRequest({
             url: "/json-url",
             dataType: dataTypes[i].type
@@ -536,7 +534,7 @@ QUnit.test("X-Requested-With headers (no cors)", function(assert) {
         { url: location.origin + "/some-url", crossDomain: false }
     ];
 
-    for(var i in testData) {
+    for(var i = 0; i < testData.length; i++) {
         ajax.sendRequest({
             url: testData[i].url
         });
@@ -552,7 +550,7 @@ QUnit.test("X-Requested-With headers (cors)", function(assert) {
         { url: "http://example.com:80x", crossDomain: true }
     ];
 
-    for(var i in testData) {
+    for(var i = 0; i < testData.length; i++) {
         ajax.sendRequest({
             url: testData[i].url
         });
@@ -600,6 +598,24 @@ QUnit.test("cache=false for dataType=json", function(assert) {
     });
 
     assert.ok(/_=\d+/.test(this.requests[0].url));
+});
+
+QUnit.test("cache=false, POST string", function(assert) {
+    var options = {
+        url: "/",
+        dataType: "json",
+        cache: false
+    };
+
+    // customization (e.g. onBeforeSend in DevExtreme.AspNet.Data)
+    options.method = "POST";
+    options.data = "payload";
+
+    ajax.sendRequest(options);
+
+    var xhr = this.requests[0];
+    assert.equal(xhr.url, "/");
+    assert.equal(xhr.requestBody, "payload");
 });
 
 QUnit.test("xhr is available in done", function(assert) {

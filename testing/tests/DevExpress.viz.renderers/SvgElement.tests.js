@@ -1,9 +1,12 @@
-"use strict";
-
 var $ = require("jquery"),
     typeUtils = require("core/utils/type"),
     rendererModule = require("viz/core/renderers/renderer"),
     Color = require("color");
+
+function isFirefoxOnLinux() {
+    const ua = navigator.userAgent;
+    return /firefox/i.test(ua) && /linux/i.test(ua);
+}
 
 function colorEqual(actual, expected, message) {
     var hexActual = new Color(actual).toHex(),
@@ -495,7 +498,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         markupString = svg.markup();
 
         // assert
-        assert.strictEqual(markupString.replace(/\s*/g, ''), '<svg xmlns="http://www.w3.org/2000/svg">Some content</svg>'.replace(/\s*/g, ''));
+        assert.strictEqual(markupString.replace(/\s*/g, ''), '<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg">Some content</svg>'.replace(/\s*/g, ''));
     });
 
     QUnit.test("HTML entities presented as numeric code", function(assert) {
@@ -1560,6 +1563,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         assert.strictEqual(rect.attr("rotateY"), 0);
         assert.strictEqual(rect.attr("scaleX"), 1);
         assert.strictEqual(rect.attr("scaleY"), 1);
+        assert.strictEqual(rect.attr("pointer-events"), "");
         assert.ok(!getAttrSpy.called);
     });
 
@@ -1583,6 +1587,14 @@ function checkDashStyle(assert, elem, result, style, value) {
         assert.strictEqual(this.rect.element.setAttribute.callCount, 1);
         assert.deepEqual(this.rect.element.setAttribute.firstCall.args[0], "style");
         assert.deepEqual(this.rect.element.setAttribute.firstCall.args[1], "font-size:13px;cursor:pointer;");
+    });
+
+    QUnit.test("Compose styles, set zero value", function(assert) {
+        // act
+        this.rect.css({ "font-size": 0, opacity: 0 });
+
+        // assert
+        assert.deepEqual(this.rect.element.setAttribute.lastCall.args, ["style", "font-size:0px;opacity:0;"]);
     });
 
     QUnit.test("Merge existing styles with new ones", function(assert) {
@@ -2437,7 +2449,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "clip-path": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("clip-path").replace(/\"/g, ""), "url(#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("clip-path").replace(/"/g, ""), "url(#DevExpress_34)");
     });
 
     QUnit.test("Set clip-path attribute. pathModified = true", function(assert) {
@@ -2452,7 +2464,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "clip-path": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("clip-path").replace(/\"/g, ""), "url(" + url + "#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("clip-path").replace(/"/g, ""), "url(" + url + "#DevExpress_34)");
     });
 
     QUnit.test("Set clip-path = null", function(assert) {
@@ -2479,7 +2491,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "filter": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("filter").replace(/\"/g, ""), "url(#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("filter").replace(/"/g, ""), "url(#DevExpress_34)");
     });
 
     QUnit.test("Set filter attribute. pathModified = true", function(assert) {
@@ -2494,7 +2506,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "filter": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("filter").replace(/\"/g, ""), "url(" + url + "#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("filter").replace(/"/g, ""), "url(" + url + "#DevExpress_34)");
     });
 
     QUnit.test("Set filter = null", function(assert) {
@@ -2521,7 +2533,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "fill": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("fill").replace(/\"/g, ""), "url(#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("fill").replace(/"/g, ""), "url(#DevExpress_34)");
     });
 
     QUnit.test("Set pattern as fill attribute. pathModified = true", function(assert) {
@@ -2536,7 +2548,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "fill": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("fill").replace(/\"/g, ""), "url(" + url + "#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("fill").replace(/"/g, ""), "url(" + url + "#DevExpress_34)");
     });
 
     QUnit.test("Set pattern as fill attribute = null", function(assert) {
@@ -2567,7 +2579,7 @@ function checkDashStyle(assert, elem, result, style, value) {
         rect.attr({ "filter": "DevExpress_34" });
 
         // assert
-        assert.strictEqual(rect.element.getAttribute("filter").replace(/\"/g, ""), "url(" + url + "#DevExpress_34)");
+        assert.strictEqual(rect.element.getAttribute("filter").replace(/"/g, ""), "url(" + url + "#DevExpress_34)");
     });
 
     if("pushState" in history) {
@@ -2586,9 +2598,9 @@ function checkDashStyle(assert, elem, result, style, value) {
             this.refreshPaths();
 
             // assert
-            assert.strictEqual(rectWithClip.element.getAttribute("clip-path").replace(/\"/g, ""), "url(#DevExpress_12)");
-            assert.strictEqual(rectWithPattern.element.getAttribute("fill").replace(/\"/g, ""), "url(#DevExpress_13)");
-            assert.strictEqual(rectWithFilter.element.getAttribute("filter").replace(/\"/g, ""), "url(#DevExpress_14)");
+            assert.strictEqual(rectWithClip.element.getAttribute("clip-path").replace(/"/g, ""), "url(#DevExpress_12)");
+            assert.strictEqual(rectWithPattern.element.getAttribute("fill").replace(/"/g, ""), "url(#DevExpress_13)");
+            assert.strictEqual(rectWithFilter.element.getAttribute("filter").replace(/"/g, ""), "url(#DevExpress_14)");
         });
 
         QUnit.test("FixPath API. pathModified = true", function(assert) {
@@ -2608,9 +2620,9 @@ function checkDashStyle(assert, elem, result, style, value) {
             this.refreshPaths();
 
             // assert
-            assert.strictEqual(rectWithClip.element.getAttribute("clip-path").replace(/\"/g, ""), "url(" + newUrl + "#DevExpress_12)");
-            assert.strictEqual(rectWithPattern.element.getAttribute("fill").replace(/\"/g, ""), "url(" + newUrl + "#DevExpress_13)");
-            assert.strictEqual(rectWithFilter.element.getAttribute("filter").replace(/\"/g, ""), "url(" + newUrl + "#DevExpress_14)");
+            assert.strictEqual(rectWithClip.element.getAttribute("clip-path").replace(/"/g, ""), "url(" + newUrl + "#DevExpress_12)");
+            assert.strictEqual(rectWithPattern.element.getAttribute("fill").replace(/"/g, ""), "url(" + newUrl + "#DevExpress_13)");
+            assert.strictEqual(rectWithFilter.element.getAttribute("filter").replace(/"/g, ""), "url(" + newUrl + "#DevExpress_14)");
         });
 
         QUnit.test("FixPath API. do not change attribute if its value was funcIRI, but now it is not", function(assert) {
@@ -2652,6 +2664,31 @@ function checkDashStyle(assert, elem, result, style, value) {
 
             // assert
             assert.strictEqual(testElement.getAttribute("fill"), "url(" + oldUrl + "#DevExpress_12)");
+        });
+
+        // T711457
+        QUnit.test("No path refreshing when parent element was cleared", function(assert) {
+            // arrange
+            this.rendererStub.pathModified = true;
+
+            var parent = { element: document.createElement("div") },
+                svg = (new this.Element(this.rendererStub, "svg")).append(parent),
+                rootGroup = (new this.Element(this.rendererStub, "group")).attr({ fill: "DevExpress_12" }).append(svg),
+                rect1 = (new this.Element(this.rendererStub, "rect")).attr({ fill: "DevExpress_13" }).append(rootGroup),
+                href = window.location.href,
+                oldUrl = href.split("#")[0],
+                newUrl = href.split("?")[0] + "?testparam=2";
+
+            window.history.pushState("", document.title, newUrl);
+
+            rootGroup.clear();
+
+            // act
+            this.refreshPaths();
+
+            // assert
+            assert.strictEqual(rootGroup.element.getAttribute("fill"), "url(" + newUrl + "#DevExpress_12)");
+            assert.strictEqual(rect1.element.getAttribute("fill"), "url(" + oldUrl + "#DevExpress_13)");
         });
 
         QUnit.test("No path refreshing when parent element was disposed", function(assert) {
@@ -5400,295 +5437,298 @@ function checkDashStyle(assert, elem, result, style, value) {
         ], { x: 0, y: 0 });
     });
 
-    QUnit.test("Apply ellipsis. Single line", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+    if(!isFirefoxOnLinux()) {
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(110);
+        QUnit.test("Apply ellipsis. Single line", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "There is test t..." }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(110);
 
-    QUnit.test("Apply ellipsis. Single line. Complex line", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "There is test t..." }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(105);
+        QUnit.test("Apply ellipsis. Single line. Complex line", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There " },
-            { text: "is" },
-            { text: " test ..." },
-        ], { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(105);
 
-    QUnit.test("Apply ellipsis. Single line, big max width", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There " },
+                { text: "is" },
+                { text: " test ..." },
+            ], { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(1000);
+        QUnit.test("Apply ellipsis. Single line, big max width", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "There is test text for checking ellipsis with single line" }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, false);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(1000);
 
-    QUnit.test("Apply ellipsis. Single line, zero width", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "There is test text for checking ellipsis with single line" }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, false);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(0);
+        QUnit.test("Apply ellipsis. Single line, zero width", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "..." }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(0);
 
-    QUnit.test("Apply ellipsis. Single line, negative width", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "..." }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(-10);
+        QUnit.test("Apply ellipsis. Single line, negative width", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "..." }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(-10);
 
-    QUnit.test("Apply ellipsis. Single line. Complex line. required length equal startindex of text", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "..." }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 280 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(78);
+        QUnit.test("Apply ellipsis. Single line. Complex line. required length equal startindex of text", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There " },
-            { text: "is" },
-            { text: " ..." },
-        ], { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 280 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(78);
 
-    QUnit.test("Text should not ellipsis if maxWidth = text width", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test" }),
-            hasEllipsis;
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There " },
+                { text: "is" },
+                { text: " ..." },
+            ], { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 40 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(40);
+        QUnit.test("Text should not ellipsis if maxWidth = text width", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "There is test" }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, false);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 40 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(40);
 
-    QUnit.test("There is not text", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "There is test" }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, false);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 0 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(-10);
+        QUnit.test("There is not text", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "" }, { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, false);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 0 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(-10);
 
-    QUnit.test("Apply ellipsis. Required length less than width of the ellipsis", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
-            hasEllipsis;
+            this.checkSimple(assert, text, { text: "" }, { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, false);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 280 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(18);
+        QUnit.test("Apply ellipsis. Required length less than width of the ellipsis", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There <b>is</b> test text for <i>checking</i> ellipsis with single line" }),
+                hasEllipsis;
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "..." }
-        ], { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 280 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(18);
 
-    QUnit.test("Apply ellipsis. Multiline", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with multi\nline and four lines" }),
-            hasEllipsis;
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "..." }
+            ], { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(60);
+        QUnit.test("Apply ellipsis. Multiline", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with multi\nline and four lines" }),
+                hasEllipsis;
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There..." },
-            { x: 0, dy: 12, text: "text f..." },
-            { x: 0, dy: 12, text: "ellipsi..." },
-            { x: 0, dy: 12, text: "line a..." }
-        ], { x: 0, y: 0 });
-        assert.strictEqual(hasEllipsis, true);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(60);
 
-    QUnit.test("Apply ellipsis. Multiline. Complex lines", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines" });
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There..." },
+                { x: 0, dy: 12, text: "text f..." },
+                { x: 0, dy: 12, text: "ellipsi..." },
+                { x: 0, dy: 12, text: "line a..." }
+            ], { x: 0, y: 0 });
+            assert.strictEqual(hasEllipsis, true);
+        });
 
-        this.prepareRenderBeforeEllipsis();
+        QUnit.test("Apply ellipsis. Multiline. Complex lines", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines" });
 
-        text.applyEllipsis(58);
+            this.prepareRenderBeforeEllipsis();
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "It " },
-            { text: "is" },
-            { text: " t..." },
-            { x: 0, dy: 12, text: "text f..." },
-            { x: 0, dy: 12, text: "ellips..." },
-            { x: 0, dy: 12, text: "line " },
-            { text: "a..." }
-        ], { x: 0, y: 0 });
-    });
+            text.applyEllipsis(58);
 
-    QUnit.test("Apply ellipsis. Multiline. Complex lines. With stroked", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines", stroke: "black", "stroke-width": 3 });
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "It " },
+                { text: "is" },
+                { text: " t..." },
+                { x: 0, dy: 12, text: "text f..." },
+                { x: 0, dy: 12, text: "ellips..." },
+                { x: 0, dy: 12, text: "line " },
+                { text: "a..." }
+            ], { x: 0, y: 0 });
+        });
 
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(34);
+        QUnit.test("Apply ellipsis. Multiline. Complex lines. With stroked", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines", stroke: "black", "stroke-width": 3 });
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "It " },
-            { text: "..." },
-            { x: 0, dy: 12, text: "te..." },
-            { x: 0, dy: 12, text: "el..." },
-            { x: 0, dy: 12, text: "li..." }
-        ], { x: 0, y: 0 }, { stroke: "black", "stroke-width": 3, "stroke-opacity": 1 });
-    });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(34);
 
-    // T629325
-    QUnit.test("Apply ellipsis. Multiline. There is single white space in second line", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "Line one<br/>Line two <b>with</b> <i>single</i> white space" });
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "It " },
+                { text: "..." },
+                { x: 0, dy: 12, text: "te..." },
+                { x: 0, dy: 12, text: "el..." },
+                { x: 0, dy: 12, text: "li..." }
+            ], { x: 0, y: 0 }, { stroke: "black", "stroke-width": 3, "stroke-opacity": 1 });
+        });
 
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(130);
+        // T629325
+        QUnit.test("Apply ellipsis. Multiline. There is single white space in second line", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "Line one<br/>Line two <b>with</b> <i>single</i> white space" });
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "Line one" },
-            { x: 0, dy: 12, text: "Line two " },
-            { text: "with" },
-            { text: " " },
-            { text: "si..." }
-        ], { x: 0, y: 0 });
-    });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(130);
 
-    QUnit.test("Apply ellipsis. Multiline. With encode html", function(assert) {
-        this.renderer.encodeHtml = true;
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "Line one" },
+                { x: 0, dy: 12, text: "Line two " },
+                { text: "with" },
+                { text: " " },
+                { text: "si..." }
+            ], { x: 0, y: 0 });
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 400 });
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(70);
+        QUnit.test("Apply ellipsis. Multiline. With encode html", function(assert) {
+            this.renderer.encodeHtml = true;
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There i..." },
-            { x: 0, dy: 12, text: "text for..." },
-            { x: 0, dy: 12, text: "line" }
-        ], { x: 0, y: 0 });
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 400 });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(70);
 
-    QUnit.test("Not apply ellipsis. One symbol", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "7" }),
-            hasEllipsis;
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There i..." },
+                { x: 0, dy: 12, text: "text for..." },
+                { x: 0, dy: 12, text: "line" }
+            ], { x: 0, y: 0 });
+        });
 
-        text.element.getBBox = sinon.stub().returns({ width: 300, height: 20, x: 0, y: 0 });
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(1);
+        QUnit.test("Not apply ellipsis. One symbol", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "7" }),
+                hasEllipsis;
 
-        this.checkSimple(assert, text, { text: "7" }, { x: 0, y: 0 });
-        assert.ok(!hasEllipsis);
-    });
+            text.element.getBBox = sinon.stub().returns({ width: 300, height: 20, x: 0, y: 0 });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(1);
 
-    QUnit.test("Apply ellipsis second time with new width", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis" }),
-            textAfterFirstIteration,
-            textAfterSecondIteration;
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(40);
-        textAfterFirstIteration = text.element.childNodes[0].wholeText;
+            this.checkSimple(assert, text, { text: "7" }, { x: 0, y: 0 });
+            assert.ok(!hasEllipsis);
+        });
 
-        // act
-        text.applyEllipsis(80);
-        textAfterSecondIteration = text.element.childNodes[0].wholeText;
+        QUnit.test("Apply ellipsis second time with new width", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis" }),
+                textAfterFirstIteration,
+                textAfterSecondIteration;
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(40);
+            textAfterFirstIteration = text.element.childNodes[0].wholeText;
 
-        // assert
-        assert.ok(textAfterSecondIteration.length > textAfterFirstIteration.length);
-        assert.equal(textAfterSecondIteration.substr(-3), "...");
-    });
+            // act
+            text.applyEllipsis(80);
+            textAfterSecondIteration = text.element.childNodes[0].wholeText;
 
-    QUnit.test("restore text after ellipsis", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis" });
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(40);
+            // assert
+            assert.ok(textAfterSecondIteration.length > textAfterFirstIteration.length);
+            assert.equal(textAfterSecondIteration.substr(-3), "...");
+        });
 
-        text.restoreText();
-        assert.equal(text.element.childNodes[0].wholeText, 'There is test text for checking ellipsis');
-    });
+        QUnit.test("restore text after ellipsis", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test text for checking ellipsis" });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(40);
 
-    QUnit.test("Apply new text after ellipsis - draw new text, reset ellipsis", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines" });
-        text.element.getBBox = sinon.stub().returns({ width: 300, height: 20, x: 0, y: 0 });
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(40);
+            text.restoreText();
+            assert.equal(text.element.childNodes[0].wholeText, 'There is test text for checking ellipsis');
+        });
 
-        text.attr({ text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
+        QUnit.test("Apply new text after ellipsis - draw new text, reset ellipsis", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "It <b>is</b> test\ntext for <i>checking</i><br/>ellipsis <b>with</b> multi\nline <b>and</b><i> four</i> lines" });
+            text.element.getBBox = sinon.stub().returns({ width: 300, height: 20, x: 0, y: 0 });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(40);
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There is test" },
-            { x: 0, dy: 12, text: "text for checking" },
-            { x: 0, dy: 12, text: "ellipsis with single" },
-            { x: 0, dy: 12, text: "line" }
-        ], { x: 0, y: 0 });
-    });
+            text.attr({ text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
 
-    QUnit.test("Apply stroke after ellipsis - draw old text with stroke, reset ellipsis", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
-        text.element.getBBox = sinon.stub().returns({ width: 400, height: 20, x: 0, y: 0 });
-        this.prepareRenderBeforeEllipsis();
-        text.applyEllipsis(40);
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There is test" },
+                { x: 0, dy: 12, text: "text for checking" },
+                { x: 0, dy: 12, text: "ellipsis with single" },
+                { x: 0, dy: 12, text: "line" }
+            ], { x: 0, y: 0 });
+        });
 
-        text.attr({ stroke: "black", "stroke-width": 3 });
+        QUnit.test("Apply stroke after ellipsis - draw old text with stroke, reset ellipsis", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, text: "There is test\ntext for checking<br/>ellipsis with single\nline" });
+            text.element.getBBox = sinon.stub().returns({ width: 400, height: 20, x: 0, y: 0 });
+            this.prepareRenderBeforeEllipsis();
+            text.applyEllipsis(40);
 
-        this.checkTspans(assert, text, [
-            { x: 0, y: 0, text: "There is test" },
-            { x: 0, dy: 12, text: "text for checking" },
-            { x: 0, dy: 12, text: "ellipsis with single" },
-            { x: 0, dy: 12, text: "line" }
-        ], { x: 0, y: 0 }, { stroke: "black", "stroke-width": 3, "stroke-opacity": 1 });
-    });
+            text.attr({ stroke: "black", "stroke-width": 3 });
 
-    QUnit.test("Apply ellipsis of rotated element", function(assert) {
-        var text = this.createText().append(this.svg).attr({ x: 0, y: 0, rotate: 270, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+            this.checkTspans(assert, text, [
+                { x: 0, y: 0, text: "There is test" },
+                { x: 0, dy: 12, text: "text for checking" },
+                { x: 0, dy: 12, text: "ellipsis with single" },
+                { x: 0, dy: 12, text: "line" }
+            ], { x: 0, y: 0 }, { stroke: "black", "stroke-width": 3, "stroke-opacity": 1 });
+        });
 
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(100);
+        QUnit.test("Apply ellipsis of rotated element", function(assert) {
+            var text = this.createText().append(this.svg).attr({ x: 0, y: 0, rotate: 270, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        assert.strictEqual(hasEllipsis, true);
-        assert.equal(text.element.childNodes[0].wholeText.substr(-3), "...");
-    });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(100);
 
-    QUnit.test("Do not apply ellipsis if element not added", function(assert) {
-        var text = this.createText().attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
-            hasEllipsis;
+            assert.strictEqual(hasEllipsis, true);
+            assert.equal(text.element.childNodes[0].wholeText.substr(-3), "...");
+        });
 
-        this.prepareRenderBeforeEllipsis();
-        hasEllipsis = text.applyEllipsis(100);
+        QUnit.test("Do not apply ellipsis if element not added", function(assert) {
+            var text = this.createText().attr({ x: 0, y: 0, text: "There is test text for checking ellipsis with single line" }),
+                hasEllipsis;
 
-        assert.strictEqual(hasEllipsis, false);
-    });
+            this.prepareRenderBeforeEllipsis();
+            hasEllipsis = text.applyEllipsis(100);
+
+            assert.strictEqual(hasEllipsis, false);
+        });
+    }
 
     QUnit.test("security of renderer", function(assert) {
         var withoutClosingTags = this.createText().attr({ text: "text >with <angle brackets > without closing", x: 20, y: 30 }),

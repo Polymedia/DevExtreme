@@ -55,10 +55,13 @@
         "dxFileUploader-uploaded": "Hochgeladen",
         "dxFileUploader-readyToUpload": "Bereit zum hochladen",
         "dxFileUploader-uploadFailedMessage": "Fehler beim hochladen",
+        "dxFileUploader-invalidFileExtension": "Unzulässiger Dateityp",
+        "dxFileUploader-invalidMaxFileSize": "Datei ist zu groß",
+        "dxFileUploader-invalidMinFileSize": "Datei ist zu klein",
         "dxRangeSlider-ariaFrom": "Von",
         "dxRangeSlider-ariaTill": "Bis",
-        "dxSwitch-onText": "EIN",
-        "dxSwitch-offText": "AUS",
+        "dxSwitch-switchedOnText": "EIN",
+        "dxSwitch-switchedOffText": "AUS",
         "dxForm-optionalMark": "optional",
         "dxForm-requiredMessage": "{0} ist ein Pflichtfeld",
         "dxNumberBox-invalidValueMessage": "Der Wert muss eine Zahl sein",
@@ -234,6 +237,20 @@
         "dxFilterBuilder-filterOperationIsNotBlank": "Ist nicht leer",
         "dxFilterBuilder-filterOperationBetween": "Zwischen",
         "dxFilterBuilder-filterOperationAnyOf": "Ist enthalten in",
-        "dxFilterBuilder-filterOperationNoneOf": "Ist nicht enthalten in"
+        "dxFilterBuilder-filterOperationNoneOf": "Ist nicht enthalten in",
+
+        "dxHtmlEditor-dialogColorCaption": "Schriftfarbe ändern",
+        "dxHtmlEditor-dialogBackgroundCaption": "Hintergrundfarbe ändern",
+        "dxHtmlEditor-dialogLinkCaption": "Link hinzufügen",
+        "dxHtmlEditor-dialogLinkUrlField": "URL",
+        "dxHtmlEditor-dialogLinkTextField": "Text",
+        "dxHtmlEditor-dialogLinkTargetField": "Link in neuem Fenster öffnen",
+        "dxHtmlEditor-dialogImageCaption": "Bild hinzufügen",
+        "dxHtmlEditor-dialogImageUrlField": "URL",
+        "dxHtmlEditor-dialogImageAltField": "Alternativer Text",
+        "dxHtmlEditor-dialogImageWidthField": "Breite (px)",
+        "dxHtmlEditor-dialogImageHeightField": "Bildhöhe (px)",
+        "dxHtmlEditor-heading": "Überschrift",
+        "dxHtmlEditor-normalText": "Normaler Text"
     }
 }

@@ -1,23 +1,21 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    domAdapter = require("../../core/dom_adapter"),
-    eventsEngine = require("../../events/core/events_engine"),
-    dataUtils = require("../../core/element_data"),
-    clickEvent = require("../../events/click"),
-    browser = require("../../core/utils/browser"),
-    commonUtils = require("../../core/utils/common"),
-    styleUtils = require("../../core/utils/style"),
-    getPublicElement = require("../../core/utils/dom").getPublicElement,
-    typeUtils = require("../../core/utils/type"),
-    iteratorUtils = require("../../core/utils/iterator"),
-    extend = require("../../core/utils/extend").extend,
-    getDefaultAlignment = require("../../core/utils/position").getDefaultAlignment,
-    devices = require("../../core/devices"),
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    columnStateMixin = require("./ui.grid_core.column_state_mixin"),
-    noop = commonUtils.noop;
+import $ from "../../core/renderer";
+import domAdapter from "../../core/dom_adapter";
+import { getWindow } from "../../core/utils/window";
+import eventsEngine from "../../events/core/events_engine";
+import dataUtils from "../../core/element_data";
+import clickEvent from "../../events/click";
+import browser from "../../core/utils/browser";
+import { noop } from "../../core/utils/common";
+import styleUtils from "../../core/utils/style";
+import { getPublicElement } from "../../core/utils/dom";
+import typeUtils from "../../core/utils/type";
+import iteratorUtils from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import { getDefaultAlignment } from "../../core/utils/position";
+import devices from "../../core/devices";
+import modules from "./ui.grid_core.modules";
+import { checkChanges } from "./ui.grid_core.utils";
+import columnStateMixin from "./ui.grid_core.column_state_mixin";
 
 var SCROLL_CONTAINER_CLASS = "scroll-container",
     GROUP_SPACE_CLASS = "group-space",
@@ -29,6 +27,7 @@ var SCROLL_CONTAINER_CLASS = "scroll-container",
     GROUP_ROW_CLASS = "dx-group-row",
     DETAIL_ROW_CLASS = "dx-master-detail-row",
     FILTER_ROW_CLASS = "filter-row",
+    CELL_UPDATED_ANIMATION_CLASS = "cell-updated-animation",
 
     HIDDEN_COLUMNS_WIDTH = "0.0001px",
 
@@ -86,7 +85,31 @@ var subscribeToRowClick = function(that, $table) {
 
 var getWidthStyle = function(width) {
     if(width === "auto") return "";
-    return typeof width === "number" ? width + "px" : width;
+    return typeUtils.isNumeric(width) ? width + "px" : width;
+};
+
+var setCellWidth = function(cell, column, width) {
+    cell.style.width = cell.style.maxWidth = column.width === "auto" ? "" : width;
+};
+
+var copyAttributes = function(element, newElement) {
+    if(!element || !newElement) return;
+
+    var oldAttributes = element.attributes,
+        newAttributes = newElement.attributes,
+        name,
+        i;
+
+    for(i = 0; i < oldAttributes.length; i++) {
+        name = oldAttributes[i].nodeName;
+        if(!newElement.hasAttribute(name)) {
+            element.removeAttribute(name);
+        }
+    }
+
+    for(i = 0; i < newAttributes.length; i++) {
+        element.setAttribute(newAttributes[i].nodeName, newAttributes[i].nodeValue);
+    }
 };
 
 exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
@@ -95,9 +118,8 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
             scrollingOptions = that.option("scrolling"),
             useNativeScrolling = that.option("scrolling.useNative");
 
-        var options = extend({}, scrollingOptions, {
+        var options = extend({ pushBackValue: 0 }, scrollingOptions, {
             direction: "both",
-            updateManually: true,
             bounceEnabled: false,
             useKeyboard: false
         });
@@ -131,6 +153,10 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
 
         var $cell = $(cell);
 
+        if(options.rowType === "data") {
+            column.headerId && this.setAria("describedby", column.headerId, $cell);
+        }
+
         if(!typeUtils.isDefined(column.groupIndex) && column.cssClass) {
             $cell.addClass(column.cssClass);
         }
@@ -141,12 +167,12 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
 
         if(column.colspan > 1) {
             $cell.attr("colSpan", column.colspan);
-        } else if(!this.option("legacyRendering") && this.option("columnAutoWidth")) {
+        } else if(!column.isBand && column.visibleWidth !== "auto" && !this.option("legacyRendering") && this.option("columnAutoWidth")) {
             if(column.width || column.minWidth) {
                 cell.style.minWidth = getWidthStyle(column.minWidth || column.width);
             }
             if(column.width) {
-                cell.style.width = cell.style.maxWidth = getWidthStyle(column.width);
+                setCellWidth(cell, column, getWidthStyle(column.width));
             }
         }
 
@@ -176,7 +202,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
             that.setAria("hidden", true, $table);
         }
 
-        $table.append($("<tbody>"));
+        this.setAria("role", "presentation", $("<tbody>").appendTo($table));
 
         if(isAppend) {
             return $table;
@@ -274,9 +300,9 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
         return $table;
     },
 
-    _isNativeClick: commonUtils.noop,
+    _isNativeClick: noop,
 
-    _rowClick: commonUtils.noop,
+    _rowClick: noop,
 
     _createColGroup: function(columns) {
         var i, j,
@@ -307,16 +333,46 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
     },
 
     renderDelayedTemplates: function() {
+        var delayedTemplates = this._delayedTemplates,
+            syncTemplates = delayedTemplates.filter(template => !template.async),
+            asyncTemplates = delayedTemplates.filter(template => template.async);
+
+        this._delayedTemplates = [];
+
+        this._renderDelayedTemplatesCore(syncTemplates);
+        this._renderDelayedTemplatesCoreAsync(asyncTemplates);
+    },
+
+    _renderDelayedTemplatesCoreAsync: function(templates) {
+        var that = this;
+        if(templates.length) {
+            getWindow().setTimeout(function() {
+                that._renderDelayedTemplatesCore(templates, true);
+            });
+        }
+    },
+
+    _renderDelayedTemplatesCore: function(templates, isAsync) {
         var templateParameters,
-            delayedTemplates = this._delayedTemplates;
+            date = new Date();
 
-        while(delayedTemplates.length) {
-            templateParameters = delayedTemplates.shift();
+        while(templates.length) {
+            templateParameters = templates.shift();
 
-            templateParameters.template.render(templateParameters.options);
+            var options = templateParameters.options,
+                model = options.model,
+                doc = domAdapter.getDocument();
 
-            if(templateParameters.options.model && templateParameters.options.model.column) {
-                this._updateCell(templateParameters.options.container, templateParameters.options.model);
+            if(!isAsync || $(options.container).closest(doc).length) {
+                templateParameters.template.render(options);
+
+                if(model && model.column) {
+                    this._updateCell(options.container, model);
+                }
+            }
+            if(isAsync && (new Date() - date) > 30) {
+                this._renderDelayedTemplatesCoreAsync(templates);
+                break;
             }
         }
     },
@@ -361,20 +417,47 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
 
     renderTemplate: function(container, template, options, allowRenderToDetachedContainer) {
         var that = this,
-            renderingTemplate = that._processTemplate(template, options);
+            renderingTemplate = that._processTemplate(template, options),
+            column = options.column,
+            isDataRow = options.rowType === "data",
+            async;
 
         if(renderingTemplate) {
             options.component = that.component;
 
-            if(renderingTemplate.allowRenderToDetachedContainer || allowRenderToDetachedContainer) {
+            async = column && (
+                (column.renderAsync && isDataRow) ||
+                that.option("renderAsync") &&
+                    (column.renderAsync !== false && (column.command || column.showEditorAlways) && isDataRow || options.rowType === "filter")
+            );
+
+            if((renderingTemplate.allowRenderToDetachedContainer || allowRenderToDetachedContainer) && !async) {
                 renderingTemplate.render({ container: container, model: options });
                 return true;
             } else {
-                that._delayedTemplates.push({ template: renderingTemplate, options: { container: container, model: options } });
+                that._delayedTemplates.push({ template: renderingTemplate, options: { container: container, model: options }, async: async });
             }
         }
 
         return false;
+    },
+
+    _getBodies: function(tableElement) {
+        return $(tableElement).children("tbody").not(".dx-header").not(".dx-footer");
+    },
+
+    _wrapRowIfNeed: function($table, $row) {
+        var $tBodies = this.option("rowTemplate") && this._getBodies(this._tableElement || $table);
+
+        if($tBodies && $tBodies.filter("." + ROW_CLASS).length) {
+            var $tbody = $("<tbody>").addClass($row.attr("class"));
+
+            this.setAria("role", "presentation", $tbody);
+
+            return $tbody.append($row);
+        }
+
+        return $row;
     },
 
     _appendRow: function($table, $row, appendTemplate) {
@@ -408,7 +491,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
 
         options.columns = that._columnsController.getVisibleColumns();
         var changeType = options.change && options.change.changeType;
-        $table = that._createTable(options.columns, changeType === "append" || changeType === "prepend");
+        $table = that._createTable(options.columns, changeType === "append" || changeType === "prepend" || changeType === "update");
 
         that._renderRows($table, options);
 
@@ -418,24 +501,33 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
     _renderRows: function($table, options) {
         var that = this,
             i,
-            rows = that._getRows(options.change);
+            rows = that._getRows(options.change),
+            columnIndices = options.change && options.change.columnIndices || [];
 
         for(i = 0; i < rows.length; i++) {
-            that._renderRow($table, extend({ row: rows[i] }, options));
+            that._renderRow($table, extend({ row: rows[i], columnIndices: columnIndices[i] }, options));
         }
     },
 
     _renderRow: function($table, options) {
         var that = this,
-            $row;
+            $row,
+            $wrappedRow;
 
-        options.row.cells = [];
+        if(!options.columnIndices) {
+            options.row.cells = [];
+        }
 
         $row = that._createRow(options.row);
+        $wrappedRow = that._wrapRowIfNeed($table, $row);
 
         that._renderCells($row, options);
-        that._appendRow($table, $row);
-        that._rowPrepared($row, extend({ columns: options.columns }, options.row));
+        that._appendRow($table, $wrappedRow);
+        var rowOptions = extend({ columns: options.columns }, options.row);
+
+        that._addWatchMethod(rowOptions, options.row);
+
+        that._rowPrepared($wrappedRow, rowOptions);
     },
 
     _renderCells: function($row, options) {
@@ -446,7 +538,9 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
             columns = options.columns;
 
         for(i = 0; i < columns.length; i++) {
-            that._renderCell($row, extend({ column: columns[i], columnIndex: columnIndex, value: row.values && row.values[columnIndex] }, options));
+            if(!options.columnIndices || options.columnIndices.indexOf(i) >= 0) {
+                that._renderCell($row, extend({ column: columns[i], columnIndex: columnIndex, value: row.values && row.values[columnIndex], oldValue: row.oldValues && row.oldValues[columnIndex] }, options));
+            }
 
             if(columns[i].colspan > 1) {
                 columnIndex += columns[i].colspan;
@@ -454,6 +548,26 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 columnIndex++;
             }
         }
+    },
+
+    _updateCells: function($rowElement, $newRowElement, columnIndices) {
+        var $cells = $rowElement.children(),
+            $newCells = $newRowElement.children(),
+            highlightChanges = this.option("highlightChanges"),
+            cellUpdatedClass = this.addWidgetPrefix(CELL_UPDATED_ANIMATION_CLASS);
+
+        columnIndices.forEach(function(columnIndex, index) {
+            var $cell = $cells.eq(columnIndex),
+                $newCell = $newCells.eq(index);
+
+            $cell.replaceWith($newCell);
+
+            if(highlightChanges && !$newCell.hasClass("dx-command-expand")) {
+                $newCell.addClass(cellUpdatedClass);
+            }
+        });
+
+        copyAttributes($rowElement.get(0), $newRowElement.get(0));
     },
 
     _setCellAriaAttributes: function($cell, cellOptions) {
@@ -469,7 +583,13 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
             cellOptions = that._getCellOptions(options),
             $cell;
 
-        options.row.cells.push(cellOptions);
+        if(options.columnIndices) {
+            if(options.row.cells) {
+                options.row.cells[cellOptions.columnIndex] = cellOptions;
+            }
+        } else {
+            options.row.cells.push(cellOptions);
+        }
 
         $cell = that._createCell(cellOptions);
 
@@ -497,11 +617,68 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
     },
 
     _getCellOptions: function(options) {
-        return {
+        var cellOptions = {
             column: options.column,
             columnIndex: options.columnIndex,
             rowType: options.row.rowType
         };
+
+        this._addWatchMethod(cellOptions);
+
+        return cellOptions;
+    },
+
+    _addWatchMethod: function(options, source) {
+        if(!this.option("repaintChangesOnly")) return;
+
+        var watchers = [];
+
+        source = source || options;
+
+        source.watch = source.watch || function(getter, updateFunc) {
+            var oldValue = getter(source.data);
+
+            var watcher = function() {
+                var newValue = getter(source.data);
+
+                if(JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+                    updateFunc(newValue, oldValue);
+                    oldValue = newValue;
+                }
+            };
+
+            watchers.push(watcher);
+
+            var stopWatch = function() {
+                var index = watchers.indexOf(watcher);
+                if(index >= 0) {
+                    watchers.splice(index, 1);
+                }
+            };
+
+            return stopWatch;
+        };
+
+        source.update = source.update || function(row) {
+            this.data = options.data = row.data;
+            this.rowIndex = options.rowIndex = row.rowIndex;
+            this.dataIndex = options.dataIndex = row.dataIndex;
+            this.isExpanded = options.isExpanded = row.isExpanded;
+
+            if(options.row) {
+                options.row = row;
+            }
+
+            watchers.forEach(function(watcher) {
+                watcher();
+            });
+        };
+
+        if(source !== options) {
+            options.watch = source.watch.bind(source);
+        }
+
+        return options;
     },
 
     _cellPrepared: function(cell, options) {
@@ -519,9 +696,12 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
     _columnOptionChanged: function(e) {
         var optionNames = e.optionNames;
 
-        if(gridCoreUtils.checkChanges(optionNames, ["width", "visibleWidth"])) {
+        if(checkChanges(optionNames, ["width", "visibleWidth"])) {
             var visibleColumns = this._columnsController.getVisibleColumns();
-            var widths = iteratorUtils.map(visibleColumns, function(column) { return column.visibleWidth || column.width || "auto"; });
+            var widths = iteratorUtils.map(visibleColumns, function(column) {
+                var width = column.visibleWidth || column.width;
+                return typeUtils.isDefined(width) ? width : "auto";
+            });
 
             this.setColumnWidths(widths);
             return;
@@ -578,7 +758,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
         that._dataController && that._dataController.changed.add(that._handleDataChanged.bind(that));
     },
 
-    _afterRowPrepared: commonUtils.noop,
+    _afterRowPrepared: noop,
 
     _handleDataChanged: function() {
     },
@@ -629,7 +809,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
         this._wrapTableInScrollContainer($newTableElement);
     },
 
-    _findContentElement: commonUtils.noop,
+    _findContentElement: noop,
 
     _getWidths: function($cellElements) {
         var result = [],
@@ -657,6 +837,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
     getColumnWidths: function($tableElement) {
         var that = this,
             result = [],
+            $rows,
             $cells;
 
         (this.option("forceApplyBindings") || noop)();
@@ -664,12 +845,13 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
         $tableElement = $tableElement || that._getTableElement();
 
         if($tableElement) {
-            $cells = $tableElement.children("tbody").children();
+            $rows = $tableElement.children("tbody").children();
 
-            for(var i = 0; i < $cells.length; i++) {
-                var $cell = $cells.eq(i);
-                if(!$cell.is("." + GROUP_ROW_CLASS) && !$cell.is("." + DETAIL_ROW_CLASS)) {
-                    $cells = $cell.children("td");
+            for(var i = 0; i < $rows.length; i++) {
+                var $row = $rows.eq(i);
+                var isRowVisible = $row.get(0).style.display !== "none" && !$row.hasClass("dx-state-invisible");
+                if(!$row.is("." + GROUP_ROW_CLASS) && !$row.is("." + DETAIL_ROW_CLASS) && isRowVisible) {
+                    $cells = $row.children("td");
                     break;
                 }
             }
@@ -678,6 +860,10 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
         }
 
         return result;
+    },
+
+    getVisibleColumnIndex: function(columnIndex, rowIndex) {
+        return columnIndex;
     },
 
     setColumnWidths: function(widths, $tableElement, columns, fixed) {
@@ -696,6 +882,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
             $cols = $tableElement.children("colgroup").children("col");
             styleUtils.setWidth($cols, "auto");
             columns = columns || this.getColumns(null, $tableElement);
+
             for(i = 0; i < columns.length; i++) {
                 if(!legacyRendering && columnAutoWidth && !fixed) {
                     width = columns[i].width;
@@ -707,14 +894,16 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                         minWidth = getWidthStyle(columns[i].minWidth || width);
                         var $rows = $rows || $tableElement.children().children(".dx-row").not("." + GROUP_ROW_CLASS).not("." + DETAIL_ROW_CLASS);
                         for(var rowIndex = 0; rowIndex < $rows.length; rowIndex++) {
-                            var cell = $rows[rowIndex].cells[i];
+                            var visibleIndex = this.getVisibleColumnIndex(i, rowIndex);
+                            var cell = $rows[rowIndex].cells[visibleIndex];
                             if(cell) {
-                                cell.style.width = cell.style.maxWidth = width;
+                                setCellWidth(cell, columns[i], width);
                                 cell.style.minWidth = minWidth;
                             }
                         }
                     }
                 }
+
                 if(columns[i].colspan) {
                     columnIndex += columns[i].colspan;
                     continue;
@@ -726,7 +915,7 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 if(typeof width === "number") {
                     width = width.toFixed(3) + "px";
                 }
-                styleUtils.setWidth($cols.eq(columnIndex), width || "auto");
+                styleUtils.setWidth($cols.eq(columnIndex), typeUtils.isDefined(width) ? width : "auto");
 
                 columnIndex++;
             }
@@ -852,7 +1041,14 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
 
     _getRowElements: function(tableElement) {
         tableElement = tableElement || this._getTableElement();
-        return tableElement && tableElement.children("tbody").children("." + ROW_CLASS) || $();
+
+        if(tableElement) {
+            var tBodies = this.option("rowTemplate") && tableElement.find("> tbody." + ROW_CLASS);
+
+            return tBodies && tBodies.length ? tBodies : tableElement.find("> tbody > " + "." + ROW_CLASS + ", > ." + ROW_CLASS);
+        }
+
+        return $();
     },
 
     getRowIndex: function($row) {

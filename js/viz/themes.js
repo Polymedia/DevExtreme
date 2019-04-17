@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../core/utils/extend").extend,
     each = require("../core/utils/iterator").each,
     vizUtils = require("./core/utils"),
@@ -45,12 +43,12 @@ function getThemeInfo(themeName, splitter) {
 }
 
 function registerThemeName(themeName, targetThemeName) {
-    var themeInfo = getThemeInfo(themeName, '.') || /* DEPRECATED_15_1 */getThemeInfo(themeName, '-') || { name: themeName },
+    var themeInfo = getThemeInfo(themeName, '.') || { name: themeName },
         name = themeInfo.name,
         scheme = themeInfo.scheme;
     if(scheme) {
         themesMapping[name] = themesMapping[name] || targetThemeName;
-        themesMapping[name + '.' + scheme] = /* DEPRECATED_15_1 */themesMapping[name + '-' + scheme] = targetThemeName;
+        themesMapping[name + '.' + scheme] = targetThemeName;
     } else {
         themesMapping[name] = targetThemeName;
     }
@@ -103,6 +101,7 @@ function patchTheme(theme) {
         gauge: { scale: { tick: {}, minorTick: {}, label: { font: {} } } },
         barGauge: {},
         funnel: {},
+        sankey: {},
         map: { background: {} },
         treeMap: { tile: { selectionStyle: { border: {} } }, group: { border: {}, selectionStyle: { border: {} }, label: { font: {} } } },
         rangeSelector: { scale: { tick: {}, minorTick: {}, label: { font: {} } }, chart: {} },
@@ -118,14 +117,14 @@ function patchTheme(theme) {
     mergeScalar(theme.legend.font, "color", null, theme.secondaryTitleColor);
     mergeScalar(theme.legend.border, "color", null, theme.axisColor);
     patchAxes(theme);
-    _each(["chart", "pie", "polar", "gauge", "barGauge", "map", "treeMap", "funnel", "rangeSelector", "sparkline", "bullet"], function(_, section) {
+    _each(["chart", "pie", "polar", "gauge", "barGauge", "map", "treeMap", "funnel", "rangeSelector", "sparkline", "bullet", "sankey"], function(_, section) {
         mergeScalar(theme[section], "redrawOnResize", theme);
         mergeScalar(theme[section], "containerBackgroundColor", null, theme.backgroundColor);
         mergeObject(theme[section], "tooltip", theme);
-    });
-    _each(["chart", "pie", "polar", "gauge", "barGauge", "map", "treeMap", "funnel", "rangeSelector"], function(_, section) {
-        mergeObject(theme[section], "loadingIndicator", theme);
         mergeObject(theme[section], "export", theme);
+    });
+    _each(["chart", "pie", "polar", "gauge", "barGauge", "map", "treeMap", "funnel", "rangeSelector", "sankey"], function(_, section) {
+        mergeObject(theme[section], "loadingIndicator", theme);
         mergeObject(theme[section], "legend", theme);
         mergeObject(theme[section], "title", theme);
     });

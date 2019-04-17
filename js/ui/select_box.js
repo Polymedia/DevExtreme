@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     commonUtils = require("../core/utils/common"),
@@ -72,10 +70,10 @@ var SelectBox = DropDownList.inherit({
                     this._clearFilter();
                 }
 
-                parent.tab.apply(this, arguments);
+                parent.tab && parent.tab.apply(this, arguments);
             },
             upArrow: function() {
-                if(parent.upArrow.apply(this, arguments)) {
+                if(parent.upArrow && parent.upArrow.apply(this, arguments)) {
                     if(!this.option("opened")) {
                         this._setNextValue(-1);
                     }
@@ -83,7 +81,7 @@ var SelectBox = DropDownList.inherit({
                 }
             },
             downArrow: function() {
-                if(parent.downArrow.apply(this, arguments)) {
+                if(parent.downArrow && parent.downArrow.apply(this, arguments)) {
                     if(!this.option("opened")) {
                         this._setNextValue(1);
                     }
@@ -92,29 +90,30 @@ var SelectBox = DropDownList.inherit({
             },
             leftArrow: function() {
                 searchIfNeeded();
-                parent.leftArrow.apply(this, arguments);
+                parent.leftArrow && parent.leftArrow.apply(this, arguments);
             },
             rightArrow: function() {
                 searchIfNeeded();
-                parent.rightArrow.apply(this, arguments);
+                parent.rightArrow && parent.rightArrow.apply(this, arguments);
             },
             home: function() {
                 searchIfNeeded();
-                parent.home.apply(this, arguments);
+                parent.home && parent.home.apply(this, arguments);
             },
             end: function() {
                 searchIfNeeded();
-                parent.end.apply(this, arguments);
+                parent.end && parent.end.apply(this, arguments);
             },
             escape: function() {
-                parent.escape.apply(this, arguments);
-                if(!this._isEditable() && this._list) {
-                    this._focusListElement(null);
-                    this._updateField(this.option("selectedItem"));
-                }
+                parent.escape && parent.escape.apply(this, arguments);
+                this._cancelEditing();
             },
             enter: function(e) {
-                if(this._input().val() === "" && this.option("value") && this.option("allowClearing")) {
+                var isOpened = this.option("opened");
+                var inputText = this._input().val().trim();
+                var isCustomText = inputText && this._list && !this._list.option("focusedElement");
+
+                if(!inputText && this.option("value") && this.option("allowClearing")) {
                     this.option({
                         selectedItem: null,
                         value: null
@@ -124,13 +123,31 @@ var SelectBox = DropDownList.inherit({
                 } else {
                     if(this.option("acceptCustomValue")) {
                         e.preventDefault();
-                        return this.option("opened");
+
+                        if(isCustomText) {
+                            this._valueChangeEventHandler();
+                            if(isOpened) this._toggleOpenState();
+                        }
+
+                        return isOpened;
                     }
 
-                    if(parent.enter.apply(this, arguments)) {
-                        return this.option("opened");
+                    if(parent.enter && parent.enter.apply(this, arguments)) {
+                        return isOpened;
                     }
                 }
+            },
+            space: function(e) {
+                var isOpened = this.option("opened"),
+                    isSearchEnabled = this.option("searchEnabled"),
+                    acceptCustomValue = this.option("acceptCustomValue");
+                if(!isOpened || isSearchEnabled || acceptCustomValue) {
+                    return;
+                }
+
+                e.preventDefault();
+                this._valueChangeEventHandler(e);
+                return true;
             },
             backspace: clearSelectBox,
             del: clearSelectBox
@@ -210,7 +227,18 @@ var SelectBox = DropDownList.inherit({
             allowClearing: true,
 
             tooltipEnabled: false,
+
+            /**
+             * @name dxSelectBoxOptions.openOnFieldClick
+             * @inheritdoc
+             * @default true
+             */
             openOnFieldClick: true,
+
+            /**
+             * @name dxSelectBoxOptions.showDropDownButton
+             * @inheritdoc
+             */
             showDropDownButton: true,
 
             displayCustomValue: false,
@@ -221,10 +249,12 @@ var SelectBox = DropDownList.inherit({
     },
 
     _defaultOptionsRules: function() {
+        var themeName = themes.current();
+
         return this.callBase().concat([
             {
                 device: function() {
-                    return /win8/.test(themes.current());
+                    return themes.isWin8(themeName);
                 },
                 options: {
                     _isAdaptablePopupPosition: true,
@@ -236,7 +266,7 @@ var SelectBox = DropDownList.inherit({
             },
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5(themeName);
                 },
                 options: {
                     _isAdaptablePopupPosition: true,
@@ -305,6 +335,13 @@ var SelectBox = DropDownList.inherit({
         return this.callBase() + " " + SELECTBOX_POPUP_WRAPPER_CLASS;
     },
 
+    _cancelEditing: function() {
+        if(!this.option("searchEnabled") && this._list) {
+            this._focusListElement(null);
+            this._updateField(this.option("selectedItem"));
+        }
+    },
+
     _renderOpenedState: function() {
         this.callBase();
 
@@ -354,7 +391,7 @@ var SelectBox = DropDownList.inherit({
     },
 
     _scrollToSelectedItem: function() {
-        this._list.scrollToItem(this._list.option("selectedItem"));
+        this._list && this._list.scrollToItem(this._list.option("selectedItem"));
     },
 
     _listContentReadyHandler: function() {
@@ -393,12 +430,15 @@ var SelectBox = DropDownList.inherit({
 
     _renderInputValueAsync: function() {
         this._renderTooltip();
-        this._renderInputValueImpl();
-        this._refreshSelected();
+        this._renderInputValueImpl().always(function() {
+            this._refreshSelected();
+        }.bind(this));
     },
 
     _renderInputValueImpl: function() {
         this._renderInputAddons();
+
+        return new Deferred().resolve();
     },
 
     _fitIntoRange: function(value, start, end) {
@@ -427,9 +467,7 @@ var SelectBox = DropDownList.inherit({
     },
 
     _items: function() {
-        var items = this._list
-            ? this.option("items")
-            : this._dataSource.items();
+        var items = this._getPlainItems(!this._list && this._dataSource.items());
 
         var availableItems = new dataQuery(items).filter("disabled", "<>", true).toArray();
 
@@ -533,8 +571,9 @@ var SelectBox = DropDownList.inherit({
 
         if(this._wasSearch() && isVisible) {
             this._wasSearch(false);
+            var showDataImmediately = this.option("showDataBeforeSearch") || this.option("minSearchLength") === 0;
 
-            if(this.option("showDataBeforeSearch") || this.option("minSearchLength") === 0) {
+            if(showDataImmediately && this._dataSource) {
                 if(this._searchTimer) return;
 
                 var searchValue = this._getActualSearchValue();
@@ -543,6 +582,10 @@ var SelectBox = DropDownList.inherit({
             } else {
                 this._setListOption("items", []);
             }
+        }
+
+        if(isVisible) {
+            this._scrollToSelectedItem();
         }
 
         this.callBase(isVisible);
@@ -559,9 +602,28 @@ var SelectBox = DropDownList.inherit({
         this._setPopupOption("width");
     },
 
+    _isValueEqualInputText: function() {
+        var initialSelectedItem = this.option("selectedItem");
+        var value = this._displayGetter(initialSelectedItem);
+        var displayValue = value ? String(value) : '';
+        var inputText = this._searchValue();
+
+        return displayValue === inputText;
+    },
+
+    _popupHidingHandler: function() {
+        if(this._isValueEqualInputText()) {
+            this._cancelEditing();
+        }
+        this.callBase();
+    },
+
     _restoreInputText: function() {
         this._loadItemDeferred && this._loadItemDeferred.always((function() {
+            var initialSelectedItem = this.option("selectedItem");
+
             if(this.option("acceptCustomValue")) {
+                this._updateField(initialSelectedItem);
                 return;
             }
 
@@ -572,13 +634,12 @@ var SelectBox = DropDownList.inherit({
                 }
             }
 
-            var oldSelectedItem = this.option("selectedItem");
-            if(this._displayGetter(oldSelectedItem) === this._searchValue()) {
+            if(this._isValueEqualInputText()) {
                 return;
             }
 
             this._renderInputValue().always((function(selectedItem) {
-                var newSelectedItem = commonUtils.ensureDefined(selectedItem, oldSelectedItem);
+                var newSelectedItem = commonUtils.ensureDefined(selectedItem, initialSelectedItem);
                 this._setSelectedItem(newSelectedItem);
                 this._updateField(newSelectedItem);
                 this._clearFilter();
@@ -594,6 +655,10 @@ var SelectBox = DropDownList.inherit({
 
     _clearTextValue: function() {
         this.option("value", null);
+    },
+
+    _shouldOpenPopup: function() {
+        return this._needPassDataSourceToList();
     },
 
     _renderValueChangeEvent: function() {
@@ -630,10 +695,11 @@ var SelectBox = DropDownList.inherit({
 
     _listItemClickHandler: function(e) {
         var previousValue = this._getCurrentValue();
+        this._focusListElement($(e.itemElement));
 
         this._saveValueChangeEvent(e.event);
 
-        if(this._wasSearch()) {
+        if(this._shouldClearFilter()) {
             this._clearFilter();
         }
 
@@ -648,12 +714,12 @@ var SelectBox = DropDownList.inherit({
         }
     },
 
-    _completeSelection: function(value) {
-        this._setValue(value);
+    _shouldClearFilter: function() {
+        return this._wasSearch();
     },
 
-    _clearValueHandler: function() {
-        this.reset();
+    _completeSelection: function(value) {
+        this._setValue(value);
     },
 
     _loadItem: function(value, cache) {
@@ -739,11 +805,11 @@ var SelectBox = DropDownList.inherit({
 
         item = item || null;
         this.option("selectedItem", item);
-        this._setValue(this._valueGetter(item));
-        this._renderDisplayText(this._displayGetter(item));
-        if(item === null && this._wasSearch()) {
+        if(this._shouldClearFilter()) {
             this._filterDataSource(null);
         }
+        this._setValue(this._valueGetter(item));
+        this._renderDisplayText(this._displayGetter(item));
     },
 
     _createClearButton: function() {
@@ -866,6 +932,11 @@ var SelectBox = DropDownList.inherit({
             default:
                 this.callBase(args);
         }
+    },
+
+    _clean: function() {
+        delete this._inkRipple;
+        this.callBase();
     }
 });
 

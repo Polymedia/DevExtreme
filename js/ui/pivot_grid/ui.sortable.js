@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     isDefined = require("../../core/utils/type").isDefined,
@@ -9,7 +7,8 @@ var $ = require("../../core/renderer"),
     addNamespace = eventUtils.addNamespace,
     registerComponent = require("../../core/component_registrator"),
     DOMComponent = require("../../core/dom_component"),
-    dragEvents = require("../../events/drag");
+    dragEvents = require("../../events/drag"),
+    getSwatchContainer = require("../widget/swatch_container").getSwatchContainer;
 
 var SORTABLE_NAMESPACE = "dxSortable",
     SORTABLE_CLASS = "dx-sortable",
@@ -207,7 +206,7 @@ var Sortable = DOMComponent.inherit({
         this._$draggable && this._$draggable.remove();
 
         this._$draggable = this._renderItem($sourceItem, 'drag')
-            .addClass(this.option("dragClass")).appendTo("body")
+            .addClass(this.option("dragClass")).appendTo(getSwatchContainer($sourceItem))
             .css({
                 zIndex: 1000000,
                 position: "absolute"
@@ -221,10 +220,18 @@ var Sortable = DOMComponent.inherit({
 
     _getItemOffset: function(isVertical, itemsOffset, e) {
         for(var i = 0; i < itemsOffset.length; i++) {
-            var shouldInsert = isVertical ?
-                (e.pageY < itemsOffset[i].posVertical) :
-                checkHorizontalPosition(e.pageX, itemsOffset[i], this.option("rtlEnabled"));
+            var shouldInsert,
+                sameLine = e.pageY < itemsOffset[i].posVertical;
 
+            if(isVertical) {
+                shouldInsert = sameLine;
+            } else if(sameLine) {
+                shouldInsert = checkHorizontalPosition(e.pageX, itemsOffset[i], this.option("rtlEnabled"));
+
+                if(!shouldInsert && itemsOffset[i + 1] && itemsOffset[i + 1].posVertical > itemsOffset[i].posVertical) {
+                    shouldInsert = true;
+                }
+            }
             if(shouldInsert) {
                 return itemsOffset[i];
             }
@@ -509,7 +516,7 @@ var Sortable = DOMComponent.inherit({
     }
 });
 
-  ///#DEBUG
+///#DEBUG
 Sortable.prototype.__SCROLL_STEP = SCROLL_STEP;
 ///#ENDDEBUG
 

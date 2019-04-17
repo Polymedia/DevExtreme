@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 QUnit.testStart(function() {
@@ -12,8 +10,7 @@ QUnit.testStart(function() {
 require("common.css!");
 require("generic_light.css!");
 
-var $ = require("jquery"),
-    translator = require("animation/translator"),
+var translator = require("animation/translator"),
     fx = require("animation/fx"),
     DataSource = require("data/data_source/data_source").DataSource;
 
@@ -132,6 +129,19 @@ QUnit.test("Scheduler should update scroll position if appointment is not visibl
     } finally {
         workSpace.scrollToTime.restore();
     }
+});
+
+QUnit.test("getEndViewDate should return correct value on timelineMonth view DST date (T720694)", function(assert) {
+    this.createInstance({
+        currentDate: new Date(2019, 2, 5),
+        views: ["timelineMonth"],
+        currentView: "timelineMonth",
+        dataSource: []
+    });
+
+    var workSpace = this.instance.getWorkSpace();
+
+    assert.deepEqual(workSpace.getEndViewDate(), new Date(2019, 2, 31, 23, 59), "End view date is OK");
 });
 
 QUnit.test("Scheduler should not update scroll position if appointment is visible, timeline month view ", function(assert) {
@@ -287,4 +297,73 @@ QUnit.test("Appointments should have a right order on timeline month", function(
 
     assert.equal($appointments.eq(0).data("dxItemData").text, "b", "Appointment data is OK");
     assert.equal($appointments.eq(1).data("dxItemData").text, "a", "Appointment data is OK");
+});
+
+QUnit.test("Scheduler timeline dateTable should have right height after changing size if crossScrollingEnabled = true (T644407)", function(assert) {
+    var resourcesData = [
+        { text: "One", id: 2 },
+        { text: "Two", id: 3 },
+        { text: "Three", id: 4 },
+        { text: "Four", id: 5 },
+        { text: "Five", id: 6 }
+    ];
+
+    this.createInstance({
+        dataSource: [],
+        views: ["timelineDay"],
+        currentView: "timelineDay",
+        currentDate: new Date(2017, 4, 1),
+        crossScrollingEnabled: true,
+        groups: ["ownerId"],
+        resources: [{
+            fieldExpr: "ownerId",
+            allowMultiple: true,
+            dataSource: resourcesData,
+            label: "Owner",
+            useColorAsDefault: true
+        }]
+    });
+
+    var $element = this.instance.$element(),
+        $firstRowCell = $element.find(".dx-scheduler-date-table-cell").first(),
+        cellHeight = $firstRowCell.height();
+
+    this.instance.option("width", 500);
+    this.instance.option("width", 1000);
+
+    assert.equal($element.find(".dx-scheduler-date-table-cell").first().height(), cellHeight, "Cells has correct height");
+});
+
+QUnit.test("Scheduler timeline groupTable should have right height if widget has auto-height", function(assert) {
+    var resourcesData = [
+        { text: "One", id: 2 },
+        { text: "Two", id: 3 },
+        { text: "Three", id: 4 },
+        { text: "Four", id: 5 },
+        { text: "Five", id: 6 }
+    ];
+
+    this.createInstance({
+        dataSource: [],
+        views: ["timelineDay"],
+        currentView: "timelineDay",
+        currentDate: new Date(2017, 4, 1),
+        crossScrollingEnabled: false,
+        groups: ["ownerId"],
+        resources: [{
+            fieldExpr: "ownerId",
+            allowMultiple: true,
+            dataSource: resourcesData,
+            label: "Owner",
+            useColorAsDefault: true
+        }]
+    });
+
+    var $element = this.instance.$element(),
+        $groupTable = $element.find(".dx-scheduler-group-table").first(),
+        groupHeight = $groupTable.height(),
+        $dateTable = $element.find(".dx-scheduler-date-table").first(),
+        dateTableHeight = $dateTable.height();
+
+    assert.roughEqual(groupHeight, dateTableHeight, 1.5, "Group table has correct height");
 });

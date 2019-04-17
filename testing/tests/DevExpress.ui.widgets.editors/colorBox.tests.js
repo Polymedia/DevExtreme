@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     Color = require("color"),
@@ -342,11 +340,25 @@ QUnit.test("Update colors preview", function(assert) {
 
     showColorBox.call(this);
 
-    var currentColor = colorPicker._$currentColor.css("backgroundColor"),
-        newColor = colorPicker._$newColor.css("backgroundColor");
+    var baseColor = $(".dx-colorview-color-preview-color-current").css("backgroundColor");
+    var newColor = $(".dx-colorview-color-preview-color-new").css("backgroundColor");
 
-    assert.equal(new Color(currentColor).toHex(), "#d0ff00");
-    assert.equal(new Color(newColor).toHex(), "#d0ff00");
+    assert.equal(new Color(newColor).toHex(), "#d0ff00", "new color");
+    assert.equal(new Color(baseColor).toHex(), "#000000", "default color");
+});
+
+QUnit.test("Update colors preview after value change", function(assert) {
+    var colorBox = showColorBox.call(this, { value: "#fafafa" }).dxColorBox("instance");
+
+    colorBox.option("value", "#f0f0f0");
+    this.updateColorInput("hex", "d0ff00");
+    colorBox._colorView.applyColor();
+
+    var baseColor = $(".dx-colorview-color-preview-color-current").css("backgroundColor");
+    var newColor = $(".dx-colorview-color-preview-color-new").css("backgroundColor");
+
+    assert.equal(new Color(newColor).toHex(), "#d0ff00", "new color");
+    assert.equal(new Color(baseColor).toHex(), "#f0f0f0", "current ColorBox value still the same");
 });
 
 QUnit.test("Validate value of colorbox input", function(assert) {
@@ -417,6 +429,19 @@ QUnit.test("In 'instantly' mode value should be updated if some input was update
     this.updateColorInput("hex", "0000ff");
     assert.equal(colorBox.option("value"), "#0000ff");
 });
+
+QUnit.test("In 'instantly' mode value should be updated correctly if some input was updated and editAlphaChannel = true", function(assert) {
+    var colorBox = showColorBox.call(this, {
+        value: "#ff0000",
+        editAlphaChannel: true,
+        applyValueMode: "instantly"
+    }).dxColorBox("instance");
+
+    colorBox.option("value", "rgba(100, 0, 0, 75)");
+    this.updateColorInput("red", 100);
+    assert.equal(colorBox.option("value"), "rgba(100, 0, 0, 1)");
+});
+
 
 QUnit.test("Option changes", function(assert) {
     var colorBox = showColorBox.call(this).dxColorBox("instance"),
@@ -520,6 +545,22 @@ QUnit.test("Color changed in preview if value is valid", function(assert) {
     assert.equal(previewColor.toHex(), currentColor.toHex(), "show color if input value is valid");
 });
 
+QUnit.test("ColorBox set the right stylingMode option to ColorView (default)", function(assert) {
+    var $colorBox = $("#color-box").dxColorBox({ value: "red" }),
+        colorBox = $colorBox.dxColorBox("instance");
+
+    colorBox.open();
+    assert.equal(colorBox._colorView.option("stylingMode"), "outlined");
+});
+
+QUnit.test("ColorBox set the right stylingMode option to ColorView (custom)", function(assert) {
+    var $colorBox = $("#color-box").dxColorBox({ value: "red", stylingMode: "underlined" }),
+        colorBox = $colorBox.dxColorBox("instance");
+
+    colorBox.open();
+    assert.equal(colorBox._colorView.option("stylingMode"), "underlined");
+});
+
 QUnit.module("keyboard navigation", {
     beforeEach: function() {
         this.clock = sinon.useFakeTimers();
@@ -572,8 +613,8 @@ QUnit.test("enter key test on inputs", function(assert) {
     $popup.find(".dx-texteditor-input").each(function(_, itemInput) {
         var $itemInput = $(itemInput);
 
-        $($input).trigger($.Event("keydown", { which: 37 }));
-        $($itemInput).trigger($.Event("keydown", { which: 13 }));
+        $($input).trigger($.Event("keydown", { key: "ArrowLeft" }));
+        $($itemInput).trigger($.Event("keydown", { key: "Enter" }));
         assert.equal(instance.option("value"), "rgba(153, 73, 72, 1)", "value was changed correctly after press enter");
         assert.equal(instance.option("opened"), false, "overlay has been closed");
 

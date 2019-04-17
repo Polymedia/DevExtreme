@@ -1,18 +1,15 @@
-"use strict";
-
 import { Deferred, when } from "../../core/utils/deferred";
-
-var dataErrors = require("../../data/errors").errors,
-    domAdapter = require("../../core/dom_adapter"),
-    errors = require("../widget/ui.errors"),
-    filterUtils = require("../shared/filtering"),
-    formatHelper = require("../../format_helper"),
-    extend = require("../../core/utils/extend").extend,
-    inflector = require("../../core/utils/inflector"),
-    between = require("./between"),
-    messageLocalization = require("../../localization/message"),
-    DataSource = require("../../data/data_source/data_source").DataSource,
-    filterOperationsDictionary = require("./ui.filter_operations_dictionary");
+import { errors as dataErrors } from "../../data/errors";
+import { isDefined } from "../../core/utils/type";
+import errors from "../widget/ui.errors";
+import filterUtils from "../shared/filtering";
+import formatHelper from "../../format_helper";
+import { extend } from "../../core/utils/extend";
+import inflector from "../../core/utils/inflector";
+import between from "./between";
+import messageLocalization from "../../localization/message";
+import { DataSource } from "../../data/data_source/data_source";
+import filterOperationsDictionary from "./ui.filter_operations_dictionary";
 
 var DEFAULT_DATA_TYPE = "string",
     EMPTY_MENU_ICON = "icon-none",
@@ -138,7 +135,9 @@ function getCriteriaOperation(criteria) {
             if(value && value !== item) {
                 throw new dataErrors.Error("E4019");
             }
-            value = item;
+            if(item !== "!") {
+                value = item;
+            }
         }
     }
     return value;
@@ -157,8 +156,16 @@ function getGroupValue(group) {
     return value;
 }
 
+function getDefaultFilterOperations(field) {
+    return (field.lookup && LOOKUP_OPERATIONS) || DATATYPE_OPERATIONS[field.dataType || DEFAULT_DATA_TYPE];
+}
+
+function containItems(entity) {
+    return Array.isArray(entity) && entity.length;
+}
+
 function getFilterOperations(field) {
-    var result = field.filterOperations || (field.lookup && LOOKUP_OPERATIONS) || DATATYPE_OPERATIONS[field.dataType || DEFAULT_DATA_TYPE];
+    var result = containItems(field.filterOperations) ? field.filterOperations : getDefaultFilterOperations(field);
     return extend([], result);
 }
 
@@ -347,14 +354,14 @@ function convertToInnerStructure(value, customOperations) {
     if(isNegationGroup(value)) {
         return ["!", isCondition(value[1])
             ? [convertToInnerCondition(value[1], customOperations), AND_GROUP_OPERATION]
-            : convertToInnerGroup(value[1], customOperations)];
+            : isNegationGroup(value[1]) ? [convertToInnerStructure(value[1], customOperations), AND_GROUP_OPERATION] : convertToInnerGroup(value[1], customOperations)];
     }
     return convertToInnerGroup(value, customOperations);
 }
 
 function getNormalizedFields(fields) {
     return fields.reduce(function(result, field) {
-        if(typeof field.dataField !== "undefined") {
+        if(isDefined(field.dataField)) {
             var normalizedField = {};
             for(var key in field) {
                 if(field[key] && AVAILABLE_FIELD_PROPERTIES.indexOf(key) > -1) {
@@ -362,6 +369,9 @@ function getNormalizedFields(fields) {
                 }
             }
             normalizedField.defaultCalculateFilterExpression = filterUtils.defaultCalculateFilterExpression;
+            if(!isDefined(normalizedField.dataType)) {
+                normalizedField.dataType = DEFAULT_DATA_TYPE;
+            }
             result.push(normalizedField);
         }
         return result;
@@ -387,17 +397,21 @@ function getFilterExpression(value, fields, customOperations, target) {
         return null;
     }
 
-    var criteria = getGroupCriteria(value);
-
+    if(isNegationGroup(value)) {
+        let filterExpression = getFilterExpression(value[1], fields, customOperations, target);
+        return ["!", filterExpression];
+    }
+    let criteria = getGroupCriteria(value);
     if(isCondition(criteria)) {
         return getConditionFilterExpression(criteria, fields, customOperations, target) || null;
     } else {
-        var result = [],
-            filterExpression,
-            groupValue = getGroupValue(criteria);
+        let filterExpression,
+            groupValue = getGroupValue(criteria),
+            result = [];
+
         for(var i = 0; i < criteria.length; i++) {
             if(isGroup(criteria[i])) {
-                filterExpression = getFilterExpression(criteria[i], fields, customOperations);
+                filterExpression = getFilterExpression(criteria[i], fields, customOperations, target);
                 if(filterExpression) {
                     i && result.push(groupValue);
                     result.push(filterExpression);
@@ -414,7 +428,7 @@ function getFilterExpression(value, fields, customOperations, target) {
     }
 }
 
-function getNormalizedFilter(group, fields) {
+function getNormalizedFilter(group) {
     var criteria = getGroupCriteria(group),
         i;
 
@@ -425,15 +439,14 @@ function getNormalizedFilter(group, fields) {
     var itemsForRemove = [];
     for(i = 0; i < criteria.length; i++) {
         if(isGroup(criteria[i])) {
-            var normalizedGroupValue = getNormalizedFilter(criteria[i], fields);
+            var normalizedGroupValue = getNormalizedFilter(criteria[i]);
             if(normalizedGroupValue) {
                 criteria[i] = normalizedGroupValue;
             } else {
                 itemsForRemove.push(criteria[i]);
             }
         } else if(isCondition(criteria[i])) {
-            var field = getField(criteria[i][0], fields);
-            if(!isValidCondition(criteria[i], field)) {
+            if(!isValidCondition(criteria[i])) {
                 itemsForRemove.push(criteria[i]);
             }
         }
@@ -464,18 +477,17 @@ function getCurrentLookupValueText(field, value, handler) {
         handler("");
         return;
     }
-    var dataSource = new DataSource(field.lookup.dataSource);
-    dataSource.filter(field.lookup.valueExpr, value);
-    dataSource.load().done(function(result) {
-        if(result && result.length > 0) {
-            var data = result[0];
-            handler(field.lookup.displayExpr ? data[field.lookup.displayExpr] : data);
-        } else {
+    let lookup = field.lookup;
+    if(lookup.items) {
+        handler(lookup.calculateCellValue(value) || "");
+    } else {
+        var dataSource = new DataSource(lookup.dataSource);
+        dataSource.loadSingle(lookup.valueExpr, value).done(function(result) {
+            result ? handler(lookup.displayExpr ? result[lookup.displayExpr] : result) : handler("");
+        }).fail(function() {
             handler("");
-        }
-    }).fail(function() {
-        handler("");
-    });
+        });
+    }
 }
 
 function getPrimitiveValueText(field, value, customOperation, target) {
@@ -522,8 +534,8 @@ function getCurrentValueText(field, value, customOperation, target = "filterBuil
         let result = new Deferred();
         when.apply(this, getArrayValueText(field, value, customOperation, target)).done((...args) => {
             let text = args.some(item => !checkDefaultValue(item))
-                    ? args.map(item => !checkDefaultValue(item) ? item : "?")
-                    : "";
+                ? args.map(item => !checkDefaultValue(item) ? item : "?")
+                : "";
             result.resolve(text);
         });
         return result;
@@ -650,20 +662,8 @@ function getOperationValue(condition) {
     return caption;
 }
 
-function isValidCondition(condition, field) {
-    var isCustomOperation = condition.length > 2 && !filterOperationsDictionary.getNameByFilterOperation(condition[1]);
-    if((field.dataType && field.dataType !== "string")
-        || isCustomOperation) {
-        return condition[2] !== "";
-    }
-    return true;
-}
-
-function setFocusToBody() {
-    var doc = domAdapter.getDocument();
-    if(doc && doc.activeElement && doc.activeElement.nodeName.toLowerCase() !== "body") {
-        doc.activeElement.blur();
-    }
+function isValidCondition(condition) {
+    return condition[2] !== "";
 }
 
 function getMergedOperations(customOperations, betweenCaption) {
@@ -814,7 +814,6 @@ exports.getCurrentLookupValueText = getCurrentLookupValueText;
 exports.getFilterOperations = getFilterOperations;
 exports.getCaptionByOperation = getCaptionByOperation;
 exports.getOperationValue = getOperationValue;
-exports.setFocusToBody = setFocusToBody;
 exports.getFilterExpression = getFilterExpression;
 exports.getCustomOperation = getCustomOperation;
 exports.getMergedOperations = getMergedOperations;

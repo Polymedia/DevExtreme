@@ -1,11 +1,10 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import { noop } from "core/utils/common";
 import vizUtils from "viz/core/utils";
 import pointModule from "viz/series/points/base_point";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 import { insertMockFactory, MockAxis, restoreMockFactory } from "../../helpers/chartMocks.js";
 import objectUtils from "core/utils/object";
 
@@ -45,7 +44,8 @@ var createSeries = function(options, renderSettings) {
         labelsGroup: renderer.g(),
         seriesGroup: renderer.g(),
         eventTrigger: noop,
-        eventPipe: noop
+        eventPipe: noop,
+        incidentOccurred: noop
     }, renderSettings);
 
     renderer.stub("g").reset();
@@ -1677,9 +1677,8 @@ function setDiscreteType(series) {
         // act
         series.draw(true);
         // assert
-        assert.equal(this.renderer.stub("path").callCount, 2);
-        checkElementPoints(assert, this.renderer.stub("path").getCall(0).args[0], [[1, 10], [2, 10], [2, 20]], true, "first line element");
-        checkElementPoints(assert, this.renderer.stub("path").getCall(1).args[0], [[4, 44]], true, "second line element");
+        assert.equal(this.renderer.stub("path").callCount, 1);
+        checkElementPoints(assert, this.renderer.stub("path").getCall(0).args[0], [[1, 10], [2, 10], [2, 20], [4, 20], [4, 44]], true, "line element");
         assert.ok(!testPoint.draw.called);
         assert.ok(testPoint.setInvisibility.called);
     });

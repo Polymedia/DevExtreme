@@ -1,10 +1,11 @@
-"use strict";
-
 /* global DATA, internals, initTree */
 
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     fx = require("animation/fx");
+
+var TREEVIEW_NODE_CONTAINER_CLASS = "dx-treeview-node-container",
+    TREEVIEW_NODE_CONTAINER_OPENED_CLASS = "dx-treeview-node-container-opened";
 
 QUnit.module("Expanded items", {
     beforeEach: function() {
@@ -35,7 +36,7 @@ QUnit.test("Some item has'expanded' field", function(assert) {
 
 QUnit.test("expansion by itemData", function(assert) {
     var data = [
-        { id: 1, text: "Item 1", expanded: false, items: [{ id: 11, text: "Item 11" }] }, { id: 12, text: "Item 12" }
+            { id: 1, text: "Item 1", expanded: false, items: [{ id: 11, text: "Item 11" }] }, { id: 12, text: "Item 12" }
         ],
         treeView = initTree({ items: data }).dxTreeView("instance");
 
@@ -70,6 +71,15 @@ QUnit.test("onItemExpanded callback", function(assert) {
         node: treeView.getNodes()[0],
         itemElement: $firstItem
     });
+});
+
+QUnit.test("hidden items should be rendered when deferRendering is false", function(assert) {
+    var $treeView = initTree({
+        items: [{ text: "Item 1", items: [{ text: "Item 11", items: [{ text: "Item 111" }] }] }],
+        deferRendering: false
+    });
+
+    assert.equal($treeView.find(".dx-treeview-node").length, 3, "all items have been rendered");
 });
 
 QUnit.test("onContentReady rises after first expand", function(assert) {
@@ -370,6 +380,33 @@ QUnit.test("expand parent items in recursive case", function(assert) {
     assert.ok(nodes[0].children[0].expanded, "child node is expanded");
 });
 
+QUnit.test("Expand parent items in markup after expand of rendered nested child (T671960)", function(assert) {
+    var items = [{
+            text: "1",
+            id: 1,
+            items: [{
+                text: "11",
+                id: 11,
+                items: [{
+                    text: "111",
+                    id: 111
+                }]
+            }]
+        }],
+        $treeView = initTree({
+            items: items
+        }),
+        treeView = $treeView.dxTreeView("instance");
+
+    treeView.expandAll();
+    treeView.collapseAll();
+    treeView.expandItem(111);
+
+    var nodeElements = $treeView.find("." + TREEVIEW_NODE_CONTAINER_CLASS);
+    assert.ok(nodeElements.eq(1).hasClass(TREEVIEW_NODE_CONTAINER_OPENED_CLASS), "item 11");
+    assert.ok(nodeElements.eq(2).hasClass(TREEVIEW_NODE_CONTAINER_OPENED_CLASS), "item 111");
+});
+
 QUnit.test("expand childless item in recursive case", function(assert) {
     var items = [{ text: "1", id: 1, items: [{ text: "11", id: 11 }] }],
         $treeView = initTree({
@@ -385,4 +422,57 @@ QUnit.test("expand childless item in recursive case", function(assert) {
     var nodes = treeView.getNodes();
     assert.ok(nodes[0].expanded, "root node is expanded");
     assert.ok(nodes[0].children[0].expanded, "child node is expanded");
+});
+
+QUnit.test("Expand all method", function(assert) {
+    var items = [{
+            text: "1",
+            id: 1,
+            items: [{
+                text: "11",
+                id: 11,
+                items: [{
+                    text: "111",
+                    id: 111
+                }]
+            }]
+        }],
+        $treeView = initTree({
+            items: items
+        }),
+        treeView = $treeView.dxTreeView("instance");
+
+    treeView.expandAll();
+
+    var nodes = treeView.getNodes();
+    assert.ok(nodes[0].expanded, "item 1");
+    assert.ok(nodes[0].items[0].expanded, "item 11");
+    assert.ok(nodes[0].items[0].items[0].expanded, "item 111");
+});
+
+QUnit.test("Collapse all method", function(assert) {
+    var items = [{
+            text: "1",
+            id: 1,
+            items: [{
+                text: "11",
+                id: 11,
+                items: [{
+                    text: "111",
+                    id: 111
+                }]
+            }]
+        }],
+        $treeView = initTree({
+            items: items
+        }),
+        treeView = $treeView.dxTreeView("instance");
+
+    treeView.expandAll();
+    treeView.collapseAll();
+
+    var nodes = treeView.getNodes();
+    assert.notOk(nodes[0].expanded, "item 1");
+    assert.notOk(nodes[0].items[0].expanded, "item 11");
+    assert.notOk(nodes[0].items[0].items[0].expanded, "item 111");
 });

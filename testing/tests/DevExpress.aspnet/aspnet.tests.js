@@ -1,5 +1,3 @@
-"use strict";
-
 (function(factory) {
     if(typeof define === 'function' && define.amd) {
         define(function(require, exports, module) {
@@ -169,7 +167,7 @@
                     \
                     <script id="templateWithExoticId" type="text/html">\
                     <div id="templateContent">\
-                        <%= DevExpress.aspnet.renderComponent("dxButton", { }, "id-_1α♠!#$%&()*+,./:;<=>?@[\]^`{|}~") %>\
+                        <%= DevExpress.aspnet.renderComponent("dxButton", { }, "id-_1α♠!#$%&()*+,./:;<=>?@[\\\\]^`{|}~") %>\
                     </div>\
                     </script>\
                     \
@@ -177,7 +175,9 @@
                     <div id="templateContent">\
                         <%= DevExpress.aspnet.renderComponent("dxTextBox", { }, "test-id", { validationGroup: "my-group" }) %>\
                     </div>\
-                    </script>'
+                    </script>\
+                    \
+                    <div id="buttonWithInnerTemplate"><script>// DevExpress.aspnet.setTemplateEngine();</script>BUTTON_CONTENT</div>'
                 );
 
                 if(!window.DevExpress || !window.DevExpress.aspnet) {
@@ -235,6 +235,12 @@
             QUnit.test("Exotic characters in component ID should be escaped (T531137)", function(assert) {
                 var $result = renderTemplate("#templateWithExoticId");
                 assert.ok($result.dxButton("instance"));
+            });
+
+            QUnit.test("Inner template is rendered correctly when another script tags exist", function(assert) {
+                var $buttonElement = $("#buttonWithInnerTemplate").dxButton();
+                $buttonElement.find("script").remove();
+                assert.equal($buttonElement.text(), "BUTTON_CONTENT");
             });
         }
     );
@@ -300,9 +306,49 @@
             "'\"\\\n"
         );
 
-        testTemplate("Html encode",
-            "<%= '\"<&>' %> <%- '\"<&>' %>",
-            "\"<&> \"<&>"
+        testTemplate("Html encode: inline",
+            "<%- '<img />' %>",
+            "<img />"
+        );
+
+        testTemplate("Html encode: stored in variable",
+            "<% var a = '<script>alert(1)</script>'; %><%- a %>",
+            "<script>alert(1)</script>"
         );
     });
+
+    QUnit.test("Transcluded content (T691770, T693379)", function(assert) {
+        aspnet.setTemplateEngine();
+        try {
+            window.testCounters = {
+                innerEval: 0,
+                innerClick: 0
+            };
+
+            $("#qunit-fixture").html("\
+                <div id=test-button>\
+                    <div id=test-button-inner></div>\
+                    <script>\
+                        testCounters.innerEval++;\
+                        $('#test-button-inner')\
+                            .append('test-button-inner-text')\
+                            .click(function() {\
+                                testCounters.innerClick++;\
+                            });\
+                    </script>\
+                </div>\
+            ");
+
+            $("#test-button").dxButton();
+            $("#test-button-inner").trigger("click");
+
+            assert.equal(window.testCounters.innerEval, 1);
+            assert.equal(window.testCounters.innerClick, 1);
+            assert.equal($("#test-button-inner").html(), "test-button-inner-text");
+        } finally {
+            setTemplateEngine("default");
+            delete window.testCounters;
+        }
+    });
+
 }));

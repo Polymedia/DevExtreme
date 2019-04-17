@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     ko = require("knockout"),
     angular = require("angular");
@@ -8,14 +6,14 @@ require("bundles/dx.web.js");
 
 QUnit.test("DevExpress namespaces", function(assert) {
     var namespaces = [
-            "Color",        // from core
+            "Color", // from core
 
             "data",
             "ui",
             "events"
         ],
         uiNamespaces = [
-            "dxList",       // from widgets-base
+            "dxList", // from widgets-base
         ];
 
     $.each(namespaces, function(index, namespace) {

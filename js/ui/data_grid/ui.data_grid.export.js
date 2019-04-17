@@ -1,22 +1,17 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    Class = require("../../core/class"),
-    isDefined = require("../../core/utils/type").isDefined,
-    extend = require("../../core/utils/extend").extend,
-    getDefaultAlignment = require("../../core/utils/position").getDefaultAlignment,
-    arrayUtils = require("../../core/utils/array"),
-    dataGridCore = require("./ui.data_grid.core"),
-    exportMixin = require("../grid_core/ui.grid_core.export_mixin"),
-    clientExporter = require("../../client_exporter"),
-    messageLocalization = require("../../localization/message"),
-    excelExporter = clientExporter.excel,
-    Button = require("../button"),
-    List = require("../list"),
-    ContextMenu = require("../context_menu"),
-    deferredUtils = require("../../core/utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred;
+import $ from "../../core/renderer";
+import Class from "../../core/class";
+import { isDefined } from "../../core/utils/type";
+import { extend } from "../../core/utils/extend";
+import { getDefaultAlignment } from "../../core/utils/position";
+import arrayUtils from "../../core/utils/array";
+import dataGridCore from "./ui.data_grid.core";
+import exportMixin from "../grid_core/ui.grid_core.export_mixin";
+import { export as clientExport, excel } from "../../exporter";
+import messageLocalization from "../../localization/message";
+import Button from "../button";
+import List from "../list";
+import ContextMenu from "../context_menu";
+import { when, Deferred } from "../../core/utils/deferred";
 
 var DATAGRID_EXPORT_MENU_CLASS = "dx-datagrid-export-menu",
     DATAGRID_EXPORT_BUTTON_CLASS = "dx-datagrid-export-button",
@@ -56,20 +51,36 @@ exports.DataProvider = Class.inherit({
             excelWrapTextEnabled = exportController.option("export.excelWrapTextEnabled");
 
         this._options = {
-            columns: exportController._getColumns(),
+            columns: exportController._getColumns(this._initialColumnWidthsByColumnIndex),
             groupColumns: groupColumns,
-            items: !!exportController._selectionOnly ? exportController._getSelectedItems() : exportController._getAllItems(),
+            items: exportController._selectionOnly ? exportController._getSelectedItems() : exportController._getAllItems(),
             getVisibleIndex: exportController._columnsController.getVisibleIndex.bind(exportController._columnsController),
             isHeadersVisible: exportController.option("showColumnHeaders"),
             summaryTexts: exportController.option("summary.texts"),
             customizeExportData: exportController.option("customizeExportData"),
             rtlEnabled: exportController.option("rtlEnabled"),
             wrapTextEnabled: isDefined(excelWrapTextEnabled) ? excelWrapTextEnabled : !!exportController.option("wordWrapEnabled"),
+            customizeExcelCell: exportController.option("export.customizeExcelCell"),
         };
     },
 
-    ctor: function(exportController) {
+    hasCustomizeExcelCell: function() {
+        return isDefined(this._options.customizeExcelCell);
+    },
+
+    customizeExcelCell: function(e, cellSourceData) {
+        if(this._options.customizeExcelCell) {
+            e.gridCell = cellSourceData;
+            if(isDefined(this._exportController) && isDefined(this._exportController.component)) {
+                e.component = this._exportController.component;
+            }
+            this._options.customizeExcelCell(e);
+        }
+    },
+
+    ctor: function(exportController, initialColumnWidthsByColumnIndex) {
         this._exportController = exportController;
+        this._initialColumnWidthsByColumnIndex = initialColumnWidthsByColumnIndex;
     },
 
     getStyles: function() {
@@ -88,7 +99,6 @@ exports.DataProvider = Class.inherit({
                 // column styles
                 alignment: column.alignment || "left",
                 format: column.format,
-                precision: column.precision,
                 wrapText: wrapTextEnabled,
                 dataType: column.dataType
             });
@@ -189,12 +199,16 @@ exports.DataProvider = Class.inherit({
         });
     },
 
-    _getHeaderCellValue: function(rowIndex, cellIndex) {
-        var row = this.getColumns(true)[rowIndex];
-        return row[cellIndex] && row[cellIndex].caption;
+    _convertFromGridGroupSummaryItems: function(gridGroupSummaryItems) {
+        let result;
+        if(isDefined(gridGroupSummaryItems) && gridGroupSummaryItems.length > 0) {
+            result = gridGroupSummaryItems.map(function(item) { return { value: item.value, name: item.name }; });
+        }
+        return result;
     },
 
-    getCellValue: function(rowIndex, cellIndex) {
+    getCellData: function(rowIndex, cellIndex) {
+        const result = { cellSourceData: {}, value };
         var column,
             value,
             i,
@@ -205,47 +219,68 @@ exports.DataProvider = Class.inherit({
             item;
 
         if(rowIndex < this.getHeaderRowCount()) {
-            return this._getHeaderCellValue(rowIndex, cellIndex);
+            const columnsRow = this.getColumns(true)[rowIndex];
+            column = columnsRow[cellIndex];
+            result.cellSourceData.rowType = 'header';
+            result.cellSourceData.column = column && column.gridColumn;
+            result.value = column && column.caption;
         } else {
             rowIndex -= this.getHeaderRowCount();
-        }
 
-        item = this._options.items.length && this._options.items[rowIndex];
+            item = this._options.items.length && this._options.items[rowIndex];
 
-        if(item) {
-            itemValues = item.values;
-            switch(item.rowType) {
-                case "groupFooter":
-                case "totalFooter":
-                    if(correctedCellIndex < itemValues.length) {
-                        value = itemValues[correctedCellIndex];
-                        if(isDefined(value)) {
-                            return dataGridCore.getSummaryText(value, this._options.summaryTexts);
-                        }
-                    }
-                    break;
-                case "group":
-                    if(cellIndex < 1) {
-                        return this._getGroupValue(item);
-                    } else {
-                        summaryItems = item.values[correctedCellIndex];
-                        if(Array.isArray(summaryItems)) {
-                            value = "";
-                            for(i = 0; i < summaryItems.length; i++) {
-                                value += (i > 0 ? " \n " : "") + dataGridCore.getSummaryText(summaryItems[i], this._options.summaryTexts);
+            if(item) {
+                itemValues = item.values;
+                result.cellSourceData.rowType = item.rowType;
+                result.cellSourceData.column = columns[cellIndex] && columns[cellIndex].gridColumn;
+                switch(item.rowType) {
+                    case "groupFooter":
+                    case "totalFooter":
+                        if(correctedCellIndex < itemValues.length) {
+                            value = itemValues[correctedCellIndex];
+                            if(isDefined(value)) {
+                                result.cellSourceData.value = value.value;
+                                result.cellSourceData.totalSummaryItemName = value.name;
+                                result.value = dataGridCore.getSummaryText(value, this._options.summaryTexts);
+                            } else {
+                                result.cellSourceData.value = undefined;
                             }
-                            return value;
                         }
-                    }
-                    break;
-                default:
-                    column = columns[cellIndex];
-                    if(column) {
-                        value = dataGridCore.getDisplayValue(column, itemValues[correctedCellIndex], item.data, item.rowType);
-                        return !isFinite(value) || column.customizeText ? dataGridCore.formatValue(value, column) : value;
-                    }
+                        break;
+                    case "group":
+                        result.cellSourceData.groupIndex = item.groupIndex;
+                        if(cellIndex < 1) {
+                            result.cellSourceData.column = this._options.groupColumns[item.groupIndex];
+                            result.cellSourceData.value = item.key[item.groupIndex];
+                            result.cellSourceData.groupSummaryItems = this._convertFromGridGroupSummaryItems(item.summaryCells[0]);
+                            result.value = this._getGroupValue(item);
+                        } else {
+                            summaryItems = item.values[correctedCellIndex];
+                            if(Array.isArray(summaryItems)) {
+                                result.cellSourceData.groupSummaryItems = this._convertFromGridGroupSummaryItems(summaryItems);
+                                value = "";
+                                for(i = 0; i < summaryItems.length; i++) {
+                                    value += (i > 0 ? " \n " : "") + dataGridCore.getSummaryText(summaryItems[i], this._options.summaryTexts);
+                                }
+                                result.value = value;
+                            } else {
+                                result.cellSourceData.value = undefined;
+                            }
+                        }
+                        break;
+                    default:
+                        column = columns[cellIndex];
+                        if(column) {
+                            let value = itemValues[correctedCellIndex];
+                            let displayValue = dataGridCore.getDisplayValue(column, value, item.data, item.rowType); // from 'ui.grid_core.rows.js: _getCellOptions'
+                            result.value = !isFinite(displayValue) || column.customizeText ? dataGridCore.formatValue(displayValue, column) : displayValue; // similar to 'ui.grid_core.rows.js: _getCellOptions'
+                            result.cellSourceData.value = value;
+                        }
+                        result.cellSourceData.data = item.data;
+                }
             }
         }
+        return result;
     },
 
     isHeadersVisible: function() {
@@ -287,31 +322,45 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
         };
     },
 
-    _updateColumnWidth: function(column, width) {
+    _updateColumnWidth: function(column, width) { // this function is overridden in 'ui.grid_core.adaptivity.js'
         column.width = width;
     },
 
-    _getColumns: function() {
+    _getColumns: function(initialColumnWidthsByColumnIndex) {
         var result = [],
             i,
             j,
             column,
             columns,
             columnsController = this._columnsController,
-            rowCount = columnsController.getRowCount(),
-            columnWidths = (this._headersView && this._headersView.isVisible()) ? this._headersView.getColumnWidths() : this._rowsView.getColumnWidths();
+            rowCount = columnsController.getRowCount();
 
         for(i = 0; i <= rowCount; i++) {
             result.push([]);
-            columns = columnsController.getVisibleColumns(i);
+            columns = columnsController.getVisibleColumns(i, true);
+            let columnWidthsByColumnIndex;
+            if(i === rowCount) {
+                if(this._updateLockCount) {
+                    columnWidthsByColumnIndex = initialColumnWidthsByColumnIndex;
+                } else {
+                    const columnWidths = this._getColumnWidths(this._headersView, this._rowsView);
+                    if(columnWidths && columnWidths.length) {
+                        columnWidthsByColumnIndex = {};
+                        for(let i = 0; i < columns.length; i++) {
+                            columnWidthsByColumnIndex[columns[i].index] = columnWidths[i];
+                        }
+                    }
+                }
+            }
             for(j = 0; j < columns.length; j++) {
                 column = extend({}, columns[j], {
-                    dataType: columns[j].dataType === "datetime" ? "date" : columns[j].dataType
+                    dataType: columns[j].dataType === "datetime" ? "date" : columns[j].dataType,
+                    gridColumn: columns[j],
                 });
 
                 if(column.allowExporting && !column.command) {
-                    if(i === rowCount && columnWidths && columnWidths.length) {
-                        this._updateColumnWidth(column, columnWidths[j]);
+                    if(columnWidthsByColumnIndex) {
+                        this._updateColumnWidth(column, columnWidthsByColumnIndex[column.index]);
                     }
                     result[i].push(column);
                 }
@@ -319,7 +368,7 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
         }
 
         columns = result[rowCount];
-        result = this._prepareItems(0, result.slice(0, -1));
+        result = this._prepareItems(result.slice(0, -1));
         result.push(columns);
 
         return result;
@@ -422,7 +471,7 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
     },
 
     _processUnExportedItems: function(items) {
-        var columns = this._columnsController.getVisibleColumns(),
+        var columns = this._columnsController.getVisibleColumns(null, true),
             groupColumns = this._columnsController.getGroupColumns(),
             item,
             column,
@@ -509,6 +558,10 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
         return this._getAllItems(selectedRowData);
     },
 
+    _getColumnWidths: function(headersView, rowsView) {
+        return (headersView && headersView.isVisible()) ? headersView.getColumnWidths() : rowsView.getColumnWidths();
+    },
+
     init: function() {
         this._columnsController = this.getController("columns");
         this._rowsView = this.getView("rowsView");
@@ -526,7 +579,16 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
     getExportFormat: function() { return ["EXCEL"]; },
 
     getDataProvider: function() {
-        return new exports.DataProvider(this);
+        const columnWidths = this._getColumnWidths(this._headersView, this._rowsView);
+        let initialColumnWidthsByColumnIndex;
+        if(columnWidths && columnWidths.length) {
+            initialColumnWidthsByColumnIndex = {};
+            const columnsLastRowVisibleColumns = this._columnsController.getVisibleColumns(this._columnsController.getRowCount(), true);
+            for(let i = 0; i < columnsLastRowVisibleColumns.length; i++) {
+                initialColumnWidthsByColumnIndex[columnsLastRowVisibleColumns[i].index] = columnWidths[i];
+            }
+        }
+        return new exports.DataProvider(this, initialColumnWidthsByColumnIndex);
     },
     /**
     * @name dxDataGridMethods.exportToExcel
@@ -538,7 +600,7 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
 
         that._selectionOnly = selectionOnly;
 
-        clientExporter.export(that.component.getDataProvider(), {
+        clientExport(that.component.getDataProvider(), {
             fileName: that.option("export.fileName"),
             proxyUrl: that.option("export.proxyUrl"),
             format: "EXCEL",
@@ -548,7 +610,7 @@ exports.ExportController = dataGridCore.ViewController.inherit({}).include(expor
             exportingAction: that.getAction("onExporting"),
             exportedAction: that.getAction("onExported"),
             fileSavingAction: that.getAction("onFileSaving")
-        }, excelExporter.getData);
+        }, excel.getData);
     },
 
     publicMethods: function() {
@@ -639,6 +701,22 @@ dataGridCore.registerModule("export", {
                      */
                     exportSelectedRows: messageLocalization.format("dxDataGrid-exportSelectedRows")
                 }
+                /**
+                 * @name dxDataGridOptions.export.customizeExcelCell
+                 * @type function(options)
+                 * @type_function_param1 options:object
+                 * @type_function_param1_field1 component:dxDataGrid
+                 * @type_function_param1_field2 horizontalAlignment:Enums.ExcelCellHorizontalAlignment
+                 * @type_function_param1_field3 verticalAlignment:Enums.ExcelCellVerticalAlignment
+                 * @type_function_param1_field4 wrapTextEnabled:boolean
+                 * @type_function_param1_field5 backgroundColor:string
+                 * @type_function_param1_field6 fillPatternType:Enums.ExcelCellPatternType
+                 * @type_function_param1_field7 fillPatternColor:string
+                 * @type_function_param1_field8 font:ExcelFont
+                 * @type_function_param1_field9 value:string|number|date
+                 * @type_function_param1_field10 numberFormat:string
+                 * @type_function_param1_field11 gridCell:ExcelDataGridCell
+                 */
             }
             /**
              * @name dxDataGridOptions.onExporting

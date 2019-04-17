@@ -1,5 +1,3 @@
-"use strict";
-
 SystemJS.config({
     meta: {
         './localization.base.tests.js': {
@@ -72,6 +70,16 @@ define(function(require, exports, module) {
         assert.deepEqual(dateLocalization.getMonthNames(),
             ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"],
             "Array of month names");
+    });
+
+    QUnit.test("getMonthNames with specified type", function(assert) {
+        assert.deepEqual(dateLocalization.getMonthNames("wide", "format"),
+            ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"],
+            "Array of month names");
+    });
+
+    QUnit.test("getPeriodNames", function(assert) {
+        assert.deepEqual(dateLocalization.getPeriodNames(), ["ДП", "ПП"], "Array of period names");
     });
 
     QUnit.test("getDayNames", function(assert) {

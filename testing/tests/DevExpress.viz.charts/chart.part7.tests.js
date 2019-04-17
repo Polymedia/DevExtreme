@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     vizMocks = require("../../helpers/vizMocks.js"),
     executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
@@ -139,7 +137,7 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
         assert.ok(chartMocks.seriesMockData.args[1][1], "Options passed");
     });
 
-    QUnit.test("dxChart with two Series request default type visibilityChanged", function(assert) {
+    QUnit.test("Actions sequence after visibilityChanged is triggered", function(assert) {
         // arrange
         var stubSeries1 = new MockSeries({}),
             stubSeries2 = new MockSeries({});
@@ -167,7 +165,7 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
         assert.ok(chart.series);
 
         assert.ok(chartMocks.seriesMockData.args[0][1].visibilityChanged, "Options passed");
-        chartMocks.seriesMockData.args[0][1].visibilityChanged();
+        chartMocks.seriesMockData.args[0][1].visibilityChanged(chart.getAllSeries()[0]);
         assert.ok(processSeriesFamilySpy.calledOnce);
         assert.ok(populateBusinessRangeSpy.calledOnce);
         assert.ok(renderSpy.calledOnce);
@@ -680,6 +678,26 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
         assert.ok(commons.getTrackerStub().repairTooltip.calledOnce, "repairTooltip called once");
     });
 
+    QUnit.test("tracker repaired tooltip. after data updating", function(assert) {
+        // arrange
+        var stubSeries = new MockSeries({});
+        chartMocks.seriesMockData.series.push(stubSeries);
+
+        // act
+        var chart = this.createChart({
+            dataSource: [{ arg: "First", val: 1 }, { arg: "2", val: 2 }],
+            series: [{
+                type: "line"
+            }]
+        });
+
+        commons.getTrackerStub().repairTooltip.reset();
+        chart.getDataSource().store().insert({ arg: "3", val: 3 });
+        chart.getDataSource().reload();
+
+        assert.ok(commons.getTrackerStub().repairTooltip.calledOnce, "repairTooltip called after data updating");
+    });
+
     QUnit.module("dxChart seriesTemplates creation", $.extend({}, commons.environment, {
         beforeEach: function() {
             executeAsyncMock.setup();
@@ -712,10 +730,13 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
         assert.ok(chart.series);
         assert.equal(chart.series.length, 3);
         assert.equal(chart.series[0].options.name, "s1");
+        assert.equal(chart.series[0].options.nameFieldValue, "s1");
         assert.equal(chart.series[0].type, "spline-s1");
         assert.equal(chart.series[1].options.name, "s2");
+        assert.equal(chart.series[1].options.nameFieldValue, "s2");
         assert.equal(chart.series[1].type, "spline-s2");
         assert.equal(chart.series[2].options.name, "s3");
+        assert.equal(chart.series[2].options.nameFieldValue, "s3");
         assert.equal(chart.series[2].type, "spline-s3");
     });
 })();
@@ -952,7 +973,7 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
         var chart = this.createChart({
                 defaultPane: "nonExistingPane",
                 panes: [{ name: "topPane" },
-                { name: "bottomPane" }]
+                    { name: "bottomPane" }]
             }),
             idError;
 
@@ -1037,8 +1058,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
     QUnit.test("Two axis with duplicate name", function(assert) {
         var chart = commons.createChartInstance({
                 valueAxis: [
-                { name: "axisName" },
-                { name: "axisName" }
+                    { name: "axisName" },
+                    { name: "axisName" }
                 ]
             }, this.$container),
             idError;
@@ -1071,8 +1092,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
                     }
                 ],
                 panes: [
-                { name: "top" },
-                { name: "default" }
+                    { name: "top" },
+                    { name: "default" }
                 ]
             }),
             idError;
@@ -1190,8 +1211,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("first and third labels overlapping", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 10, width: 10, height: 10 },
-                                            { x: 25, y: 30, width: 10, height: 10 },
-                                            { x: 10, y: 15, width: 10, height: 10 }]);
+            { x: 25, y: 30, width: 10, height: 10 },
+            { x: 10, y: 15, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "hide",
@@ -1205,9 +1226,9 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("skip hidden labels", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 10, width: 10, height: 10 },
-                                            { x: 35, y: 40, width: 10, height: 10 },
-                                            { x: 10, y: 15, width: 10, height: 10 },
-                                            { x: 17, y: 22, width: 10, height: 10 }]);
+            { x: 35, y: 40, width: 10, height: 10 },
+            { x: 10, y: 15, width: 10, height: 10 },
+            { x: 17, y: 22, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "hide",
@@ -1407,8 +1428,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Three overlapping labels. start", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 0, width: 10, height: 10 },
-                                            { x: 5, y: 8, width: 10, height: 10 },
-                                            { x: 5, y: 12, width: 10, height: 10 }]);
+            { x: 5, y: 8, width: 10, height: 10 },
+            { x: 5, y: 12, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1422,8 +1443,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Three overlapping labels. not visible series", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 0, width: 10, height: 10 },
-                                            { x: 5, y: 8, width: 10, height: 10 },
-                                            { x: 5, y: 12, width: 10, height: 10 }]);
+            { x: 5, y: 8, width: 10, height: 10 },
+            { x: 5, y: 12, width: 10, height: 10 }]);
 
         chartMocks.seriesMockData.series[0].isVisible = sinon.stub().returns(false);
         this.createChart({
@@ -1465,7 +1486,7 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Two overlapping labels. from end canvas", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 90, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 }]);
+            { x: 5, y: 90, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1479,8 +1500,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Three overlapping labels. from start and end canvas", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 0, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 }]);
+            { x: 5, y: 90, width: 10, height: 10 },
+            { x: 5, y: 90, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1495,8 +1516,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Three overlapping labels. from middle and end canvas", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 20, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 }]);
+            { x: 5, y: 90, width: 10, height: 10 },
+            { x: 5, y: 90, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1511,8 +1532,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Three overlapping labels. from end canvas", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 75, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 }]);
+            { x: 5, y: 90, width: 10, height: 10 },
+            { x: 5, y: 90, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1528,11 +1549,11 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("Six overlapping labels.", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 10, width: 10, height: 10 },
-                                            { x: 5, y: 15, width: 10, height: 10 },
-                                            { x: 5, y: 40, width: 10, height: 10 },
-                                            { x: 5, y: 45, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 },
-                                            { x: 5, y: 90, width: 10, height: 10 }]);
+            { x: 5, y: 15, width: 10, height: 10 },
+            { x: 5, y: 40, width: 10, height: 10 },
+            { x: 5, y: 45, width: 10, height: 10 },
+            { x: 5, y: 90, width: 10, height: 10 },
+            { x: 5, y: 90, width: 10, height: 10 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1550,7 +1571,7 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("kill labels", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 0, width: 10, height: 60, value: 10 },
-                                            { x: 5, y: 50, width: 10, height: 60, value: 0 }]);
+            { x: 5, y: 50, width: 10, height: 60, value: 0 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1564,11 +1585,11 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("kill labels. two gaps", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 7, width: 10, height: 25, value: 10 },
-                                            { x: 5, y: 26, width: 10, height: 25, value: 9 },
-                                            { x: 5, y: 53, width: 10, height: 25, value: 8 },
-                                            { x: 5, y: 57, width: 10, height: 25, value: 7 },
-                                            { x: 5, y: 75, width: 10, height: 25, value: 6 },
-                                            { x: 5, y: 85, width: 10, height: 25, value: 5 }]);
+            { x: 5, y: 26, width: 10, height: 25, value: 9 },
+            { x: 5, y: 53, width: 10, height: 25, value: 8 },
+            { x: 5, y: 57, width: 10, height: 25, value: 7 },
+            { x: 5, y: 75, width: 10, height: 25, value: 6 },
+            { x: 5, y: 85, width: 10, height: 25, value: 5 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",
@@ -1632,8 +1653,8 @@ $('<div id="chartContainer">').appendTo("#qunit-fixture");
 
     QUnit.test("kill middle label.", function(assert) {
         this.createFakeSeriesWithLabels([{ x: 5, y: 0, width: 10, height: 40, value: 12 },
-                                            { x: 5, y: 40, width: 10, height: 40, value: 6 },
-                                            { x: 5, y: 60, width: 10, height: 40, value: 15 }]);
+            { x: 5, y: 40, width: 10, height: 40, value: 6 },
+            { x: 5, y: 60, width: 10, height: 40, value: 15 }]);
 
         this.createChart({
             resolveLabelOverlapping: "stack",

@@ -1,5 +1,3 @@
-"use strict";
-
 var DataSourceModule = require("../../data/data_source/data_source"),
     Store = require("../../data/abstract_store"),
     commonUtils = require("../../core/utils/common"),
@@ -189,10 +187,9 @@ module.exports = Class.inherit((function() {
             newCell,
             rowIndex,
             columnIndex,
-            dataSourceCells = dataSource.values,
-            isNewDataSourceNotEmpty = newRowItemIndexesToCurrent.length + newColumnItemIndexesToCurrent.length;
+            dataSourceCells = dataSource.values;
 
-        if(newDataSourceCells && isNewDataSourceNotEmpty) {
+        if(newDataSourceCells) {
             for(newRowIndex = 0; newRowIndex <= newDataSourceCells.length; newRowIndex++) {
                 newRowCells = newDataSourceCells[newRowIndex];
                 rowIndex = newRowItemIndexesToCurrent[newRowIndex];
@@ -366,24 +363,23 @@ module.exports = Class.inherit((function() {
     }
 
     function getFieldsByGroup(fields, groupingField) {
-        return iteratorUtils.map(fields, function(field) {
-            if(field.groupName === groupingField.groupName && typeUtils.isNumeric(field.groupIndex) && field.visible !== false) {
-                return extend(field, {
-                    areaIndex: groupingField.areaIndex,
-                    area: groupingField.area,
-                    expanded: isDefined(field.expanded) ? field.expanded : groupingField.expanded,
-                    dataField: field.dataField || groupingField.dataField,
-                    dataType: field.dataType || groupingField.dataType,
-                    sortBy: field.sortBy || groupingField.sortBy,
-                    sortOrder: field.sortOrder || groupingField.sortOrder,
-                    sortBySummaryField: field.sortBySummaryField || groupingField.sortBySummaryField,
-                    sortBySummaryPath: field.sortBySummaryPath || groupingField.sortBySummaryPath,
-                    visible: field.visible || groupingField.visible,
-                    showTotals: isDefined(field.showTotals) ? field.showTotals : groupingField.showTotals,
-                    showGrandTotals: isDefined(field.showGrandTotals) ? field.showGrandTotals : groupingField.showGrandTotals
-                });
-            }
-            return null;
+        return fields.filter(field => {
+            return field.groupName === groupingField.groupName && typeUtils.isNumeric(field.groupIndex) && field.visible !== false;
+        }).map(function(field) {
+            return extend(field, {
+                areaIndex: groupingField.areaIndex,
+                area: groupingField.area,
+                expanded: isDefined(field.expanded) ? field.expanded : groupingField.expanded,
+                dataField: field.dataField || groupingField.dataField,
+                dataType: field.dataType || groupingField.dataType,
+                sortBy: field.sortBy || groupingField.sortBy,
+                sortOrder: field.sortOrder || groupingField.sortOrder,
+                sortBySummaryField: field.sortBySummaryField || groupingField.sortBySummaryField,
+                sortBySummaryPath: field.sortBySummaryPath || groupingField.sortBySummaryPath,
+                visible: field.visible || groupingField.visible,
+                showTotals: isDefined(field.showTotals) ? field.showTotals : groupingField.showTotals,
+                showGrandTotals: isDefined(field.showGrandTotals) ? field.showGrandTotals : groupingField.showGrandTotals
+            });
         }).sort(function(a, b) { return a.groupIndex - b.groupIndex; });
     }
 
@@ -462,9 +458,7 @@ module.exports = Class.inherit((function() {
             that._storeFields = storeFields;
             mergedFields = mergeFields(that._fields, storeFields, that._retrieveFields);
             result.resolve(mergedFields);
-        }).fail(function() {
-            result.resolve(that._fields);
-        });
+        }).fail(result.reject);
 
         return result;
     }
@@ -706,6 +700,11 @@ module.exports = Class.inherit((function() {
             * @default undefined
             */
             /**
+            * @name PivotGridDataSourceOptions.fields.name
+            * @type string
+            * @default undefined
+            */
+            /**
              * @name PivotGridDataSourceOptions.fields.dataType
              * @type Enums.PivotGridDataType
              * @default undefined
@@ -717,7 +716,7 @@ module.exports = Class.inherit((function() {
              */
             /**
              * @name PivotGridDataSourceOptions.fields.summaryType
-             * @type Enums.SummaryType
+             * @type Enums.SummaryType|string
              * @default 'count'
              */
             /**
@@ -829,12 +828,6 @@ module.exports = Class.inherit((function() {
              * @type_function_param1_field1 value:string|number|date
              * @type_function_param1_field2 valueText:string
              * @type_function_return string
-             */
-            /**
-             * @name PivotGridDataSourceOptions.fields.precision
-             * @type number
-             * @default undefined
-             * @deprecated
              */
             /**
              * @name PivotGridDataSourceOptions.fields.allowSorting
@@ -1060,7 +1053,7 @@ module.exports = Class.inherit((function() {
             return this.load({ reload: true });
         },
 
-       /**
+        /**
        * @name PivotGridDataSourceMethods.filter
        * @publicName filter()
        * @return object
@@ -1398,14 +1391,22 @@ module.exports = Class.inherit((function() {
         collapseAll: function(id) {
             var dataChanged = false,
                 field = this.field(id) || {},
-                areaOffset = inArray(field, this.getAreaFields(field.area));
+                areaOffsets = [inArray(field, this.getAreaFields(field.area))];
 
             field.expanded = false;
+            if(field && field.levels) {
+                areaOffsets = [];
+                field.levels.forEach(f => {
+                    areaOffsets.push(inArray(f, this.getAreaFields(field.area)));
+                    f.expanded = false;
+                });
+            }
+
             foreachTree(this._data[field.area + "s"], function(items) {
                 var item = items[0],
                     path = createPath(items);
 
-                if(item && item.children && areaOffset === path.length - 1) {
+                if(item && item.children && areaOffsets.indexOf(path.length - 1) !== -1) {
                     item.collapsedChildren = item.children;
                     delete item.children;
                     dataChanged = true;
@@ -1416,14 +1417,19 @@ module.exports = Class.inherit((function() {
         },
 
         /**
-       * @name PivotGridDataSourceMethods.expandAll
-       * @publicName expandAll(id)
-       * @param1 id:number|string
-       */
+        * @name PivotGridDataSourceMethods.expandAll
+        * @publicName expandAll(id)
+        * @param1 id:number|string
+        */
         expandAll: function(id) {
             var field = this.field(id);
             if(field && field.area) {
                 field.expanded = true;
+                if(field && field.levels) {
+                    field.levels.forEach(f => {
+                        f.expanded = true;
+                    });
+                }
                 this.load();
             }
         },
@@ -1483,7 +1489,9 @@ module.exports = Class.inherit((function() {
                         newColumnItemIndexesToCurrent = updateHeaderItems(loadedData.columns, dataSource.columns);
                     }
                     when(newRowItemIndexesToCurrent, newColumnItemIndexesToCurrent).done(function(newRowItemIndexesToCurrent, newColumnItemIndexesToCurrent) {
-                        updateDataSourceCells(loadedData, dataSource.values, newRowItemIndexesToCurrent, newColumnItemIndexesToCurrent);
+                        if(area === "row" && newRowItemIndexesToCurrent.length || area === "column" && newColumnItemIndexesToCurrent.length) {
+                            updateDataSourceCells(loadedData, dataSource.values, newRowItemIndexesToCurrent, newColumnItemIndexesToCurrent);
+                        }
                         that._update(deferred);
                     });
                 }

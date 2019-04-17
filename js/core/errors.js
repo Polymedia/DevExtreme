@@ -1,5 +1,3 @@
-"use strict";
-
 var errorUtils = require("./utils/error");
 
 /**
@@ -153,12 +151,6 @@ module.exports = errorUtils({
     * @name ErrorsCore.E0121
     */
     E0121: "The 'customItem' field of the 'onCustomItemCreating' function's parameter should contain a custom item or Promise that is resolved after the item is created.",
-
-
-    /**
-    * @name ErrorsCore.E4016
-    */
-    E4016: "The compileSetter(expr) method is called with 'self' passed as a parameter",
 
 
     /**

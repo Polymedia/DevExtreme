@@ -62,7 +62,7 @@
         }
     }
 
-    .dx-datagrid-rowsview .dx-data-row, .dx-datagrid-rowsview .dx-freespace-row, .dx-datagrid-headers .dx-row {
+    .dx-datagrid-rowsview .dx-data-row, .dx-datagrid-rowsview .dx-freespace-row, .dx-datagrid-rowsview .dx-virtual-row, .dx-datagrid-headers .dx-row {
         td.dx-pointer-events-none {
             border-left: 2px solid @datagrid-border-color;
             border-right: 2px solid @datagrid-border-color;
@@ -87,11 +87,7 @@
 
             &:not(.dx-datagrid-group-space):before {
                 display: block;
-                position: absolute;
-                left: 7px;
-                right: 7px;
-                top: 0;
-                bottom: 0;
+                height: 100%;
                 content: '';
                 background-image: @datagrid-text-stub-background-image-path;
                 background-repeat: no-repeat repeat;
@@ -115,6 +111,15 @@
 
         .dx-error-message {
             .dx-datagrid-error-message();
+        }
+    }
+
+    .dx-column-lines > td {
+        &:first-child {
+            border-left: none;
+        }
+        &:last-child {
+            border-right: none;
         }
     }
 }
@@ -159,6 +164,7 @@
         .dx-datagrid-rowsview .dx-data-row, .dx-datagrid-rowsview .dx-freespace-row, .dx-datagrid-headers .dx-row {
             td.dx-pointer-events-none {
                 border-left: 2px solid @datagrid-border-color;
+                border-right: 2px solid @datagrid-border-color;
 
                 &.dx-first-cell {
                     border-right: none;
@@ -177,8 +183,20 @@
                 }
 
                 &[style*="text-align: left"]:before {
-                    .scale(1);
+                    transform: scale(1);
                 }
+            }
+        }
+
+        .dx-column-lines > td {
+            &:first-child {
+                border-right: none;
+                border-left: @datagrid-border;
+            }
+
+            &:last-child {
+                border-left: none;
+                border-right: @datagrid-border;
             }
         }
     }
@@ -188,5 +206,18 @@
             margin-left: 0;
             margin-right: 10px;
         }
+    }
+}
+
+.dx-datagrid-cell-updated-animation  {
+    animation: dx-datagrid-highlight-change 1s;
+}
+
+@keyframes dx-datagrid-highlight-change {
+    from {
+        background-color: fade(@datagrid-base-color, 8%);
+    }
+    50% {
+        background-color: fade(@datagrid-base-color, 8%);
     }
 }

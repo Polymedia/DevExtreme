@@ -23,11 +23,11 @@
     border: @GENERIC_RADIOBUTTON_BORDER_WIDTH solid @radiogroup-border-color;
     background-color: @radiogroup-bg;
     content: "";
-    .border-radius(@GENERIC_RADIOBUTTON_SIZE / 2);
-    .box-sizing(content-box);
+    border-radius: @GENERIC_RADIOBUTTON_SIZE / 2;
+    box-sizing: content-box;
 }
 
-.dx-radiobutton-checked .dx-radiobutton-icon-dot {
+.dx-radiobutton-icon-checked .dx-radiobutton-icon-dot {
     display: block;
     margin-top: -@GENERIC_RADIOBUTTON_SIZE / 2 - @GENERIC_RADIOBUTTON_DOT_SIZE / 2;
     margin-left: @GENERIC_RADIOBUTTON_SIZE / 2 - @GENERIC_RADIOBUTTON_DOT_SIZE / 2;
@@ -35,7 +35,7 @@
     height: @GENERIC_RADIOBUTTON_DOT_SIZE;
     background: @radiogroup-checked-bg;
     content: "";
-    .border-radius(@GENERIC_RADIOBUTTON_DOT_SIZE / 2);
+    border-radius: @GENERIC_RADIOBUTTON_DOT_SIZE / 2;
 }
 
 .dx-radiobutton {
@@ -61,13 +61,15 @@
     }
 
     &.dx-state-focused {
-        .box-shadow(none);
-
         &:not(.dx-state-active) {
             .dx-radiobutton-icon:before {
                 border: @GENERIC_RADIOBUTTON_BORDER_WIDTH solid @radiobutton-focused-border-color;
             }
         }
+    }
+
+    &.dx-state-disabled {
+        opacity: @texteditor-disabled-opacity;
     }
 }
 
@@ -87,6 +89,14 @@
             .dx-radiobutton-icon:before {
                 border-color: @radiobutton-invalid-focused-border-color;
             }
+        }
+    }
+}
+
+.dx-state-disabled {
+    .dx-radiobutton {
+        &.dx-state-disabled {
+            opacity: 1;
         }
     }
 }

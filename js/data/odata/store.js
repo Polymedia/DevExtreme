@@ -1,7 +1,5 @@
-"use strict";
-
 var isDefined = require("../../core/utils/type").isDefined,
-    map = require("../../core/utils/iterator").map,
+    config = require("../../core/config"),
     odataUtils = require("./utils"),
     proxyUrlFormatter = require("../proxy_url_formatter"),
     errors = require("../errors").errors,
@@ -87,8 +85,20 @@ var ODataStore = Store.inherit({
          * @default false
          */
         /**
+         * @name ODataStoreOptions.filterToLower
+         * @type boolean
+         */
+        /**
          * @name ODataStoreOptions.deserializeDates
          * @type boolean
+         */
+        /**
+         * @name ODataStoreOptions.errorHandler
+         * @type function
+         * @type_function_param1 e:Error
+         * @type_function_param1_field1 httpStatus:number
+         * @type_function_param1_field2 errorDetails:object
+         * @type_function_param1_field3 requestOptions:object
          */
         /**
          * @name ODataStoreOptions.onLoading
@@ -141,15 +151,6 @@ var ODataStore = Store.inherit({
     },
 
     /**
-    * @name ODataStoreMethods.load
-    * @publicName load(options)
-    * @type function
-    * @param1 options:LoadOptions
-    * @return Promise<any>
-    * @inheritdoc
-    */
-
-    /**
     * @name ODataStoreMethods.byKey
     * @publicName byKey(key, extraOptions)
     * @param1 key:object|string|number
@@ -162,7 +163,7 @@ var ODataStore = Store.inherit({
 
         if(extraOptions) {
             if(extraOptions.expand) {
-                params["$expand"] = map([].slice.call(extraOptions.expand), odataUtils.serializePropName).join();
+                params["$expand"] = odataUtils.generateExpand(this._version, extraOptions.expand);
             }
         }
 
@@ -201,6 +202,10 @@ var ODataStore = Store.inherit({
             url = this._url;
         }
 
+        if(isDefined(this._filterToLower)) {
+            queryOptions.filterToLower = this._filterToLower;
+        }
+
         if(loadOptions.customQueryParams) {
             var params = mixins.escapeServiceOperationParams(loadOptions.customQueryParams, this.version());
 
@@ -222,7 +227,7 @@ var ODataStore = Store.inherit({
 
         when(this._sendRequest(this._url, "POST", null, values))
             .done(function(serverResponse) {
-                d.resolve(values, that.keyOf(serverResponse));
+                d.resolve(config().useLegacyStoreResult ? values : (serverResponse || values), that.keyOf(serverResponse));
             })
             .fail(d.reject);
 
@@ -235,8 +240,12 @@ var ODataStore = Store.inherit({
         when(
             this._sendRequest(this._byKeyUrl(key), this._updateMethod, null, values)
         ).done(
-            function() {
-                d.resolve(key, values);
+            function(serverResponse) {
+                if(config().useLegacyStoreResult) {
+                    d.resolve(key, values);
+                } else {
+                    d.resolve(serverResponse || values, key);
+                }
             }
         ).fail(d.reject);
 
@@ -264,8 +273,8 @@ var ODataStore = Store.inherit({
 
         if(Array.isArray(key)) {
             result = {};
-            for(var keyIndex in key) {
-                var keyName = key[keyIndex];
+            for(var i = 0; i < key.length; i++) {
+                var keyName = key[i];
                 result[keyName] = odataUtils.convertPrimitiveValue(fieldTypes[keyName], value[keyName]);
             }
         } else if(fieldTypes[key]) {
@@ -277,8 +286,8 @@ var ODataStore = Store.inherit({
 
     _byKeyUrl: function(value, useOriginalHost) {
         var baseUrl = useOriginalHost
-                ? proxyUrlFormatter.formatLocalUrl(this._url)
-                : this._url;
+            ? proxyUrlFormatter.formatLocalUrl(this._url)
+            : this._url;
 
         var convertedKey = this._convertKey(value);
 

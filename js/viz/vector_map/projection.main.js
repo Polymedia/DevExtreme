@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../core/utils/extend").extend,
     eventEmitterModule = require("./event_emitter");
 
@@ -491,7 +489,7 @@ projection.add = function(name, engine) {
     if(!projectionsCache[name] && isEngine(engine)) {
         projectionsCache[name] = engine;
     }
-    return projection;  // For chaining
+    return projection; // For chaining
 };
 
 function createProjectUnprojectMethods(project, unproject, p1, p2, delta) {

@@ -1,11 +1,10 @@
-"use strict";
-
 /* global Microsoft */
 
 var $ = require("jquery"),
     testing = require("./utils.js"),
     BingProvider = require("ui/map/provider.dynamic.bing"),
-    ajaxMock = require("../../../helpers/ajaxMock.js");
+    ajaxMock = require("../../../helpers/ajaxMock.js"),
+    errors = require("ui/widget/ui.errors");
 
 
 require("ui/map");
@@ -14,7 +13,7 @@ var LOCATIONS = testing.LOCATIONS,
     MARKERS = testing.MARKERS,
     ROUTES = testing.ROUTES;
 
-var prepareTestingBingProvider = function() {
+var prepareTestingBingProvider = function(abortDirectionsUpdate) {
     window.geocodedLocation = new Microsoft.Maps.Location(-1.12345, -1.12345);
     window.geocodedWithErrorLocation = new Microsoft.Maps.Location();
 
@@ -29,11 +28,14 @@ var prepareTestingBingProvider = function() {
     window.Microsoft.pushpinInstance = 0;
     window.Microsoft.directionsInstance = 0;
     window.Microsoft.boundFittedCount = 0;
+
+    window.Microsoft.abortDirectionsUpdate = !!abortDirectionsUpdate;
 };
 
 QUnit.module("bing provider", {
     beforeEach: function() {
         var fakeURL = "fakeBingUrl";
+        this.abortDirectionsUpdate = false;
 
         BingProvider.remapConstant(fakeURL);
         BingProvider.prototype._geocodedLocations = {};
@@ -45,12 +47,12 @@ QUnit.module("bing provider", {
             callback: function() {
                 $.getScript("../../testing/helpers/forMap/bingMock.js")
                     .done(function() {
-                        prepareTestingBingProvider();
+                        prepareTestingBingProvider(this.abortDirectionsUpdate);
                         if(window._bingScriptReady) {
                             window._bingScriptReady();
                         }
-                    });
-            }
+                    }.bind(this));
+            }.bind(this)
         });
 
         if(window.Microsoft) {
@@ -1082,6 +1084,7 @@ QUnit.test("routes", function(assert) {
                 assert.deepEqual(window.Microsoft.directionsOptions.drivingPolylineOptions, polOpts, "line options specified correctly");
                 assert.deepEqual(window.Microsoft.directionsOptions.walkingPolylineOptions, polOpts, "line options specified correctly");
                 assert.equal(window.Microsoft.directionsUpdatedHandlerRemoved, true, "directions update handler drawn");
+                assert.equal(window.Microsoft.directionsErrorHandlerRemoved, true, "directions error handler drawn");
 
                 d.resolve();
             }
@@ -1131,21 +1134,18 @@ QUnit.test("add route should extend bounds", function(assert) {
     var done = assert.async();
     var d = $.Deferred();
 
-    var firstPoint,
-        secondPoint,
-        thirdPoint,
-        fourthPoint;
+    var points = [];
 
     var $map = $("#map").dxMap({
             provider: "bing",
             routes: [ROUTES[0]],
             onReady: function() {
-                firstPoint = new Microsoft.Maps.Location(ROUTES[0].locations[0][0], ROUTES[0].locations[0][1]);
-                secondPoint = new Microsoft.Maps.Location(ROUTES[0].locations[2][0], ROUTES[0].locations[2][1]);
-                thirdPoint = new Microsoft.Maps.Location(ROUTES[1].locations[0].lat, ROUTES[1].locations[0].lng);
-                fourthPoint = new Microsoft.Maps.Location(ROUTES[1].locations[2][0], ROUTES[1].locations[2][1]);
+                points.push(new Microsoft.Maps.Location(ROUTES[0].locations[0][0], ROUTES[0].locations[0][1]),
+                    new Microsoft.Maps.Location(ROUTES[0].locations[2][0], ROUTES[0].locations[2][1]),
+                    new Microsoft.Maps.Location(ROUTES[1].locations[0].lat, ROUTES[1].locations[0].lng),
+                    new Microsoft.Maps.Location(ROUTES[1].locations[2][0], ROUTES[1].locations[2][1]));
 
-                assert.deepEqual(Microsoft.locationRectInstances.pop().points, [firstPoint, firstPoint, secondPoint], "bound extended and fitted correctly");
+                assert.deepEqual(Microsoft.locationRectInstances.pop().points, [points[0], points[0], points[1]], "bound extended and fitted correctly");
 
                 d.resolve();
             }
@@ -1154,7 +1154,7 @@ QUnit.test("add route should extend bounds", function(assert) {
 
     d.done(function() {
         map.option("onUpdated", function() {
-            assert.deepEqual(Microsoft.locationRectInstances.pop().points, [firstPoint, firstPoint, fourthPoint], "bound extended and fitted correctly");
+            assert.deepEqual(Microsoft.locationRectInstances.pop().points, [points[0], points[0], points[3]], "bound extended and fitted correctly");
 
             done();
         });
@@ -1180,6 +1180,37 @@ QUnit.test("add routes", function(assert) {
             assert.ok(instances[0] instanceof Microsoft.Maps.Directions.DirectionsManager, "route instance returned");
             assert.ok(instances[1] instanceof Microsoft.Maps.Directions.DirectionsManager, "route instance returned");
 
+            done();
+        });
+    });
+});
+
+QUnit.test("Error on render route", function(assert) {
+    var done = assert.async();
+    var d = $.Deferred();
+    var logStub = sinon.stub(errors, "log");
+
+    if(window.Microsoft) {
+        window.Microsoft.abortDirectionsUpdate = true;
+    } else {
+        this.abortDirectionsUpdate = true;
+    }
+
+    var $map = $("#map").dxMap({
+            provider: "bing",
+            onReady: function() {
+                d.resolve();
+            }
+        }),
+        map = $map.dxMap("instance");
+
+    d.done(function() {
+        map.addRoute([ROUTES[0], ROUTES[1]]).done(function(instances) {
+            assert.ok(instances[0] instanceof Microsoft.Maps.Directions.DirectionsManager, "route instance returned");
+            assert.ok(instances[1] instanceof Microsoft.Maps.Directions.DirectionsManager, "route instance returned");
+            assert.deepEqual(logStub.firstCall.args, ["W1006", "RouteResponseCode: 1 - Directions error"], "Check warning parameters");
+
+            logStub.restore();
             done();
         });
     });

@@ -1,5 +1,3 @@
-"use strict";
-
 module.exports = [{
     caption: "Company Name",
     dataField: "CompanyName",
@@ -90,4 +88,9 @@ module.exports = [{
         valueExpr: "value",
         displayExpr: "text"
     }
+},
+{
+    caption: "Number Field",
+    dataField: "NumberField",
+    dataType: "number"
 }];

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     TransitionExecutorModule = require("animation/transition_executor/transition_executor");
 
@@ -115,8 +113,8 @@ QUnit.test("staggering animation options", function(assert) {
         enterLog = [],
         startLog = [],
         $test = $("#staggering-animation")
-        .clone()
-        .appendTo($("body"));
+            .clone()
+            .appendTo($("body"));
 
     TransitionExecutorModule.TransitionExecutor = TransitionExecutorModule.TransitionExecutor.inherit({
         enter: function($el, config) {
@@ -164,9 +162,9 @@ QUnit.test("staggering animation with items that are outside the screen", functi
         enterLog = [],
         startLog = [],
         $test = $("#staggering-animation")
-        .clone()
-        .appendTo($("body"))
-        .css("top", "-15px");// Hide the top item. It's of 10px height
+            .clone()
+            .appendTo($("body"))
+            .css("top", "-15px");// Hide the top item. It's of 10px height
 
     TransitionExecutorModule.TransitionExecutor = TransitionExecutorModule.TransitionExecutor.inherit({
         enter: function($el, config) {

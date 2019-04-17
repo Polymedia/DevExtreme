@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     registerComponent = require("../../core/component_registrator"),
@@ -8,6 +6,7 @@ var $ = require("../../core/renderer"),
     each = require("../../core/utils/iterator").each,
     typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
+    getElementMaxHeightByWindow = require("../overlay/utils").getElementMaxHeightByWindow,
     eventUtils = require("../../events/utils"),
     pointerEvents = require("../../events/pointer"),
     hoverEvents = require("../../events/hover"),
@@ -34,6 +33,7 @@ var DX_MENU_CLASS = "dx-menu",
 
     DX_ADAPTIVE_MODE_CLASS = DX_MENU_CLASS + "-adaptive-mode",
     DX_ADAPTIVE_HAMBURGER_BUTTON_CLASS = DX_MENU_CLASS + "-hamburger-button",
+    DX_ADAPTIVE_MODE_OVERLAY_WRAPPER_CLASS = DX_ADAPTIVE_MODE_CLASS + "-overlay-wrapper",
 
 
     FOCUS_UP = "up",
@@ -58,7 +58,7 @@ var Menu = MenuBase.inherit({
         return extend(this.callBase(), {
             /**
             * @name dxMenuOptions.items
-            * @type Array<dxMenuItemTemplate>
+            * @type Array<dxMenuItem>
             * @inheritdoc
             */
             /**
@@ -184,14 +184,14 @@ var Menu = MenuBase.inherit({
             * @inheritdoc
             */
             /**
-            * @name dxMenuItemTemplate
-            * @inherits dxMenuBaseItemTemplate
+            * @name dxMenuItem
+            * @inherits dxMenuBaseItem
             * @type object
             * @inheritdoc
             */
             /**
-            * @name dxMenuItemTemplate.items
-            * @type Array<dxMenuItemTemplate>
+            * @name dxMenuItem.items
+            * @type Array<dxMenuItem>
             * @inheritdoc
             */
         });
@@ -313,6 +313,9 @@ var Menu = MenuBase.inherit({
 
     _visibilityChanged: function(visible) {
         if(visible) {
+            if(!this._menuItemsWidth) {
+                this._updateItemsWidthCache();
+            }
             this._dimensionChanged();
         }
     },
@@ -321,20 +324,18 @@ var Menu = MenuBase.inherit({
         return this.option("adaptivityEnabled") && this.option("orientation") === "horizontal";
     },
 
+    _updateItemsWidthCache: function() {
+        var $menuItems = this.$element().find("ul").first().children("li").children("." + DX_MENU_ITEM_CLASS);
+        this._menuItemsWidth = this._getSummaryItemsWidth($menuItems, true);
+    },
+
     _dimensionChanged: function() {
         if(!this._isAdaptivityEnabled()) {
             return;
         }
 
-        var $menuItems = this.$element().find("ul").first().children("li").children("." + DX_MENU_ITEM_CLASS),
-            menuItemsWidth = 0,
-            containerWidth = this.$element().outerWidth();
-
-        $menuItems.each(function(_, menuItem) {
-            menuItemsWidth += $(menuItem).outerWidth(true);
-        });
-
-        this._toggleAdaptiveMode(menuItemsWidth > containerWidth);
+        var containerWidth = this.$element().outerWidth();
+        this._toggleAdaptiveMode(this._menuItemsWidth > containerWidth);
     },
 
     _init: function() {
@@ -425,6 +426,9 @@ var Menu = MenuBase.inherit({
             position = rtl ? "right" : "left";
 
         return {
+            maxHeight: function() {
+                return getElementMaxHeightByWindow(this.$element());
+            }.bind(this),
             deferRendering: false,
             shading: false,
             animation: false,
@@ -434,7 +438,7 @@ var Menu = MenuBase.inherit({
             }).bind(this),
             height: "auto",
             closeOnOutsideClick: function(e) {
-                return !(!!$(e.target).closest("." + DX_ADAPTIVE_HAMBURGER_BUTTON_CLASS).length);
+                return !($(e.target).closest("." + DX_ADAPTIVE_HAMBURGER_BUTTON_CLASS).length);
             },
             position: {
                 collision: "flipfit",
@@ -467,6 +471,7 @@ var Menu = MenuBase.inherit({
         });
 
         return extend(menuOptions, {
+            dataSource: that.getDataSource(),
             animationEnabled: !!this.option("animation"),
             onItemClick: that._treeviewItemClickHandler.bind(that),
             onItemExpanded: (function(e) {
@@ -499,11 +504,14 @@ var Menu = MenuBase.inherit({
             .addClass(DX_ADAPTIVE_MODE_CLASS)
             .addClass(this.option("cssClass"));
 
+        this._overlay._wrapper().addClass(DX_ADAPTIVE_MODE_OVERLAY_WRAPPER_CLASS);
+
         this._$adaptiveContainer.append($hamburger);
         this._$adaptiveContainer.append(this._overlay.$element());
 
         this.$element().append(this._$adaptiveContainer);
 
+        this._updateItemsWidthCache();
         this._dimensionChanged();
     },
 
@@ -515,6 +523,10 @@ var Menu = MenuBase.inherit({
         } else {
             return typeUtils.isObject(delay) ? delay[delayType] : delay;
         }
+    },
+
+    _keyboardHandler: function(e) {
+        return this._visibleSubmenu ? true : this.callBase(e);
     },
 
     _renderContainer: function() {
@@ -539,8 +551,10 @@ var Menu = MenuBase.inherit({
         var $submenuContainer = $("<div>").addClass(DX_CONTEXT_MENU_CLASS)
             .appendTo($rootItem);
 
-        var items = this._getChildNodes(node),
+        var childKeyboardProcessor = this._keyboardProcessor && this._keyboardProcessor.attachChildProcessor(),
+            items = this._getChildNodes(node),
             result = this._createComponent($submenuContainer, Submenu, extend(this._getSubmenuOptions(), {
+                _keyboardProcessor: childKeyboardProcessor,
                 _dataAdapter: this._dataAdapter,
                 _parentKey: node.internalFields.key,
                 items: items,
@@ -573,6 +587,12 @@ var Menu = MenuBase.inherit({
             disabledExpr: this.option("disabledExpr"),
             selectedExpr: this.option("selectedExpr"),
             itemsExpr: this.option("itemsExpr"),
+            onFocusedItemChanged: function(e) {
+                if(!e.component.option("visible")) {
+                    return;
+                }
+                this.option("focusedElement", e.component.option("focusedElement"));
+            }.bind(this),
             onSelectionChanged: this._nestedItemOnSelectionChangedHandler.bind(this),
             onItemClick: this._nestedItemOnItemClickHandler.bind(this),
             onItemRendered: this.option("onItemRendered"),
@@ -599,6 +619,8 @@ var Menu = MenuBase.inherit({
             $currentItem = $items.filter("." + DX_MENU_ITEM_EXPANDED_CLASS).eq(0),
             itemIndex = $items.index($currentItem);
 
+        this._hideSubmenu(this._visibleSubmenu);
+
         itemIndex += direction === PREVITEM_OPERATION ? -1 : 1;
 
         if(itemIndex >= itemCount) {
@@ -609,8 +631,6 @@ var Menu = MenuBase.inherit({
 
         var $newItem = $items.eq(itemIndex);
 
-        this._hideSubmenu(this._visibleSubmenu);
-        this.focus();
         this.option("focusedElement", getPublicElement($newItem));
     },
 
@@ -882,7 +902,11 @@ var Menu = MenuBase.inherit({
             this._hideVisibleSubmenu();
         }
 
-        submenu && submenu.show();
+        if(submenu) {
+            submenu.show();
+            this.option("focusedElement", submenu.option("focusedElement"));
+        }
+
         this._visibleSubmenu = submenu;
         this._hoveredRootItem = $itemElement;
     },

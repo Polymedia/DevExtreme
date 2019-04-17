@@ -1,22 +1,16 @@
-"use strict";
+import "common.css!";
+import "generic_light.css!";
+import "ui/data_grid/ui.data_grid";
 
-window.includeThemesLinks();
+import $ from "jquery";
+import typeUtils from "core/utils/type";
+import devices from "core/devices";
+import themes from "ui/themes";
+import dataGridMocks from "../../helpers/dataGridMocks.js";
+import publicComponentUtils from "core/utils/public_component";
 
-require("common.css!");
-require("generic_light.css!");
-require("ui/data_grid/ui.data_grid");
+var device = devices.real();
 
-var $ = require("jquery"),
-    typeUtils = require("core/utils/type"),
-    devices = require("core/devices"),
-    device = devices.real(),
-    themes = require("ui/themes"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    publicComponentUtils = require("core/utils/public_component");
-
-themes.current({
-    theme: "generic"
-});
 QUnit.testStart(function() {
     var markup =
         '<div id="container" class="dx-datagrid"></div>';
@@ -578,27 +572,25 @@ if(device.deviceType === "desktop") {
     });
 }
 
-if(device.deviceType !== "desktop") {
-    QUnit.test("Close and cancel buttons for mobile theme", function(assert) {
-        // arrange
-        var testElement = $("#container"),
-            currentThemes = themes.current(),
-            columnChooserView = this.columnChooserView;
+QUnit.test("Close and cancel buttons for mobile theme", function(assert) {
+    // arrange
+    var testElement = $("#container"),
+        origIsGeneric = themes.isGeneric,
+        columnChooserView = this.columnChooserView;
 
-        this.setTestElement(testElement);
+    this.setTestElement(testElement);
 
-        themes.current(themes.themeNameFromDevice(device));
+    themes.isGeneric = function() { return false; };
 
-        // act
-        this.renderColumnChooser();
-        columnChooserView._popupContainer.toggle(true);
+    // act
+    this.renderColumnChooser();
+    columnChooserView._popupContainer.toggle(true);
 
-        // assert
-        assert.ok(!$(".dx-closebutton").length, "close button is hidden");
-        assert.ok($(".dx-button-text").length, "cancel button is shown");
-        themes.current(currentThemes);
-    });
-}
+    // assert
+    assert.ok(!$(".dx-closebutton").length, "close button is hidden");
+    assert.ok($(".dx-button-text").length, "cancel button is shown");
+    themes.isGeneric = origIsGeneric;
+});
 
 
 QUnit.test("Close and cancel buttons for material theme", function(assert) {
@@ -973,20 +965,27 @@ QUnit.test("CheckBox mode - Update a selection state when column visibility is c
     $.extend(this.columns, [{ caption: "Column 1", index: 0, visible: true, showInColumnChooser: true }, { caption: "Column 2", index: 1, visible: true, showInColumnChooser: true }]);
     this.setTestElement($testElement);
 
+    sinon.spy(this.columnChooserView, "_renderTreeView");
+
     // act
     this.columnChooserView.showColumnChooser();
     this.clock.tick(1000);
+
+    assert.strictEqual(this.columnChooserView._renderTreeView.callCount, 1, "treeview is rendered");
+
 
     this.columnsController.columnOption(0, "visible", false);
     this.columnsController.columnsChanged.fire({
         columnIndex: 0,
         optionNames: {
-            visible: true
+            visible: true,
+            length: 1
         }
     });
 
     // assert
     assert.ok(!this.columnChooserView._columnChooserList.getNodes()[0].selected, "first item is not selected");
+    assert.strictEqual(this.columnChooserView._renderTreeView.callCount, 1, "treeview is not rerendered"); // T726413
 
     this.columnChooserView.hideColumnChooser();
 });
@@ -1022,7 +1021,7 @@ QUnit.test("CheckBox mode - scroll position after selecting an last item", funct
 
     // act
     this.columnsController.columnOption(7, "visible", false);
-    this.columnChooserView.render($testElement, true);
+    this.columnChooserView.render($testElement, "full");
 
     // assert
     scrollableInstance = $columnChooser.find(".dx-scrollable").dxScrollable("instance");

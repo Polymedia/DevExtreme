@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     Class = require("core/class"),
@@ -34,7 +32,7 @@ $.extend(true, DevExpress.ui = DevExpress.ui || {}, {
                 var keyPress = $.Event("keypress"),
                     i;
                 for(i = 0; i < dateString.length; ++i) {
-                    keyPress.which = dateString.charCodeAt(i);
+                    keyPress.key = dateString[i];
                     input.val(input.val() + dateString[i]);
                     input.trigger(keyPress);
                 }

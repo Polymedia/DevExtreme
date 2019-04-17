@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<div>\
@@ -9,18 +7,16 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
+import "common.css!";
 
-require("ui/data_grid/ui.data_grid");
-require("data/odata/store");
+import "ui/data_grid/ui.data_grid";
+import "data/odata/store";
 
-var $ = require("jquery"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules;
-
-var DataSource = require("data/data_source/data_source").DataSource,
-    ArrayStore = require("data/array_store"),
-    CustomStore = require("data/custom_store");
+import $ from "jquery";
+import { setupDataGridModules } from "../../helpers/dataGridMocks.js";
+import { DataSource } from "data/data_source/data_source";
+import ArrayStore from "data/array_store";
+import CustomStore from "data/custom_store";
 
 var createDataSource = function(data, storeOptions, dataSourceOptions) {
     var arrayStore = new ArrayStore(storeOptions ? $.extend(true, { data: data }, storeOptions) : data);
@@ -439,7 +435,7 @@ QUnit.test("set selectedRows for single selection. Selecting empty object", func
 QUnit.test("set selectedRows for single selection. Selecting object with a different number of properties", function(assert) {
     // arrange
     var array = [{ name: 'Alex', address: { country: 'USA', city: 'New York' } },
-                { name: 'Dan', address: { country: 'USA', city: 'Chicago' } }];
+        { name: 'Dan', address: { country: 'USA', city: 'Chicago' } }];
 
     this.dataSource = createDataSource(array);
     this.dataController.setDataSource(this.dataSource);
@@ -1105,6 +1101,50 @@ QUnit.test("Rise selectionChanged event on change dataSource", function(assert) 
     assert.strictEqual(selectionChangedCount, 2, 'selection changed raised');
 });
 
+QUnit.test("Rise selectionChanged event on refresh", function(assert) {
+    var selectionChangedCount = 0;
+
+    this.applyOptions({
+        selection: { mode: 'multiple' },
+        onSelectionChanged: function() {
+            selectionChangedCount++;
+        }
+    });
+
+    this.selectionController.selectRows([{ name: 'Dan', age: 16 }, { name: 'Dmitry', age: 18 }]); // 1, 3
+    assert.strictEqual(selectionChangedCount, 1);
+
+    // act
+    this.array.splice(2, 10);
+    this.dataController.refresh();
+
+    // assert
+    assert.deepEqual(this.selectionController.getSelectedRowKeys(), [{ name: 'Dan', age: 16 }]);
+    assert.strictEqual(selectionChangedCount, 2, 'selection changed raised');
+});
+
+QUnit.test("Not rise selectionChanged event on refresh with changesOnly", function(assert) {
+    var selectionChangedCount = 0;
+
+    this.applyOptions({
+        selection: { mode: 'multiple' },
+        onSelectionChanged: function() {
+            selectionChangedCount++;
+        }
+    });
+
+    this.selectionController.selectRows([{ name: 'Dan', age: 16 }, { name: 'Dmitry', age: 18 }]); // 1, 3
+    assert.strictEqual(selectionChangedCount, 1);
+
+    // act
+    this.array.splice(2, 10);
+    this.dataController.refresh(true);
+
+    // assert
+    assert.deepEqual(this.selectionController.getSelectedRowKeys(), [{ name: 'Dan', age: 16 }, { name: 'Dmitry', age: 18 }]);
+    assert.strictEqual(selectionChangedCount, 1, 'selection changed is not raised');
+});
+
 QUnit.test("Not rise selectionChanged event on apply filter when selectedRows count not changed", function(assert) {
     var selectionChangedCount = 0;
 
@@ -1431,6 +1471,26 @@ QUnit.test("selectRows with key as array of undefined", function(assert) {
         // assert
         assert.deepEqual(that.selectionController.getSelectedRowKeys(), [], "selected row keys");
     });
+});
+
+// T708122
+QUnit.test("selectAll when remote paging and local filtering", function(assert) {
+    this.applyOptions({
+        remoteOperations: { paging: true }
+    });
+
+    this.dataSource = createDataSource(this.array, {}, { pageSize: 5, filter: ["age", ">", 15] });
+    this.dataController.setDataSource(this.dataSource);
+    this.dataSource.load();
+
+    // act
+    this.selectionController.selectAll();
+
+    // assert
+    assert.strictEqual(this.getVisibleRows().length, 5, "visible row count");
+    assert.strictEqual(this.totalCount(), 6, "total count");
+    assert.strictEqual(this.getSelectedRowKeys().length, 6, "selected row count");
+    assert.strictEqual(this.selectionController.isSelectAll(), true, "isSelectAll");
 });
 
 QUnit.module("Selection without dataSource", { beforeEach: setupModule, afterEach: teardownModule });
@@ -1906,6 +1966,27 @@ QUnit.test("changeRowSelection with shift key after filtering", function(assert)
 
     // assert
     assert.deepEqual(this.selectionController.getSelectedRowKeys(), [2, 6], "selectedRowKeys");
+});
+
+QUnit.test("changeRowSelection with shift key after partial refresh", function(assert) {
+    // arrange
+    var that = this;
+    this.applyOptions({
+        selection: {
+            mode: "multiple",
+            showCheckBoxesMode: "always"
+        },
+        onSelectionChanged: function(e) {
+            that.refresh(true);
+        }
+    });
+
+    // act
+    this.selectionController.changeItemSelection(1);
+    this.selectionController.changeItemSelection(3, { shift: true });
+
+    // assert
+    assert.deepEqual(this.selectionController.getSelectedRowKeys(), [2, 4, 3], "selectedRowKeys");
 });
 
 // T547950
@@ -2668,9 +2749,9 @@ QUnit.test("get isSelected rows after Select All when dataSource has filter", fu
     var selectedRows = this.selectionController.getSelectedRowsData();
     // assert
     assert.deepEqual(selectedRows, [
-            { id: 1, value: 'value1' },
-            { id: 4, value: 'value4' },
-            { id: 5, value: 'value5' }
+        { id: 1, value: 'value1' },
+        { id: 4, value: 'value4' },
+        { id: 5, value: 'value5' }
     ]);
 });
 
@@ -2696,10 +2777,10 @@ QUnit.test("selected rows after Select All when filter row defined", function(as
     assert.equal(selectedRows.length, 4, 'selected rows count');
     assert.ok(this.selectionController.isSelectAll(), 'isSelectAll');
     assert.deepEqual(selectedRows, [
-            { id: 5, value: 'value5' }, // selected row is not reset after selectAll
-            { id: 1, value: 'value1' },
-            { id: 2, value: 'value2' },
-            { id: 3, value: 'value3' }
+        { id: 5, value: 'value5' }, // selected row is not reset after selectAll
+        { id: 1, value: 'value1' },
+        { id: 2, value: 'value2' },
+        { id: 3, value: 'value3' }
     ]);
 
     // act
@@ -3110,13 +3191,13 @@ QUnit.test("selectRows with several values", function(assert) {
 QUnit.module("Selection with views", {
     beforeEach: function() {
         this.array = [
-                    { name: 'Alex', age: 15 },
-                    { name: 'Dan', age: 16 },
-                    { name: 'Vadim', age: 17 },
-                    { name: 'Dmitry', age: 18 },
-                    { name: 'Sergey', age: 18 },
-                    { name: 'Kate', age: 20 },
-                    { name: 'Dan', age: 21 }
+            { name: 'Alex', age: 15 },
+            { name: 'Dan', age: 16 },
+            { name: 'Vadim', age: 17 },
+            { name: 'Dmitry', age: 18 },
+            { name: 'Sergey', age: 18 },
+            { name: 'Kate', age: 20 },
+            { name: 'Dan', age: 21 }
         ];
         this.options = {
             showColumnHeaders: true,
@@ -3223,6 +3304,36 @@ QUnit.test("changeRowSelection for edited data", function(assert) {
 
     // assert
     assert.deepEqual(that.selectionController.getSelectedRowKeys(), [{ name: 'Test', age: 15 }], "selected row key of the first row after save");
+});
+
+QUnit.test("changeRowSelection for editing data (T654321)", function(assert) {
+    // arrange
+    var that = this,
+        $editingCell,
+        $testElement = $('#container').width(800),
+        clock = sinon.useFakeTimers();
+
+    that.options.selection.showCheckBoxesMode = 'onClick';
+    that.options.editing = {
+        mode: "batch",
+        allowUpdating: true
+    };
+    that.options.onSelectionChanged = function(e) {
+        assert.deepEqual(e.selectedRowKeys, [{ "name": "Alex", "age": 15 }], "selectedRowKeys contains original data");
+    };
+    that.setup();
+    that.columnHeadersView.render($testElement);
+    that.rowsView.render($testElement);
+
+    // act
+    that.editCell(0, 1);
+    $editingCell = $(that.rowsView.element()).find(".dx-data-row:nth-child(1) td:nth-child(2)");
+    $editingCell.find("input").val("Test");
+    $(that.rowsView.element()).find(".dx-data-row:nth-child(1) td:nth-child(1) .dx-select-checkbox").trigger("dxclick");
+
+    clock.tick();
+
+    clock.restore();
 });
 
 QUnit.test("Indeterminate state of selectAll", function(assert) {
@@ -3368,6 +3479,34 @@ QUnit.test("updateSelection with invalid itemIndexes", function(assert) {
     // assert
     assert.equal(testElement.find('.dx-checkbox').length, 7);
     assert.equal(testElement.find('.dx-checkbox-checked').length, 0);
+});
+
+// T642034
+QUnit.test("selecting of row when rowTemplate contains several tr tags", function(assert) {
+    var testElement = $('#container');
+
+    this.setup();
+    this.options.selection = { mode: "single" };
+    this.options.rowTemplate = function(container, options) {
+        var data = options.data;
+        $(container).append("<tbody class='dx-row'><tr><td id='" + data.name + "'>" + data.name + "</td></tr><tr><td>" + data.age + "</td></tr></tbody>");
+    };
+    this.rowsView.render(testElement);
+
+    // act
+    this.dataController.updateItems({
+        changeType: 'updateSelection',
+        itemIndexes: [1]
+    });
+
+    var ACTIVE_ID = "#Dan";
+    testElement.find(ACTIVE_ID).trigger("dxclick");
+
+    // assert
+    var selectedRows = testElement.find(".dx-selection");
+    assert.equal(selectedRows.length, 1);
+    assert.equal(selectedRows[0].tagName.toLowerCase(), "tbody");
+    assert.ok(selectedRows.has(ACTIVE_ID));
 });
 
 // T152315

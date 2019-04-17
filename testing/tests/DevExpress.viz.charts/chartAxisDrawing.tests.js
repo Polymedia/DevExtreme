@@ -1,5 +1,3 @@
-"use strict";
-
 /* global createTestContainer */
 
 var $ = require("jquery"),
@@ -95,7 +93,8 @@ function createAxisStubs() {
         shift: sinon.spy(function(arg) { this.shift_test_arg = $.extend({}, arg); }),
         hideTitle: sinon.spy(),
         drawScaleBreaks: sinon.spy(),
-        hideOuterElements: sinon.spy()
+        hideOuterElements: sinon.spy(),
+        prepareAnimation: sinon.spy()
     };
 
     axisFakes
@@ -959,6 +958,55 @@ QUnit.test("Rotated. Multiple panes - individual margins on left and right, comm
     }, "updateSize valAxis_rightPane_bottom_outer canvas");
 });
 
+QUnit.test("check call 'setInitRange'", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    valAxis.setInitRange = sinon.spy();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        valueAxis: [
+            { name: "valAxis" }
+        ],
+        series: [
+            { axis: "valAxis" }
+        ],
+        dataSource: [{ arg: 1, val: 10 }],
+        legend: { visible: false }
+    });
+
+    var valAxis1 = this.axisStub.getCall(1).returnValue;
+
+    assert.equal(valAxis1.setInitRange.callCount, 1);
+});
+
+QUnit.test("check call 'setInitRange'. Rotated", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    valAxis.setInitRange = sinon.spy();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        rotated: true,
+        valueAxis: [
+            { name: "valAxis" }
+        ],
+        series: [
+            { axis: "valAxis" }
+        ],
+        dataSource: [{ arg: 1, val: 10 }],
+        legend: { visible: false }
+    });
+
+    var valAxis1 = this.axisStub.getCall(1).returnValue;
+
+    assert.equal(valAxis1.setInitRange.callCount, 1);
+});
+
 QUnit.module("Shift axes", environment);
 
 QUnit.test("Multiple axes - shift only to the right/left, multipleAxesSpacing is not passed directly to axis shift method", function(assert) {
@@ -1453,6 +1501,102 @@ QUnit.test("Do not recalculate canvas on zooming - only draw axes in old canvas"
 
     assert.ok(valAxisStub.drawScaleBreaks.called, "draw scaleBreaks for value axis");
     assert.ok(argAxisStub.drawScaleBreaks.called, "draw scaleBreaks for argument axis");
+
+    assert.ok(valAxisStub.prepareAnimation.called);
+    assert.ok(argAxisStub.prepareAnimation.called);
+});
+
+// T690411
+QUnit.test("Recalculate canvas on zooming - draw axes in new canvas", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs(),
+        scrollBar = this.setupScrollBar();
+
+    argAxis
+        .getMargins.returns({ left: 10, top: 7, right: 20, bottom: 13 });
+
+    valAxis
+        .getMargins.returns({ left: 18, top: 15, right: 10, bottom: 9 });
+
+    scrollBar
+        .getMargins.returns({ left: 0, top: 15, right: 0, bottom: 0 });
+
+    this.setupAxes([argAxis, valAxis]);
+
+    var chart = new dxChart(this.container, {
+        scrollBar: { visible: true },
+        series: [{}],
+        dataSource: [{ arg: 1, val: 10 }],
+        legend: { visible: false },
+        adjustAxesOnZoom: true
+    });
+
+    var argAxisStub = this.axisStub.getCall(0).returnValue;
+
+    argAxisStub.draw.reset();
+    argAxisStub.getMargins.reset();
+    argAxisStub.estimateMargins.reset();
+    argAxisStub.updateSize.reset();
+    argAxisStub.shift.reset();
+    argAxisStub.createTicks.reset();
+    argAxisStub.drawScaleBreaks.reset();
+
+    var valAxisStub = this.axisStub.getCall(1).returnValue;
+
+    valAxisStub.draw.reset();
+    valAxisStub.getMargins.reset();
+    valAxisStub.estimateMargins.reset();
+    valAxisStub.updateSize.reset();
+    valAxisStub.shift.reset();
+    valAxisStub.createTicks.reset();
+    valAxisStub.drawScaleBreaks.reset();
+
+    scrollBar.updateSize.reset();
+
+    // act
+    chart.zoomArgument(2, 9);
+
+    // assert
+    assert.deepEqual(valAxisStub.createTicks_test_arg, {
+        left: 0,
+        right: 0,
+        top: 15,
+        bottom: 0,
+        originalLeft: 0,
+        originalRight: 0,
+        originalTop: 0,
+        originalBottom: 0,
+        width: 800,
+        height: 600
+    }, "createTicks valAxis canvas");
+
+    assert.equal(valAxisStub.draw.lastCall.args[0], false, "draw valAxis");
+
+    assert.deepEqual(argAxisStub.draw_test_arg, {
+        left: 18,
+        right: 10,
+        top: 15,
+        bottom: 9,
+        originalLeft: 0,
+        originalRight: 0,
+        originalTop: 0,
+        originalBottom: 0,
+        width: 800,
+        height: 600
+    }, "draw argAxis canvas");
+
+    assert.equal(argAxisStub.updateSize.called, true);
+    assert.equal(valAxisStub.updateSize.called, true);
+    assert.equal(scrollBar.updateSize.called, true);
+
+    assert.equal(argAxisStub.shift.called, true);
+    assert.equal(valAxisStub.shift.called, true);
+
+    assert.ok(valAxisStub.drawScaleBreaks.called, "draw scaleBreaks for value axis");
+    assert.ok(argAxisStub.drawScaleBreaks.called, "draw scaleBreaks for argument axis");
+
+    assert.ok(!valAxisStub.prepareAnimation.called);
+    assert.ok(!argAxisStub.prepareAnimation.called);
 });
 
 QUnit.test("Draw scale breaks", function(assert) {
@@ -2090,7 +2234,7 @@ QUnit.test("UpdateSize - scrollBar gets canvas", function(assert) {
         originalBottom: 0,
         width: 800,
         height: 600
-    }, undefined]);
+    }, true]);
 });
 
 QUnit.module("Adaptive layout rendering", environment);
@@ -2452,4 +2596,145 @@ QUnit.test("Do not shrink axis on zooming - only draw axes in old canvas (T62444
 
     assert.ok(valAxisStub.drawScaleBreaks.called, "draw scaleBreaks for value axis");
     assert.ok(argAxisStub.drawScaleBreaks.called, "draw scaleBreaks for argument axis");
+});
+
+QUnit.module("Animation", environment);
+
+QUnit.test("Pass animate true flag to the updateSize method", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        series: {},
+        dataSource: [{ arg: 1, val: 10 }]
+    });
+
+    // assert
+    assert.deepEqual(argAxis.updateSize.lastCall.args[1], true);
+    assert.deepEqual(valAxis.updateSize.lastCall.args[1], true);
+});
+
+QUnit.test("Pass animate false flag to the updateSize method if animation is disabled", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        animation: {
+            enabled: false
+        },
+        series: {},
+        dataSource: [{ arg: 1, val: 10 }]
+    });
+
+    // assert
+    assert.deepEqual(argAxis.updateSize.lastCall.args[1], false);
+    assert.deepEqual(valAxis.updateSize.lastCall.args[1], false);
+});
+
+QUnit.test("Pass animate false flag to the updateSize method if points limit is exceeded", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    var dataSource = [];
+
+    for(var i = 0; i < 12; i++) {
+        dataSource.push({ arg: i, val: 1 });
+    }
+
+    new dxChart(this.container, {
+        animation: {
+            enabled: true,
+            maxPointCountSupported: 10
+        },
+        series: [{}, {}],
+        dataSource: dataSource
+    });
+
+    // assert
+    assert.deepEqual(argAxis.updateSize.lastCall.args[1], false);
+    assert.deepEqual(valAxis.updateSize.lastCall.args[1], false);
+});
+
+QUnit.test("Pass animate false flag to the updateSize method if points limit is not exceeded", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    this.setupAxes([argAxis, valAxis]);
+
+    var dataSource = [];
+
+    for(var i = 0; i < 15; i++) {
+        dataSource.push({ arg: i, val: 1 });
+    }
+
+    new dxChart(this.container, {
+        animation: {
+            enabled: true,
+            maxPointCountSupported: 10
+        },
+        series: [{}, { valueField: "val2" }],
+        dataSource: dataSource
+    });
+
+    // assert
+    assert.deepEqual(argAxis.updateSize.lastCall.args[1], true);
+    assert.deepEqual(valAxis.updateSize.lastCall.args[1], true);
+});
+
+QUnit.test("Do not stop all current animations if no adaptive layout", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    argAxis.getMargins.returns({ left: 0, top: 0, right: 0, bottom: 15 });
+    valAxis.getMargins.returns({ left: 7, top: 0, right: 0, bottom: 0 });
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        size: { width: 220, height: 110 },
+        adaptiveLayout: { width: 50, height: 50 },
+        series: [{}],
+        dataSource: [{ arg: 1, val: 10 }],
+        legend: { visible: false }
+    });
+
+    var valAxisStub = this.axisStub.getCall(1).returnValue;
+    assert.equal(valAxisStub.updateSize.callCount, 1);
+
+    assert.equal(this.renderer.stopAllAnimations.callCount, 2);
+
+    assert.ok(this.renderer.stopAllAnimations.getCall(0).calledBefore(valAxisStub.updateSize.getCall(0)));
+    assert.ok(this.renderer.stopAllAnimations.getCall(1).calledBefore(valAxisStub.updateSize.getCall(0)));
+});
+
+QUnit.test("Stop all current animations on adaptive layout", function(assert) {
+    var argAxis = createAxisStubs(),
+        valAxis = createAxisStubs();
+
+    argAxis.getMargins.returns({ left: 0, top: 0, right: 0, bottom: 15 });
+    valAxis.getMargins.returns({ left: 7, top: 0, right: 0, bottom: 0 });
+
+    this.setupAxes([argAxis, valAxis]);
+
+    new dxChart(this.container, {
+        size: { width: 220, height: 110 },
+        adaptiveLayout: { width: 50, height: 100 },
+        series: [{}],
+        dataSource: [{ arg: 1, val: 10 }],
+        legend: { visible: false }
+    });
+
+    var valAxisStub = this.axisStub.getCall(1).returnValue;
+    assert.equal(valAxisStub.updateSize.callCount, 4);
+
+    assert.equal(this.renderer.stopAllAnimations.callCount, 3);
+
+    assert.ok(this.renderer.stopAllAnimations.getCall(2).calledAfter(valAxisStub.updateSize.getCall(1)));
+    assert.ok(this.renderer.stopAllAnimations.getCall(2).calledBefore(valAxisStub.updateSize.getCall(2)));
 });

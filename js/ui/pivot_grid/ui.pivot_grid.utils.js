@@ -1,5 +1,3 @@
-"use strict";
-
 var typeUtils = require("../../core/utils/type"),
     ajax = require("../../core/utils/ajax"),
     dataCoreUtils = require("../../core/utils/data"),
@@ -115,7 +113,7 @@ exports.findField = function(fields, id) {
 exports.formatValue = function(value, options) {
     var formatObject = {
         value: value,
-        valueText: formatHelper.format(value, options.format, options.precision) || ''
+        valueText: formatHelper.format(value, options.format) || ''
     };
     return options.customizeText ? options.customizeText.call(options, formatObject) : formatObject.valueText;
 };
@@ -216,6 +214,8 @@ function parseFields(dataSource, fieldsList, path, fieldsDataType) {
     var result = [];
 
     iteratorUtils.each(fieldsList || [], function(field, value) {
+        if(field && field.indexOf("__") === 0) return;
+
         var dataIndex = 1,
             currentPath = path.length ? path + "." + field : field,
             dataType = fieldsDataType[currentPath],
@@ -287,7 +287,7 @@ exports.setDefaultFieldValueFormatting = function(field) {
         if(groupInterval && !field.customizeText) {
             setFieldProperty(field, "customizeText", function(formatObject) {
                 var secondValue = formatObject.value + groupInterval,
-                    secondValueText = formatHelper.format(secondValue, field.format, field.precision);
+                    secondValueText = formatHelper.format(secondValue, field.format);
 
                 return formatObject.valueText && secondValueText ? formatObject.valueText + " - " + secondValueText : "";
             });

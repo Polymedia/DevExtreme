@@ -77,8 +77,6 @@
 
     <script>
         (function() {
-            "use strict";
-
             var doneCount = 0,
                 parentWindow = window.opener || window.parent;
 
@@ -100,7 +98,7 @@
 
             QUnit.log(function(data) {
                 data.suiteUrl = location.pathname;
-                if (parentWindow && parentWindow.RUNNER_ON_TEST_LOG)
+                if(parentWindow && parentWindow.RUNNER_ON_TEST_LOG)
                     parentWindow.RUNNER_ON_TEST_LOG(window, data);
             });
 
@@ -152,8 +150,6 @@
     <script src="@Url.ContentWithCacheBuster("~/node_modules/systemjs/dist/system.js")"></script>
     <script>
         (function() {
-            "use strict";
-
             jQuery.noConflict();
 
             var cacheBuster = '@Url.CacheBuster()';
@@ -177,6 +173,9 @@
                     'knockout': '@Url.Content("~/node_modules/knockout/build/output/knockout-latest.debug.js")',
                     'angular': '@Url.Content("~/artifacts/js/angular.js")',
                     'jszip': '@Url.Content("~/artifacts/js/jszip.js")',
+                    'quill': '@Url.Content("~/artifacts/js/quill.js")',
+                    'turndown': '@Url.Content("~/artifacts/js/turndown.browser.umd.js")',
+                    'showdown': '@Url.Content("~/artifacts/js/showdown.js")',
 
                     // Global CSS
                     'style-compiler-test-server': '@Model.StyleCompilerTestServerUrl',
@@ -253,8 +252,6 @@
 
 <script>
     (function() {
-        "use strict";
-
         // IE11 hack for promises error (http://stackoverflow.com/questions/35651193/ie11-promise-strange-behaviour)
         jQuery.each([1, 2, 3, 5, 8, 13, 20, 40, 100], function(_, timeout) {
             new Promise(function (resolve) {
@@ -294,7 +291,7 @@
             QUnit.start();
             QUnit.test("load failed", function(assert) {
                 throw err;
-             });
+            });
         });
 
     })();

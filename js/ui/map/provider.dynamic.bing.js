@@ -1,9 +1,8 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     window = require("../../core/utils/window").getWindow(),
     Promise = require("../../core/polyfills/promise"),
     extend = require("../../core/utils/extend").extend,
+    errors = require("../widget/ui.errors"),
     iteratorUtils = require("../../core/utils/iterator"),
     DynamicProvider = require("./provider.dynamic"),
     Color = require("../../color"),
@@ -326,7 +325,7 @@ var BingProvider = DynamicProvider.inherit({
     _destroyMarker: function(marker) {
         this._map.entities.remove(marker.marker);
         if(marker.infobox) {
-            this._map.entities.remove(marker.infobox);
+            marker.infobox.setMap(null);
         }
         if(marker.handler) {
             Microsoft.Maps.Events.removeHandler(marker.handler);
@@ -366,8 +365,12 @@ var BingProvider = DynamicProvider.inherit({
                     direction.addWaypoint(waypoint);
                 });
 
-                var handler = Microsoft.Maps.Events.addHandler(direction, 'directionsUpdated', function(args) {
-                    Microsoft.Maps.Events.removeHandler(handler);
+                var directionHandlers = [];
+
+                directionHandlers.push(Microsoft.Maps.Events.addHandler(direction, 'directionsUpdated', function(args) {
+                    while(directionHandlers.length) {
+                        Microsoft.Maps.Events.removeHandler(directionHandlers.pop());
+                    }
 
                     var routeSummary = args.routeSummary[0];
 
@@ -376,7 +379,21 @@ var BingProvider = DynamicProvider.inherit({
                         northEast: routeSummary.northEast,
                         southWest: routeSummary.southWest
                     });
-                });
+                }));
+
+                directionHandlers.push(Microsoft.Maps.Events.addHandler(direction, 'directionsError', function(args) {
+                    while(directionHandlers.length) {
+                        Microsoft.Maps.Events.removeHandler(directionHandlers.pop());
+                    }
+
+                    var status = "RouteResponseCode: " + args.responseCode + " - " + args.message;
+                    errors.log("W1006", status);
+
+                    resolve({
+                        instance: direction
+                    });
+                }));
+
                 direction.calculateDirections();
             }.bind(this));
         }.bind(this));

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     vizMocks = require("../../helpers/vizMocks.js"),
     axisModule = require("viz/axes/base_axis"),
@@ -35,7 +33,7 @@ var $ = require("jquery"),
             var axis = new Axis();
 
             axis.stub("getOptions").returns({ position: axisOptions.position });
-            axis.stub("getTranslator").returns({ getBusinessRange: function() { return { stubData: axisOptions.stubData }; } });
+            axis.stub("getTranslator").returns({ getBusinessRange: function() { return { isEmpty: function() { return axisOptions.emptyRange; } }; } });
             this.getFormattedValue = sinon.spy(function(value, format) {
                 return value + "_formatted";
             });
@@ -248,9 +246,9 @@ QUnit.test("render label, position of axis is right", function(assert) {
     checkRect(assert, this.renderer.rect, 0, 0, 0, 0, { fill: "blue" });
 });
 
-QUnit.test("render with label, stubData", function(assert) {
+QUnit.test("render with label, emptyRange", function(assert) {
     var options = { horizontalLine: { label: { visible: true, font: { size: 14, color: "red" }, backgroundColor: "blue" } } };
-    var crosshair = this.createCrosshair(options, { stubData: true });
+    var crosshair = this.createCrosshair(options, { emptyRange: true });
 
     // act
     crosshair.render();

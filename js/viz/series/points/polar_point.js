@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../../core/utils/extend").extend,
     _extend = extend,
 
@@ -165,6 +163,11 @@ exports.polarBarPoint = _extend({}, barPoint, {
         that.middleAngle = that.angle = -normalizeAngle(that.middleAngleCorrection - that.angle);
     },
 
+    _getErrorBarBaseEdgeLength() {
+        const coord = this.getMarkerCoords();
+        return _math.PI * coord.outerRadius * _math.abs(coord.startAngle - coord.endAngle) / 180;
+    },
+
     getMarkerCoords: function() {
         return {
             x: this.centerX,
@@ -223,8 +226,8 @@ exports.polarBarPoint = _extend({}, barPoint, {
         var val = vizUtils.convertXYToPolar(this.series.getValueAxis().getCenter(), x, y),
             coords = this.getMarkerCoords(),
             isBetweenAngles = coords.startAngle < coords.endAngle ?
-            -val.phi >= coords.startAngle && -val.phi <= coords.endAngle :
-            -val.phi <= coords.startAngle && -val.phi >= coords.endAngle;
+                -val.phi >= coords.startAngle && -val.phi <= coords.endAngle :
+                -val.phi <= coords.startAngle && -val.phi >= coords.endAngle;
 
         return (val.r >= coords.innerRadius && val.r <= coords.outerRadius && isBetweenAngles);
     }

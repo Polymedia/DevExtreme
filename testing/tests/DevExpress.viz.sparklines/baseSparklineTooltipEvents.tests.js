@@ -1,5 +1,3 @@
-"use strict";
-
 /* global createTestContainer */
 
 var $ = require("jquery"),
@@ -52,7 +50,7 @@ var environment = {
             event.pageX = x;
             event.pageY = y;
             target.trigger(event);
-            this.triggerDocument.apply(this, arguments);    //  Bubbling emulation
+            this.triggerDocument.apply(this, arguments); //  Bubbling emulation
         };
 
         this.clock = sinon.useFakeTimers();

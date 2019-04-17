@@ -1,8 +1,6 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    treeListCore = require("./ui.tree_list.core"),
-    rowsViewModule = require("../grid_core/ui.grid_core.rows");
+import $ from '../../core/renderer';
+import treeListCore from './ui.tree_list.core';
+import rowsViewModule from '../grid_core/ui.grid_core.rows';
 
 var TREELIST_TEXT_CONTENT = "dx-treelist-text-content",
     TREELIST_EXPAND_ICON_CONTAINER_CLASS = "dx-treelist-icon-container",
@@ -31,16 +29,28 @@ exports.RowsView = rowsViewModule.views.rowsView.inherit((function() {
         return $iconElement;
     };
 
+    var renderIcons = function($container, row) {
+        var level = row.level;
+
+        for(var i = 0; i <= level; i++) {
+            $container.append(createIcon(i === level && row.node.hasChildren, row.isExpanded));
+        }
+    };
+
     return {
         _renderExpandIcon: function($container, options) {
-            var level = options.row.level,
-                $iconContainer = $("<div>")
-                    .addClass(TREELIST_EXPAND_ICON_CONTAINER_CLASS)
-                    .appendTo($container);
+            var $iconContainer = $("<div>")
+                .addClass(TREELIST_EXPAND_ICON_CONTAINER_CLASS)
+                .appendTo($container);
 
-            for(var i = 0; i <= level; i++) {
-                $iconContainer.append(createIcon(i === level && options.row.node.hasChildren, options.row.isExpanded));
-            }
+            renderIcons($iconContainer, options.row);
+
+            options.watch && options.watch(function() {
+                return [options.row.level, options.row.isExpanded, options.row.node.hasChildren];
+            }, function() {
+                $iconContainer.empty();
+                renderIcons($iconContainer, options.row);
+            });
 
             $container.addClass(TREELIST_CELL_EXPANDABLE_CLASS);
 

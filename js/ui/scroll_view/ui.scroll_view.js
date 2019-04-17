@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     devices = require("../../core/devices"),
     windowUtils = require("../../core/utils/window"),
@@ -202,15 +200,20 @@ var ScrollView = Scrollable.inherit(isServerSide ? scrollViewServerConfig : {
     },
 
     _initLoadPanel: function() {
-        this._loadPanel = this._createComponent($("<div>").addClass(SCROLLVIEW_LOADPANEL)
-            .appendTo(this.$element()), LoadPanel, {
-                shading: false,
-                delay: 400,
-                message: this.option("refreshingText"),
-                position: {
-                    of: this.$element()
-                }
-            });
+        let $loadPanelElement = $("<div>")
+            .addClass(SCROLLVIEW_LOADPANEL)
+            .appendTo(this.$element());
+
+        let loadPanelOptions = {
+            shading: false,
+            delay: 400,
+            message: this.option("refreshingText"),
+            position: {
+                of: this.$element()
+            }
+        };
+
+        this._loadPanel = this._createComponent($loadPanelElement, LoadPanel, loadPanelOptions);
     },
 
     _updateReachBottomText: function() {

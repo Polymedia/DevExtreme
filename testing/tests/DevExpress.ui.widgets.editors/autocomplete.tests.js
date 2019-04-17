@@ -1,19 +1,17 @@
-"use strict";
+import $ from "jquery";
+import ArrayStore from "data/array_store";
+import Autocomplete from "ui/autocomplete";
+import config from "core/config";
+import devices from "core/devices";
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
+import fx from "animation/fx";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import pointerMock from "../../helpers/pointerMock.js";
+import resizeCallbacks from "core/utils/resize_callbacks";
+import { isRenderer } from "core/utils/type";
 
-var $ = require("jquery"),
-    Autocomplete = require("ui/autocomplete"),
-    devices = require("core/devices"),
-    resizeCallbacks = require("core/utils/resize_callbacks"),
-    fx = require("animation/fx"),
-    ArrayStore = require("data/array_store"),
-    executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    isRenderer = require("core/utils/type").isRenderer,
-    config = require("core/config");
-
-require("common.css!");
-require("ui/select_box");
+import "common.css!";
+import "ui/select_box";
 
 QUnit.testStart(function() {
     var markup =
@@ -48,11 +46,11 @@ var TEXTEDITOR_INPUT_CLASS = "dx-texteditor-input",
     LIST_ITEM_CLASS = "dx-list-item",
     FOCUSED_STATE_SELECTOR = ".dx-state-focused",
 
-    KEY_DOWN = 40,
-    KEY_UP = 38,
-    KEY_ENTER = 13,
-    KEY_ESC = 27,
-    KEY_TAB = 9;
+    KEY_DOWN = "ArrowDown",
+    KEY_UP = "ArrowUp",
+    KEY_ENTER = "Enter",
+    KEY_ESC = "Escape",
+    KEY_TAB = "Tab";
 
 QUnit.module("dxAutocomplete", {
     beforeEach: function() {
@@ -265,6 +263,38 @@ QUnit.testInActiveWindow("open/close actions", function(assert) {
     this.keyboard.press("backspace");
     assert.equal(openFired, 1, "open fired once");
     assert.equal(closeFired, 1, "close fired once");
+});
+
+QUnit.testInActiveWindow("should not open overlay if the focus has been lost (T712942)", function(assert) {
+    const done = assert.async();
+    let isOpenFired = false;
+
+    this.clock.restore();
+
+    this.instance.option({
+        value: null,
+        onOpened: () => isOpenFired = true,
+        searchTimeout: 10
+    });
+
+    this.keyboard.type("i");
+    this.instance.blur();
+
+    window.setTimeout(() => {
+        assert.notOk(isOpenFired);
+        assert.notOk(this.instance._isFocused());
+
+        this.instance.focus();
+        this.keyboard.press("backspace");
+        this.keyboard.type("i");
+        this.instance.blur();
+
+        window.setTimeout(() => {
+            assert.notOk(isOpenFired);
+            assert.notOk(this.instance._isFocused());
+            done();
+        }, 20);
+    }, 20);
 });
 
 QUnit.test("onEnterKey (T107163)", function(assert) {
@@ -554,15 +584,12 @@ QUnit.testInActiveWindow("enter - prevent default", function(assert) {
 
 
 QUnit.test("try to autocomplete current value when type missing searchValue", function(assert) {
-    var $list,
-        keyboard = this.keyboard;
+    var keyboard = this.keyboard;
 
     this.element.dxAutocomplete({
         value: "",
         dataSource: ["item 1", "item 2", "item 3"]
     });
-
-    $list = this.instance._list._$element;
 
     keyboard
         .type("l")
@@ -586,7 +613,6 @@ QUnit.testInActiveWindow("esc_key close list", function(assert) {
 
 QUnit.test("filter with non-default searchMode", function(assert) {
     var instance = this.instance,
-        $list,
         keyboard = this.keyboard;
 
     this.element.dxAutocomplete({
@@ -594,8 +620,6 @@ QUnit.test("filter with non-default searchMode", function(assert) {
         dataSource: ["item 1", "thing", "item 3"],
         searchMode: "startswith"
     });
-
-    $list = this.instance._list._$element;
 
     keyboard.type("t");
     assert.deepEqual(instance._dataSource.items(), ["thing"], "element that starts with 't' letter was found");
@@ -666,9 +690,9 @@ QUnit.test("valueExpr option", function(assert) {
             value: "",
             searchTimeout: 0,
             dataSource: [
-            { item: "item 1", description: "aq", caption: "qa" },
-            { item: "item 2", description: "sw", caption: "ws" },
-            { item: "item 3", description: "de", caption: "ed" }
+                { item: "item 1", description: "aq", caption: "qa" },
+                { item: "item 2", description: "sw", caption: "ws" },
+                { item: "item 3", description: "de", caption: "ed" }
             ],
             valueExpr: "item"
         }),
@@ -731,9 +755,9 @@ QUnit.testInActiveWindow("using multifield datasource with template", function(a
             itemTemplate: "item",
             value: "",
             dataSource: [
-            { item: "item 1", description: "aq" },
-            { item: "item 2", description: "sw" },
-            { item: "item 3", description: "de" }
+                { item: "item 1", description: "aq" },
+                { item: "item 2", description: "sw" },
+                { item: "item 3", description: "de" }
             ],
             valueExpr: "item",
             searchTimeout: 0,
@@ -758,8 +782,7 @@ QUnit.testInActiveWindow("using multifield datasource with template", function(a
 });
 
 QUnit.test("Manual datasource - search in datasource", function(assert) {
-    var $list,
-        keyboard = this.keyboard,
+    var keyboard = this.keyboard,
         searchedString = null;
 
 
@@ -773,8 +796,6 @@ QUnit.test("Manual datasource - search in datasource", function(assert) {
         },
         filterOperator: "startswith"
     });
-
-    $list = this.instance._list._$element;
 
     // act
     keyboard.type("t");
@@ -1098,7 +1119,6 @@ QUnit.testInActiveWindow("when updating value option, input.val() do not updatin
 
 QUnit.test("big dataSource loading", function(assert) {
     var instance = this.instance,
-        $list,
         longArray = [],
         arrayLength = 100;
 
@@ -1112,8 +1132,6 @@ QUnit.test("big dataSource loading", function(assert) {
             store: longArray
         }
     });
-
-    $list = this.instance._list._$element;
 
     assert.equal(instance._list._dataSource, null, "no dataSource before changing value");
 
@@ -1276,6 +1294,23 @@ QUnit.test("onValueChanged callback", function(assert) {
     this.keyboard
         .type("123");
     assert.equal(called, 6);
+});
+
+QUnit.test("clear button should save valueChangeEvent", function(assert) {
+    var valueChangedHandler = sinon.spy();
+
+    this.instance.option({
+        items: ["item 1"],
+        value: "item 1",
+        onValueChanged: valueChangedHandler,
+        showClearButton: true
+    });
+
+    var $clearButton = this.element.find(".dx-clear-button-area");
+    $clearButton.trigger("dxclick");
+
+    assert.equal(valueChangedHandler.callCount, 1, "valueChangedHandler has been called");
+    assert.equal(valueChangedHandler.getCall(0).args[0].event.type, "dxclick", "event is correct");
 });
 
 QUnit.test("item initialization scenario", function(assert) {

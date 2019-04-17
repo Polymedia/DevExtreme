@@ -1,12 +1,10 @@
-"use strict";
-
-var $ = require("jquery"),
-    domUtils = require("core/utils/dom"),
-    support = require("core/utils/support"),
-    styleUtils = require("core/utils/style"),
-    devices = require("core/devices"),
-    initMobileViewport = require("mobile/init_mobile_viewport"),
-    keyboardMock = require("../../helpers/keyboardMock.js");
+import $ from "jquery";
+import domUtils from "core/utils/dom";
+import support from "core/utils/support";
+import styleUtils from "core/utils/style";
+import devices from "core/devices";
+import initMobileViewport from "mobile/init_mobile_viewport";
+import keyboardMock from "../../helpers/keyboardMock.js";
 
 QUnit.module("createMarkup");
 
@@ -148,4 +146,19 @@ QUnit.test("dont prevent touch move on win10 devices", function(assert) {
     } finally {
         devices.real(originalRealDevice);
     }
+});
+
+
+QUnit.module("Contains");
+
+QUnit.test("it correctly detect the html element", function(assert) {
+    var html = document.documentElement;
+
+    assert.ok(domUtils.contains(document, html), "Document contains the html element");
+});
+
+QUnit.test("it correctly detect the body element", function(assert) {
+    var body = document.body;
+
+    assert.ok(domUtils.contains(document, body), "Document contains the body element");
 });

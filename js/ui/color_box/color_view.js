@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     translator = require("../../animation/translator"),
@@ -199,9 +197,11 @@ var ColorView = Editor.inherit({
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
             value: null,
+            matchValue: null,
             onEnterKeyPressed: undefined,
             editAlphaChannel: false,
-            keyStep: 1
+            keyStep: 1,
+            stylingMode: undefined
         });
     },
 
@@ -251,6 +251,20 @@ var ColorView = Editor.inherit({
             }
         } else {
             this.option("value", this._currentColor.baseColor);
+        }
+    },
+
+    _setBaseColor: function(value) {
+        var color = value || "#000000";
+        var newColor = new Color(color);
+
+        if(!newColor.colorIsInvalid) {
+            var isBaseColorChanged = this._makeRgba(this.option("matchValue") !== this._makeRgba(newColor));
+            if(isBaseColorChanged) {
+                if(this._$baseColor) {
+                    this._makeTransparentBackground(this._$baseColor, newColor);
+                }
+            }
         }
     },
 
@@ -492,13 +506,13 @@ var ColorView = Editor.inherit({
             .addClass(COLOR_VIEW_COLOR_PREVIEW_CONTAINER_INNER_CLASS)
             .appendTo($colorsPreviewContainer);
 
-        this._$currentColor = $("<div>").addClass([COLOR_VIEW_COLOR_PREVIEW, COLOR_VIEW_COLOR_PREVIEW_COLOR_CURRENT].join(" "));
-        this._$newColor = $("<div>").addClass([COLOR_VIEW_COLOR_PREVIEW, COLOR_VIEW_COLOR_PREVIEW_COLOR_NEW].join(" "));
+        this._$currentColor = $("<div>").addClass([COLOR_VIEW_COLOR_PREVIEW, COLOR_VIEW_COLOR_PREVIEW_COLOR_NEW].join(" "));
+        this._$baseColor = $("<div>").addClass([COLOR_VIEW_COLOR_PREVIEW, COLOR_VIEW_COLOR_PREVIEW_COLOR_CURRENT].join(" "));
 
+        this._makeTransparentBackground(this._$baseColor, this.option("matchValue"));
         this._makeTransparentBackground(this._$currentColor, this._currentColor);
-        this._makeTransparentBackground(this._$newColor, this._currentColor);
 
-        $colorsPreviewContainerInner.append([this._$currentColor, this._$newColor]);
+        $colorsPreviewContainerInner.append([this._$baseColor, this._$currentColor]);
     },
 
     _renderAlphaChannelElements: function() {
@@ -564,10 +578,12 @@ var ColorView = Editor.inherit({
 
         var editorType = options.editorType;
 
-        var editorOptions = {
+        var editorOptions = extend({
             value: options.value,
             onValueChanged: options.onValueChanged
-        };
+        }, {
+            stylingMode: this.option("stylingMode")
+        });
 
         if(editorType === NumberBox) {
             editorOptions.min = options.min || 0;
@@ -600,8 +616,8 @@ var ColorView = Editor.inherit({
     _renderHexInput: function() {
         this._hexInput = TextBox.getInstance(
             this._renderEditorWithLabel(this.hexInputOptions())
-            .appendTo(this._$controlsContainer)
-            .find(".dx-textbox")
+                .appendTo(this._$controlsContainer)
+                .find(".dx-textbox")
         );
     },
 
@@ -672,7 +688,6 @@ var ColorView = Editor.inherit({
 
     _updateColorTransparency: function(transparency) {
         this._currentColor.a = transparency;
-        this._makeTransparentBackground(this._$newColor, this._currentColor);
         this.applyColor();
     },
 
@@ -803,7 +818,6 @@ var ColorView = Editor.inherit({
         this._rgbInputs[2].option("value", this._currentColor.b);
         this._suppressEditorsValueUpdating = false;
 
-        this._makeTransparentBackground(this._$newColor, this._currentColor);
         if(this.option("editAlphaChannel")) {
             this._makeCSSLinearGradient.call(this, this._$alphaChannelScale);
             this._alphaChannelInput.option("value", this._currentColor.a);
@@ -823,6 +837,9 @@ var ColorView = Editor.inherit({
                 this._updateByDrag = false;
                 this.callBase(args);
                 break;
+            case "matchValue":
+                this._setBaseColor(value);
+                break;
             case "onEnterKeyPressed":
                 this._initEnterKeyPressedAction();
                 break;
@@ -833,6 +850,9 @@ var ColorView = Editor.inherit({
                 }
                 break;
             case "keyStep":
+                break;
+            case "stylingMode":
+                this._renderControls();
                 break;
             default:
                 this.callBase(args);

@@ -1,5 +1,3 @@
-"use strict";
-
 /* global jQuery */
 
 var Microsoft = window.Microsoft = {};
@@ -82,6 +80,10 @@ Microsoft.Maps = {
                     Microsoft.clickActionCallback = callback;
                     return "clickHandler";
                 case "directionsUpdated":
+                    if(Microsoft.abortDirectionsUpdate) {
+                        return;
+                    }
+
                     var lastDirectionPoints = Microsoft.lastDirectionPoints;
                     setTimeout(function() {
                         callback({
@@ -92,6 +94,17 @@ Microsoft.Maps = {
                         });
                     });
                     return "directionsUpdatedHandler";
+                case "directionsError":
+                    if(!Microsoft.abortDirectionsUpdate) {
+                        return;
+                    }
+
+                    setTimeout(function() {
+                        callback({
+                            responseCode: 1, message: "Directions error"
+                        });
+                    });
+                    return "directionsErrorHandler";
                 case "viewchange":
                     Microsoft.viewChangeCallback = callback;
                     return "viewchangeHandler";
@@ -118,7 +131,9 @@ Microsoft.Maps = {
                     Microsoft.clickHandlerRemoved = true;
                     break;
                 case "directionsUpdatedHandler":
+                case "directionsErrorHandler":
                     Microsoft.directionsUpdatedHandlerRemoved = true;
+                    Microsoft.directionsErrorHandlerRemoved = true;
                     break;
                 case "viewchangeHandler":
                     Microsoft["viewchangeHandlerRemoved"] = true;
@@ -290,9 +305,6 @@ Microsoft.Maps = {
             if(entity instanceof Microsoft.Maps.Pushpin) {
                 Microsoft.pushpinRemoved = true;
             }
-            if(entity instanceof Microsoft.Maps.Infobox) {
-                Microsoft.infoboxRemoved = true;
-            }
         };
         this.removeAt = function() {};// (index:number)
         this.setOptions = function() {};// (options:EntityCollectionOptions)
@@ -306,8 +318,12 @@ Microsoft.Maps = {
 
         this.open = function() {};
         this.close = function() {};
-        this.setMap = function() {
-            Microsoft.infoboxAddedToMap = true;
+        this.setMap = function(map) {
+            if(!map) {
+                Microsoft.infoboxRemoved = true;
+            } else {
+                Microsoft.infoboxAddedToMap = true;
+            }
         };
         this.getContent = function() {};
         this.getPosition = function() {};

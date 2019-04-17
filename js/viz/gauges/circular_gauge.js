@@ -1,5 +1,3 @@
-"use strict";
-
 var _isFinite = isFinite,
     registerComponent = require("../../core/component_registrator"),
     objectUtils = require("../../core/utils/object"),
@@ -61,7 +59,7 @@ var dxCircularGauge = dxGauge.inherit({
 
     _updateScaleTickIndent: function(scaleOptions) {
         var indentFromTick = scaleOptions.label.indentFromTick,
-            length = scaleOptions.tick.length,
+            length = scaleOptions.tick.visible ? scaleOptions.tick.length : 0,
             textParams = this._scale.measureLabels(extend({}, this._canvas)),
             tickCorrection = length;
 

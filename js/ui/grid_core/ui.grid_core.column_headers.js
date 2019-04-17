@@ -1,11 +1,10 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    eventsEngine = require("../../events/core/events_engine"),
-    columnsView = require("./ui.grid_core.columns_view"),
-    isDefined = require("../../core/utils/type").isDefined,
-    each = require("../../core/utils/iterator").each,
-    extend = require("../../core/utils/extend").extend;
+import $ from "../../core/renderer";
+import eventsEngine from "../../events/core/events_engine";
+import columnsView from "./ui.grid_core.columns_view";
+import messageLocalization from "../../localization/message";
+import { isDefined } from "../../core/utils/type";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
 
 var CELL_CONTENT_CLASS = "text-content",
     HEADERS_CLASS = "headers",
@@ -44,6 +43,8 @@ module.exports = {
             var createCellContent = function(that, $cell, options) {
                 var showColumnLines,
                     $cellContent = $("<div>").addClass(that.addWidgetPrefix(CELL_CONTENT_CLASS));
+
+                that.setAria("role", "presentation", $cellContent);
 
                 addCssClassesToCellContent(that, $cell, options.column, $cellContent);
                 showColumnLines = that.option("showColumnLines");
@@ -111,7 +112,7 @@ module.exports = {
                         column = options.column,
                         renderingTemplate = that.callBase(template);
 
-                    if(renderingTemplate && column.headerCellTemplate && !column.command) {
+                    if(options.rowType === "header" && renderingTemplate && column.headerCellTemplate && !column.command) {
                         resultTemplate = {
                             render: function(options) {
                                 var $content = createCellContent(that, options.container, options.model);
@@ -148,6 +149,12 @@ module.exports = {
                     this.callBase($cell, cellOptions);
                     if(cellOptions.rowType === "header") {
                         this.setAria("role", "columnheader", $cell);
+                        if(cellOptions.column && !cellOptions.column.command && !cellOptions.column.isBand) {
+                            $cell.attr("id", cellOptions.column.headerId);
+                            this.setAria("label",
+                                messageLocalization.format("dxDataGrid-ariaColumn") + " " + cellOptions.column.caption,
+                                $cell);
+                        }
                     }
                 },
 
@@ -207,7 +214,7 @@ module.exports = {
                     var column = options.column,
                         $cellElement = this.callBase.apply(this, arguments);
 
-                    column.rowspan > 1 && $cellElement.attr("rowSpan", column.rowspan);
+                    column.rowspan > 1 && options.rowType === "header" && $cellElement.attr("rowSpan", column.rowspan);
 
                     return $cellElement;
                 },
@@ -301,10 +308,9 @@ module.exports = {
                     var $tableElement = this._getTableElement(),
                         $headerRows = $tableElement && $tableElement.find("." + HEADER_ROW_CLASS);
 
-                    if($headerRows && $headerRows.length) {
-                        return $headerRows.first().height() * $headerRows.length;
-                    }
-                    return 0;
+                    return $headerRows && $headerRows.toArray().reduce(function(sum, headerRow) {
+                        return sum + $(headerRow).height();
+                    }, 0) || 0;
                 },
 
                 getHeaderElement: function(index) {
@@ -338,6 +344,12 @@ module.exports = {
                             return that.getCellElements(index || 0);
                         }
                     }
+                },
+
+                getVisibleColumnIndex: function(columnIndex, rowIndex) {
+                    var column = this.getColumns()[columnIndex];
+
+                    return column ? this._columnsController.getVisibleIndex(column.index, rowIndex) : -1;
                 },
 
                 getColumnWidths: function() {

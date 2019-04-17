@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     window = require("../../core/utils/window").getWindow(),
     CalendarStrategy = require("./ui.date_box.strategy.calendar"),
@@ -39,7 +37,8 @@ var CalendarWithTimeStrategy = CalendarStrategy.inherit({
             value: this.dateBoxValue(),
             _showClock: !this._isShrinkView(),
             use24HourFormat: this._is24HourFormat(),
-            onValueChanged: this._valueChangedHandler.bind(this)
+            onValueChanged: this._valueChangedHandler.bind(this),
+            stylingMode: this.dateBox.option("stylingMode")
         });
     },
 
@@ -59,11 +58,12 @@ var CalendarWithTimeStrategy = CalendarStrategy.inherit({
     },
 
     isAdaptivityChanged: function() {
-        var isAdaptiveMode = this._isShrinkView();
+        var isAdaptiveMode = this._isShrinkView(),
+            currentAdaptiveMode = this._currentAdaptiveMode;
 
-        if(isAdaptiveMode !== this._currentAdaptiveMode) {
+        if(isAdaptiveMode !== currentAdaptiveMode) {
             this._currentAdaptiveMode = isAdaptiveMode;
-            return true;
+            return currentAdaptiveMode !== undefined;
         }
 
         return this.callBase();

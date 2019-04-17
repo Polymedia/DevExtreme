@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../core/class"),
     abstract = Class.abstract,
     EventsMixin = require("../core/events_mixin"),
@@ -10,6 +8,7 @@ var Class = require("../core/class"),
     storeHelper = require("./store_helper"),
     queryByOptions = storeHelper.queryByOptions,
     Deferred = require("../core/utils/deferred").Deferred,
+    noop = require("../core/utils/common").noop,
 
     storeImpl = {};
 
@@ -79,6 +78,14 @@ var Store = Class.inherit({
                  * @action
                  */
                 "onUpdating",
+
+                /**
+                 * @name StoreOptions.onPush
+                 * @type function
+                 * @type_function_param1 changes:Array<any>
+                 * @action
+                 */
+                "onPush",
 
                 /**
                  * @name StoreOptions.onRemoved
@@ -273,13 +280,25 @@ var Store = Class.inherit({
         that.fireEvent("modifying");
         that.fireEvent("updating", [key, values]);
 
-        return that._addFailHandlers(that._updateImpl(key, values).done(function(callbackKey, callbackValues) {
-            that.fireEvent("updated", [callbackKey, callbackValues]);
+        return that._addFailHandlers(that._updateImpl(key, values).done(function() {
+            that.fireEvent("updated", [key, values]);
             that.fireEvent("modified");
         }));
     },
 
     _updateImpl: abstract,
+
+    /**
+    * @name StoreMethods.push
+    * @publicName push(changes)
+    * @param1 changes:Array<any>
+    */
+    push: function(changes) {
+        this._pushImpl(changes);
+        this.fireEvent("push", [changes]);
+    },
+
+    _pushImpl: noop,
 
     /**
     * @name StoreMethods.remove

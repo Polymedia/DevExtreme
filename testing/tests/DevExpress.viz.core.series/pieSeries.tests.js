@@ -1,11 +1,10 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import { noop } from "core/utils/common";
 import pointModule from "viz/series/points/base_point";
 import labelModule from "viz/series/points/label";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 
 var createSeries = function(options, renderSettings) {
     renderSettings = renderSettings || {};
@@ -1243,10 +1242,10 @@ var checkTwoGroups = function(assert, series) {
     QUnit.test("minSegmentSize more than 360", function(assert) {
         // arrange
         var data = [{ arg: 1, val: 300 },
-                    { arg: 2, val: 400 },
-                    { arg: 3, val: 2 },
-                    { arg: 4, val: 500 },
-                    { arg: 5, val: 200 }],
+                { arg: 2, val: 400 },
+                { arg: 3, val: 2 },
+                { arg: 4, val: 500 },
+                { arg: 5, val: 200 }],
 
             series = createSeries({ type: seriesType, minSegmentSize: 400 });
         series.updateData(data);
@@ -1273,10 +1272,10 @@ var checkTwoGroups = function(assert, series) {
     QUnit.test("minSegmentSize less than 360", function(assert) {
         // arrange
         var data = [{ arg: 1, val: 300 },
-                    { arg: 2, val: 400 },
-                    { arg: 3, val: 3 },
-                    { arg: 4, val: 500 },
-                    { arg: 5, val: 200 }],
+                { arg: 2, val: 400 },
+                { arg: 3, val: 3 },
+                { arg: 4, val: 500 },
+                { arg: 5, val: 200 }],
             series = createSeries({ type: seriesType, minSegmentSize: 30 });
 
         var minShownValue = 30 * 1400 / 500 / 330;
@@ -1303,7 +1302,7 @@ var checkTwoGroups = function(assert, series) {
     QUnit.test("minSegmentSize = 360", function(assert) {
         // arrange
         var data = [{ arg: 1, val: 300 },
-                    { arg: 2, val: 4 }],
+                { arg: 2, val: 4 }],
             series = createSeries({ type: seriesType, minSegmentSize: 360 });
         series.updateData(data);
         series.createPoints();
@@ -1322,8 +1321,8 @@ var checkTwoGroups = function(assert, series) {
     QUnit.test("minSegmentSize = 180", function(assert) {
         // arrange
         var data = [{ arg: 1, val: 300 },
-                    { arg: 2, val: 400 },
-                    { arg: 3, val: 3 }],
+                { arg: 2, val: 400 },
+                { arg: 3, val: 3 }],
             series = createSeries({ type: seriesType, minSegmentSize: 180 });
         series.updateData(data);
         series.createPoints();
@@ -1927,7 +1926,7 @@ var checkTwoGroups = function(assert, series) {
         var series = createSeries();
 
         series.canvas = { width: 400, height: 400, left: 0, right: 0, top: 0, bottom: 0 },
-            series.updateData(this.data);
+        series.updateData(this.data);
         series.createPoints();
         series.correctPosition({ centerX: 200, centerY: 300, radiusOuter: 25, radiusInner: 0 }, {});
 
@@ -1950,7 +1949,7 @@ var checkTwoGroups = function(assert, series) {
         var series = createSeries();
 
         series.canvas = { width: 400, height: 400, left: 0, right: 0, top: 0, bottom: 0 },
-            series.updateData(this.data);
+        series.updateData(this.data);
         series.createPoints();
         $.each(series.getPoints(), function(_, point) {
             point._label.isVisible.returns(false);
@@ -1973,7 +1972,7 @@ var checkTwoGroups = function(assert, series) {
         // arrange
         var series = createSeries();
         series.canvas = { width: 400, height: 400, left: 0, right: 0, top: 0, bottom: 0 },
-            series.updateData(this.data);
+        series.updateData(this.data);
         series.createPoints();
         $.each(series.getPoints(), function(_, point) {
             point._label.getLayoutOptions.returns({ position: "inside" });

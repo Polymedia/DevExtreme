@@ -1,5 +1,3 @@
-"use strict";
-
 var typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
     inArray = require("../../core/utils/array").inArray,
@@ -352,6 +350,9 @@ SummaryCell.prototype = extend(SummaryCell.prototype, {
     */
 
     field: function(area) {
+        if(area === "data") {
+            return this._descriptions.values[this._fieldIndex];
+        }
         var path = this._getPath(area),
             descriptions = this._getDimension(area),
             field = descriptions[path.length - 2];
@@ -431,7 +432,7 @@ SummaryCell.prototype = extend(SummaryCell.prototype, {
         return sliceCell;
     },
 
-   /**
+    /**
    * @name dxPivotGridSummaryCell.value
    * @publicName value()
    * @return any
@@ -445,13 +446,13 @@ SummaryCell.prototype = extend(SummaryCell.prototype, {
     /**
    * @name dxPivotGridSummaryCell.value
    * @publicName value(field)
-   * @param1 field:PivotGridDataSourceOptions.fields
+   * @param1 field:PivotGridDataSourceOptions.fields|string
    * @return any
    */
     /**
   * @name dxPivotGridSummaryCell.value
   * @publicName value(field, isCalculatedValue)
-  * @param1 field:PivotGridDataSourceOptions.fields
+  * @param1 field:PivotGridDataSourceOptions.fields|string
   * @param2 isCalculatedValue:boolean
   * @return any
   */
@@ -596,8 +597,7 @@ exports.applyRunningTotal = function(descriptions, data) {
                 expression,
                 expressionArg,
                 cell,
-                field,
-                value;
+                field;
 
             processDataCell(data, rowItem.index, columnItem.index, true);
 
@@ -608,7 +608,7 @@ exports.applyRunningTotal = function(descriptions, data) {
                 if(expression) {
                     expressionArg = new SummaryCell(columnPath, rowPath, data, descriptions, i, fieldsCache);
                     cell = expressionArg.cell();
-                    value = cell[i] = expression(expressionArg);
+                    cell[i] = expression(expressionArg);
                 }
             }
         }, false);

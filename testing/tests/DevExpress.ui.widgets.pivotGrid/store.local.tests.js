@@ -1,5 +1,3 @@
-"use strict";
-
 require("../../../testing/content/orders.js");
 require("data/odata/store");
 
@@ -302,7 +300,7 @@ QUnit.test("Group interval year & month with filter", function(assert) {
 
     this.load({
         columns: [{ dataField: "OrderDate", dataType: 'date', groupInterval: 'year', expanded: true },
-        { dataField: "OrderDate", dataType: 'date', groupInterval: 'month' }],
+            { dataField: "OrderDate", dataType: 'date', groupInterval: 'month' }],
         values: [{ summaryType: 'count' }]
     }).done(function(data) {
         assert.equal(data.columns.length, 1, 'columns count');
@@ -496,7 +494,7 @@ QUnit.test("Numeric intervals. Without custom customizeText callback", function(
 });
 
 QUnit.test("Numeric intervals. With format and without custom customizeText callback", function(assert) {
-    var field = { dataField: "Freight", dataType: "number", groupInterval: 100, format: "currency", precision: 2 };
+    var field = { dataField: "Freight", dataType: "number", groupInterval: 100, format: { type: "currency", precision: 2 } };
     this.load({
         columns: [field],
         values: [{ summaryType: 'count' }]
@@ -510,13 +508,13 @@ QUnit.test("Numeric intervals. With format and without custom customizeText call
             valueText: "$0"
         }), "$0 - $100");
 
-        assert.deepEqual(formatHelper.format.lastCall.args, [100, "currency", 2]);
+        assert.deepEqual(formatHelper.format.lastCall.args, [100, { type: "currency", precision: 2 }]);
 
         assert.strictEqual(field.customizeText({
             value: 0,
             valueText: ""
         }), "", "first value not formatting");
-        assert.deepEqual(formatHelper.format.lastCall.args, [100, "currency", 2]);
+        assert.deepEqual(formatHelper.format.lastCall.args, [100, { type: "currency", precision: 2 }]);
 
         formatHelper.format.returns("");
 
@@ -642,7 +640,7 @@ QUnit.test("Custom summary aggregation", function(assert) {
                 options.totalValue = 1;
             }
         },
-            field,
+        field,
         {
             dataField: "Freight",
             dataType: "number",
@@ -1169,10 +1167,10 @@ QUnit.test("Load with undefined value in the expanded path", function(assert) {
 
 QUnit.test("getFields", function(assert) {
     var dataSource = [
-            { "OrderID": 10248, Customer: { name: null }, "EmployeeID": undefined, "OrderDate": null, "Freight": "32.3800", "ShipName": "Vins et alcools Chevalier", "ShipRegion": null, "ShipPostalCode": null },
-            { "OrderID": 10249, Customer: {}, "EmployeeID": 6, "OrderDate": new Date("1996/07/05"), "Freight": "11.6100", "ShipName": "Toms Spezialitaten", "ShipRegion": null, "ShipPostalCode": null },
-            { "OrderID": 10249, "EmployeeID": 6, "OrderDate": new Date("1996/07/05"), "Freight": "11.6100", "ShipName": "Toms Spezialitaten", "ShipRegion": null, "ShipPostalCode": null },
-            { "OrderID": 10250, Customer: { name: "Name" }, "EmployeeID": 4, "OrderDate": new Date("1996/07/08"), "Freight": "65.8300", "ShipName": "Hanari Carnes", "ShipRegion": "RJ", "ShipPostalCode": null }];
+        { "OrderID": 10248, Customer: { name: null }, "EmployeeID": undefined, "OrderDate": null, "Freight": "32.3800", "ShipName": "Vins et alcools Chevalier", "ShipRegion": null, "ShipPostalCode": null },
+        { "OrderID": 10249, Customer: {}, "EmployeeID": 6, "OrderDate": new Date("1996/07/05"), "Freight": "11.6100", "ShipName": "Toms Spezialitaten", "ShipRegion": null, "ShipPostalCode": null },
+        { "OrderID": 10249, "EmployeeID": 6, "OrderDate": new Date("1996/07/05"), "Freight": "11.6100", "ShipName": "Toms Spezialitaten", "ShipRegion": null, "ShipPostalCode": null },
+        { "OrderID": 10250, Customer: { name: "Name" }, "EmployeeID": 4, "OrderDate": new Date("1996/07/08"), "Freight": "65.8300", "ShipName": "Hanari Carnes", "ShipRegion": "RJ", "ShipPostalCode": null }];
 
     new LocalStore(dataSource).getFields().done(function(data) {
         assert.ok(data);
@@ -1259,6 +1257,30 @@ QUnit.test("getFields", function(assert) {
                 "displayFolder": ""
             }
 
+        ]);
+    });
+});
+
+// T666145
+QUnit.test("getFields should skip fields with '__' prefix", function(assert) {
+    var dataSource = [{
+        "__metadata": {
+            "id": 1,
+            "uri": "uri",
+            "type": "Product"
+        },
+        "OrderID": 1
+    }];
+
+    new LocalStore(dataSource).getFields().done(function(fields) {
+        assert.deepEqual(fields, [
+            {
+                "dataField": "OrderID",
+                "dataType": "number",
+                "groupInterval": undefined,
+                "groupName": undefined,
+                "displayFolder": ""
+            }
         ]);
     });
 });
@@ -1415,9 +1437,9 @@ QUnit.test("Filter group field. Include Type", function(assert) {
             {
                 dataField: "OrderDate", groupName: "OrderDate", filterValues: [[1996], [1997, 1]], filterType: "include",
                 levels: [
-                        { dataField: "OrderDate", groupInterval: "year", dataType: 'date', groupName: "OrderDate", groupIndex: 0 },
-                        { dataField: "OrderDate", groupInterval: "quarter", dataType: 'date', groupName: "OrderDate", groupIndex: 1 },
-                        { dataField: "OrderDate", groupInterval: "month", dataType: 'date', groupName: "OrderDate", groupIndex: 2 }
+                    { dataField: "OrderDate", groupInterval: "year", dataType: 'date', groupName: "OrderDate", groupIndex: 0 },
+                    { dataField: "OrderDate", groupInterval: "quarter", dataType: 'date', groupName: "OrderDate", groupIndex: 1 },
+                    { dataField: "OrderDate", groupInterval: "month", dataType: 'date', groupName: "OrderDate", groupIndex: 2 }
                 ]
             }
         ]
@@ -1671,6 +1693,33 @@ QUnit.test("filter data", function(assert) {
     });
 
     assert.deepEqual(filterExpr, ["OrderID", ">", 10249]);
+});
+
+
+QUnit.test("T717466. Header item contains . symbol in value", function(assert) {
+    this.store = new LocalStore({
+        store: {
+            type: 'array',
+            data: [
+                { "a1": 0, "a2": 333, "v": 0 },
+                { "a1": 0.333, "a2": 1765, "v": 0 },
+            ]
+        }
+    });
+
+    this.store.load({
+        rows: [
+            { "dataField": "a1", "expanded": true },
+            { "dataField": "a2" }
+        ],
+        values: [{
+            "dataField": "v", "summaryType": "sum"
+        }]
+    }).done(function(result) {
+        assert.equal(result.rows.length, 2);
+        assert.equal(result.rows[0].children.length, 1);
+        assert.equal(result.rows[0].children[0].value, 333);
+    });
 });
 
 QUnit.module("DrillDown", {

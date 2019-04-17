@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     SchedulerAppointment = require("ui/scheduler/ui.scheduler.appointment"),
     fx = require("animation/fx");
@@ -21,6 +19,12 @@ var moduleOptions = {
             }
             if(command === "getCellWidth") {
                 return this.cellWidth;
+            }
+            if(command === "getResizableStep") {
+                return this.cellWidth;
+            }
+            if(command === "isGroupedByDate") {
+                return false;
             }
         }, this);
     },

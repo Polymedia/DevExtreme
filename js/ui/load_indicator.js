@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     windowUtils = require("../core/utils/window"),
     navigator = windowUtils.getNavigator(),
@@ -81,10 +79,7 @@ var LoadIndicator = Widget.inherit({
     },
 
     _defaultOptionsRules: function() {
-        var themeName = function() {
-            var currentTheme = themes.current();
-            return currentTheme && currentTheme.split(".")[0];
-        };
+        var themeName = themes.current();
 
         return this.callBase().concat([
             {
@@ -99,7 +94,7 @@ var LoadIndicator = Widget.inherit({
             },
             {
                 device: function() {
-                    return themeName() === "win8" || themeName() === "win10";
+                    return themes.isWin8(themeName) || themes.isWin10(themeName);
                 },
                 options: {
                     _animatingSegmentCount: 5
@@ -107,7 +102,7 @@ var LoadIndicator = Widget.inherit({
             },
             {
                 device: function() {
-                    return themeName() === "ios7";
+                    return themes.isIos7(themeName);
                 },
                 options: {
                     _animatingSegmentCount: 11
@@ -115,7 +110,7 @@ var LoadIndicator = Widget.inherit({
             },
             {
                 device: function() {
-                    return /(android5|material)/.test(themeName());
+                    return themes.isMaterial(themeName) || themes.isAndroid5(themeName);
                 },
                 options: {
                     _animatingSegmentCount: 2,
@@ -124,7 +119,7 @@ var LoadIndicator = Widget.inherit({
             },
             {
                 device: function() {
-                    return themeName() === "generic";
+                    return themes.isGeneric(themeName);
                 },
                 options: {
                     _animatingSegmentCount: 7

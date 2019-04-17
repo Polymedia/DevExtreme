@@ -1,5 +1,3 @@
-"use strict";
-
 var windowUtils = require("../../core/utils/window");
 var window = windowUtils.getWindow();
 
@@ -12,7 +10,7 @@ if(DevExpress._DEVEXTREME_BUNDLE_INITIALIZED) {
 }
 DevExpress._DEVEXTREME_BUNDLE_INITIALIZED = true;
 
-DevExpress.clientExporter = require("../../client_exporter");
+DevExpress.clientExporter = require("../../exporter");
 
 DevExpress.VERSION = require("../../core/version");
 

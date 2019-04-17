@@ -1,9 +1,7 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     registerComponent = require("../core/component_registrator"),
-    stringUtils = require("../core/utils/string"),
+    commonUtils = require("../core/utils/common"),
     extend = require("../core/utils/extend").extend,
     inArray = require("../core/utils/array").inArray,
     each = require("../core/utils/iterator").each,
@@ -43,6 +41,7 @@ var SIDE_BORDER_WIDTH_STYLES = {
 /**
 * @name dxResizable
 * @inherits DOMComponent
+* @hasTranscludedContent
 * @module ui/resizable
 * @export default
 */
@@ -53,9 +52,8 @@ var Resizable = DOMComponent.inherit({
 
             /**
             * @name dxResizableOptions.handles
-            * @type string
+            * @type Enums.ResizeHandle | string
             * @default "all"
-            * @acceptValues 'top'|'bottom'|'right'|'left'|'all'
             */
             handles: "all",
 
@@ -314,7 +312,7 @@ var Resizable = DOMComponent.inherit({
 
     _getOffset: function(e) {
         var offset = e.offset,
-            steps = stringUtils.pairToObject(this.option("step")),
+            steps = commonUtils.pairToObject(this.option("step")),
             sides = this._getMovingSides(e),
             strictPrecision = this.option("stepPrecision") === "strict";
 

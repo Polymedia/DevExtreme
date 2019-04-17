@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     registerComponent = require("../core/component_registrator"),
     DOMComponent = require("../core/dom_component"),
@@ -11,6 +9,7 @@ var VALIDATION_ENGINE_CLASS = "dx-validationgroup";
 /**
  * @name dxValidationGroup
  * @inherits DOMComponent
+ * @hasTranscludedContent
  * @module ui/validation_group
  * @export default
  */

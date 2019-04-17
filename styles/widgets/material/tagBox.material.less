@@ -16,8 +16,20 @@
     @MATERIAL_TAGBOX_SELECT_ALL_PADDING_BOTTOM: 7px;
     @MATERIAL_TAGBOX_SELECT_ALL_MARGIN_BOTTOM: 1px;
 }
+.dx-tagbox {
+    &.dx-editor-filled, &.dx-editor-outlined {
+        .dx-texteditor-input {
+            padding: 0;
+        }
 
-.dx-tagbox:not(.dx-texteditor-empty) {
+        .dx-tag-container {
+            padding: 12px 12px 4px 12px;
+            min-height: 56px;
+        }
+    }
+}
+
+.dx-tagbox:not(.dx-texteditor-empty):not(.dx-editor-filled):not(.dx-editor-outlined) {
     .dx-texteditor-input {
         padding-left: 0;
 
@@ -31,21 +43,16 @@
     }
 
     &.dx-state-focused, &.dx-state-active {
-        .dx-texteditor-container:before {
+        &:before {
             border-top: 0;
             border-bottom: 0;
         }
     }
 
-    &.dx-state-hover {
-        .dx-texteditor-container:after {
-            border-top: 0;
+    &.dx-state-hover, & {
+        &:after {
             border-bottom: 0;
         }
-    }
-
-    .dx-texteditor-container:after {
-        border-bottom: 0;
     }
 }
 
@@ -81,7 +88,7 @@
     min-width: 40px;
     background-color: @tagbox-tag-bg;
     color: @tagbox-tag-color;
-    .border-radius(@tagbox-tag-border-radius);
+    border-radius: @tagbox-tag-border-radius;
 }
 
 .dx-tag-remove-button {
@@ -97,32 +104,27 @@
     &:before {
         display: block;
         position: absolute;
-        top: 50%;
-        left: 49%;
-        width: 18px;
-        height: 18px;
-        margin-left: -9px;
-        margin-top: -9px;
-        line-height: 19px;
-        color: @tagbox-tag-bg;
+        top: 51%;
+        left: 48%;
+        width: 16px;
+        height: 16px;
+        margin-left: -8px;
+        margin-top: -8px;
+        line-height: 16px;
+        color: @tagbox-tag-button-remove-color;
         background-color: @tagbox-tag-button-remove-bg;
-        .border-radius(50%);
-        .transform(none);
+        border-radius: 50%;
+        transform: none;
     }
 }
 
 .dx-tag {
-    margin: 0 10px 2px 0;
+    margin: 0 8px 8px 0;
 
     &:hover {
         .dx-tag-content {
             background-color: @tagbox-tag-hover-bg;
-            color: @base-bg
-        }
-
-        .dx-tag-remove-button:before {
-            color: @tagbox-tag-hover-bg;
-            background-color: @base-bg;
+            color: @tagbox-tag-active-color;
         }
     }
 }
@@ -130,19 +132,7 @@
 .dx-tag.dx-state-focused {
     .dx-tag-content {
         background-color: @tagbox-tag-focused-bg;
-        color: @tagbox-tag-focused-color;
-    }
-
-    .dx-tag-remove-button {
-        &:before, &:after {
-            background-color: @tagbox-tag-focused-button-remove-bg;
-        }
-
-        &:active {
-            &:before, &:after {
-                background: @tagbox-tag-button-remove-active-bg;
-            }
-        }
+        color: @tagbox-tag-active-color;
     }
 }
 
@@ -165,6 +155,10 @@
         border-bottom: 1px solid @tagbox-select-all-border-color;
         padding-bottom: @MATERIAL_TAGBOX_SELECT_ALL_PADDING_BOTTOM;
         margin-bottom: @MATERIAL_TAGBOX_SELECT_ALL_MARGIN_BOTTOM;
+
+        &:after {
+            background-color: transparent;
+        }
     }
 }
 

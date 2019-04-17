@@ -1,5 +1,3 @@
-"use strict";
-
 /* global jQuery, includeLayout */
 
 (function(root, factory) {
@@ -18,7 +16,7 @@
             jQuery,
             DevExpress.layouts.PopupLayout,
             DevExpress.testHelpers
-         );
+        );
     }
 }(this, function($, popupLayoutControllerModule, layoutHelper) {
 

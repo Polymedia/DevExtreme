@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     domUtils = require("core/utils/dom"),
     devices = require("core/devices"),
@@ -57,7 +55,13 @@ QUnit.test("Date table scrollable should have right config", function(assert) {
 
 QUnit.test("Header scrollable should update position if date scrollable position is changed", function(assert) {
     var $element = this.instance.$element(),
-        headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance"),
+        $cells = $element.find(".dx-scheduler-date-table-cell");
+
+    $cells.get(0).style.width = '100px';
+
+    this.instance.option("width", 500);
+
+    var headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance"),
         dateTableScrollable = $element.find(".dx-scheduler-date-table-scrollable").dxScrollable("instance");
 
     domUtils.triggerHidingEvent($element);
@@ -96,7 +100,13 @@ QUnit.test("Date table scrollable should update position if time panel position 
 
 QUnit.test("Date table scrollable should update position if header scrollable position is changed", function(assert) {
     var $element = this.instance.$element(),
-        headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance"),
+        $cells = $element.find(".dx-scheduler-date-table-cell");
+
+    $cells.get(0).style.width = '100px';
+
+    this.instance.option("width", 500);
+
+    var headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance"),
         dateTableScrollable = $element.find(".dx-scheduler-date-table-scrollable").dxScrollable("instance");
 
     domUtils.triggerHidingEvent($element);
@@ -108,6 +118,8 @@ QUnit.test("Date table scrollable should update position if header scrollable po
 });
 
 QUnit.test("the 'getCellIndexByCoordinates' method should return a right result", function(assert) {
+    this.instance.option("width", 500);
+
     var $element = this.instance.$element();
 
     domUtils.triggerHidingEvent($element);
@@ -119,6 +131,8 @@ QUnit.test("the 'getCellIndexByCoordinates' method should return a right result"
 });
 
 QUnit.test("Header panel, all-day panel, date table should have a correct width", function(assert) {
+    this.instance.option("width", 400);
+
     var $element = this.instance.$element();
     domUtils.triggerHidingEvent($element);
     domUtils.triggerShownEvent($element);
@@ -271,7 +285,7 @@ QUnit.test("the 'getCellIndexByCoordinates' method should return a right result,
 
     var index = this.instance.getCellIndexByCoordinates({ left: 85, top: 55 });
 
-    assert.equal(index, 8, "Index is OK");
+    assert.equal(index, 7, "Index is OK");
 });
 
 QUnit.test("Header panel and date table should have a correct width, groupOrientation = vertical", function(assert) {

@@ -1,6 +1,4 @@
-// jshint strict:implied, -W098, -W117
-/* eslint-disable no-undef*/
-
+/* eslint-disable no-undef, no-unused-vars*/
 function parseShape(stream, errors) {
     var timeStart,
         timeEnd,
@@ -35,15 +33,15 @@ function parseShape(stream, errors) {
         timeEnd = new Date();
     } catch(e) {
         errors.push("shp: records parsing error: " + e.message + " / " + e.description);
-    } finally {
-        return {
-            bBox: header.bBox_XY,
-            type: header.shapeType,
-            shapes: records,
-            errors: errors,
-            time: timeEnd - timeStart
-        };
     }
+
+    return {
+        bBox: header.bBox_XY,
+        type: header.shapeType,
+        shapes: records,
+        errors: errors,
+        time: timeEnd - timeStart
+    };
 }
 
 function readPointShape(stream, record) {

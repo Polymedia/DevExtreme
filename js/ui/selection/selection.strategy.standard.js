@@ -1,5 +1,3 @@
-"use strict";
-
 var commonUtils = require("../../core/utils/common"),
     typeUtils = require("../../core/utils/type"),
     getKeyHash = commonUtils.getKeyHash,
@@ -81,7 +79,7 @@ module.exports = SelectionStrategy.inherit({
 
     _loadSelectedItemsCore: function(keys, isDeselect, isSelectAll) {
         var deferred = new Deferred(),
-            key = this.options.key;
+            key = this.options.key();
 
         if(!keys.length && !isSelectAll) {
             deferred.resolve([]);
@@ -95,7 +93,7 @@ module.exports = SelectionStrategy.inherit({
         }
 
         var selectionFilterCreator = new SelectionFilterCreator(keys, isSelectAll),
-            combinedFilter = selectionFilterCreator.getCombinedFilter(key(), filter);
+            combinedFilter = selectionFilterCreator.getCombinedFilter(key, filter);
 
         var deselectedItems = [];
         if(isDeselect) {
@@ -104,7 +102,7 @@ module.exports = SelectionStrategy.inherit({
 
         var filteredItems = deselectedItems.length ? deselectedItems : this.options.plainItems().filter(this.options.isSelectableItem).map(this.options.getItemData);
 
-        var localFilter = selectionFilterCreator.getLocalFilter(this.options.keyOf, this.equalKeys.bind(this), this.options.equalByReference);
+        var localFilter = selectionFilterCreator.getLocalFilter(this.options.keyOf, this.equalKeys.bind(this), this.options.equalByReference, key);
 
         filteredItems = filteredItems.filter(localFilter);
 

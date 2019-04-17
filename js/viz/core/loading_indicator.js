@@ -1,5 +1,3 @@
-"use strict";
-
 var _patchFontOptions = require("./utils").patchFontOptions,
 
     STATE_HIDDEN = 0,
@@ -76,7 +74,7 @@ LoadingIndicator.prototype = {
             state = that._states[stateId];
             that._rect.stopAnimation().animate({ opacity: state.opacity }, {
                 complete: state.complete, easing: ANIMATION_EASING, duration: ANIMATION_DURATION,
-                unstoppable: true    // T261694
+                unstoppable: true // T261694
             });
             that._noHiding = true;
             state.start();
@@ -142,7 +140,9 @@ exports.plugin = {
             this._loadingIndicator.hide();
         },
         _onBeginUpdate: function() {
-            this._scheduleLoadingIndicatorHiding();
+            if(!this._optionChangedLocker) {
+                this._scheduleLoadingIndicatorHiding();
+            }
         }
     },
     customize: function(constructor) {

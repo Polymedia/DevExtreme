@@ -1,4 +1,25 @@
 /**
+ * @name PieChartSeries
+ * @type object
+ * @inherits dxPieChartSeriesTypes.CommonPieChartSeries
+ * @hidden
+ */
+var pieChartSeries = {
+    /**
+    * @name PieChartSeries.name
+    * @type string
+    * @default undefined
+    */
+    name: undefined,
+    /**
+    * @name PieChartSeries.tag
+    * @type any
+    * @default undefined
+    */
+    tag: undefined
+};
+
+/**
 * @name dxPieChartSeriesTypes
 * @type object
 */
@@ -267,28 +288,6 @@ var commonPieChartSeries = {
     */
     maxLabelCount: undefined,
     /**
-    * @name dxPieChartSeriesTypes.CommonPieChartSeries.segmentsDirection
-    * @type Enums.PieChartSegmentsDirection
-    * @default 'clockwise'
-    * @deprecated dxPieChartOptions.segmentsDirection
-    */
-    segmentsDirection: 'clockwise',
-    /**
-    * @name dxPieChartSeriesTypes.CommonPieChartSeries.startAngle
-    * @type number
-    * @default 0
-    * @deprecated dxPieChartOptions.startAngle
-    */
-    startAngle: 0,
-    /**
-    * @name dxPieChartSeriesTypes.CommonPieChartSeries.innerRadius
-    * @type number
-    * @default 0.5
-    * @propertyOf dxPieChartSeriesTypes.DoughnutSeries
-    * @deprecated dxPieChartOptions.innerRadius
-    */
-    innerRadius: 0.5,
-    /**
     * @name dxPieChartSeriesTypes.CommonPieChartSeries.label
     * @type object
     */
@@ -325,27 +324,10 @@ var commonPieChartSeries = {
         */
         format: '',
         /**
-        * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.precision
-        * @extends CommonVizPrecision
-        */
-        precision: 0,
-        /**
         * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.argumentFormat
         * @extends CommonVizFormat
         */
         argumentFormat: '',
-        /**
-        * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.argumentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        argumentPrecision: 0,
-        /**
-        * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.percentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        percentPrecision: 0,
         /**
         * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.position
         * @type Enums.PieChartLabelPosition
@@ -354,38 +336,15 @@ var commonPieChartSeries = {
         position: 'outside',
         /**
         * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font
-        * @type object
+        * @type Font
+        * @default '#FFFFFF' @prop color
+        * @default 14 @prop size
         */
         font: {
-            /**
-            * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font.family
-            * @type string
-            * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-            */
-            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-            /**
-            * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font.weight
-            * @type number
-            * @default 400
-            */
+            family: undefined,
             weight: 400,
-            /**
-            * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font.color
-            * @type string
-            * @default '#FFFFFF'
-            */
             color: '#FFFFFF',
-            /**
-            * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font.size
-            * @type number|string
-            * @default 14
-            */
             size: 14,
-            /**
-            * @name dxPieChartSeriesTypes.CommonPieChartSeries.label.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**

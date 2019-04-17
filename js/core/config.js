@@ -1,8 +1,8 @@
-"use strict";
-
 /* global DevExpress */
 
-var extendUtils = require("./utils/extend");
+import extendUtils from "./utils/extend";
+import errors from "./errors";
+
 /**
 * @name globalConfig
 * @section commonObjectStructures
@@ -11,7 +11,7 @@ var extendUtils = require("./utils/extend");
 * @module core/config
 * @export default
 */
-var config = {
+const config = {
     /**
     * @name globalConfig.rtlEnabled
     * @type boolean
@@ -24,6 +24,12 @@ var config = {
     * @type string
     */
     defaultCurrency: "USD",
+    /**
+    * @name globalConfig.oDataFilterToLower
+    * @default true
+    * @type boolean
+    */
+    oDataFilterToLower: true,
     designMode: false,
     /**
     * @name globalConfig.serverDecimalSeparator
@@ -51,19 +57,49 @@ var config = {
     forceIsoDateParsing: true,
     wrapActionsBeforeExecute: true,
     /**
+    * @name globalConfig.useLegacyStoreResult
+    * @type boolean
+    * @default false
+    */
+    useLegacyStoreResult: false,
+    /**
     * @name globalConfig.useJQuery
     * @type boolean
     * @hidden
     */
-    useJQuery: undefined
+    useJQuery: undefined,
+    /**
+    * @name globalConfig.editorStylingMode
+    * @type Enums.EditorStylingMode
+    * @default undefined
+    */
+    editorStylingMode: undefined,
+    /**
+    * @name globalConfig.useLegacyVisibleIndex
+    * @type boolean
+    * @default false
+    */
+    useLegacyVisibleIndex: false,
+
+    optionsParser: (optionsString) => {
+        if(optionsString.trim().charAt(0) !== "{") {
+            optionsString = "{" + optionsString + "}";
+        }
+        try {
+            // eslint-disable-next-line no-new-func
+            return (new Function("return " + optionsString))();
+        } catch(ex) {
+            throw errors.Error("E3018", ex, optionsString);
+        }
+    }
 };
 
-var configMethod = function() {
-    if(!arguments.length) {
+const configMethod = (...args) => {
+    if(!args.length) {
         return config;
     }
 
-    extendUtils.extend(config, arguments[0]);
+    extendUtils.extend(config, args[0]);
 };
 
 if(typeof DevExpress !== "undefined" && DevExpress.config) {

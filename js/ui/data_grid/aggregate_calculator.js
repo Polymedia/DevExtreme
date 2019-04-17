@@ -1,10 +1,8 @@
-"use strict";
-
-var Class = require("../../core/class"),
-    compileGetter = require("../../core/utils/data").compileGetter,
-    isFunction = require("../../core/utils/type").isFunction,
-    errors = require("../../data/errors").errors,
-    dataUtils = require("../../data/utils");
+import Class from "../../core/class";
+import { compileGetter } from "../../core/utils/data";
+import { isFunction } from "../../core/utils/type";
+import { errors } from "../../data/errors";
+import { aggregators } from "../../data/utils";
 
 function depthFirstSearch(i, depth, root, callback) {
     var j = 0;
@@ -40,7 +38,7 @@ function isEmpty(x) {
 }
 
 function isCount(aggregator) {
-    return aggregator === dataUtils.aggregators.count;
+    return aggregator === aggregators.count;
 }
 
 function normalizeAggregate(aggregate) {
@@ -52,7 +50,7 @@ function normalizeAggregate(aggregate) {
 
 
     if(typeof aggregator === "string") {
-        aggregator = dataUtils.aggregators[aggregator];
+        aggregator = aggregators[aggregator];
         if(!aggregator) {
             throw errors.Error("E4001", aggregate.aggregator);
         }
@@ -89,15 +87,16 @@ module.exports = Class.inherit({
     },
 
     _aggregate: function(aggregates, data, container) {
-        var i, j;
+        var i, j,
+            length = data.items ? data.items.length : 0;
 
         for(i = 0; i < aggregates.length; i++) {
             if(isCount(aggregates[i].aggregator)) {
-                container[i] = (container[i] || 0) + data.items.length;
+                container[i] = (container[i] || 0) + length;
                 continue;
             }
 
-            for(j = 0; j < data.items.length; j++) {
+            for(j = 0; j < length; j++) {
                 this._accumulate(i, aggregates[i], container, data.items[j]);
             }
         }
@@ -131,7 +130,7 @@ module.exports = Class.inherit({
             finalizeFn = this._finalize.bind(this, this._groupAggregates);
 
         function aggregator(node) {
-            node.aggregates = seedFn();
+            node.aggregates = seedFn(currentLevel - 1);
 
             if(currentLevel === maxLevel) {
                 stepFn(node, node.aggregates);
@@ -149,11 +148,11 @@ module.exports = Class.inherit({
         }
     },
 
-    _seed: function(aggregates) {
+    _seed: function(aggregates, groupIndex) {
         return map(aggregates, function(aggregate) {
             var aggregator = aggregate.aggregator,
                 seed = "seed" in aggregator
-                    ? (isFunction(aggregator.seed) ? aggregator.seed() : aggregator.seed)
+                    ? (isFunction(aggregator.seed) ? aggregator.seed(groupIndex) : aggregator.seed)
                     : NaN;
 
             return seed;

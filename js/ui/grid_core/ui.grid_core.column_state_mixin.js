@@ -1,9 +1,7 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    extend = require("../../core/utils/extend").extend,
-    getDefaultAlignment = require("../../core/utils/position").getDefaultAlignment,
-    commonUtils = require("../../core/utils/common");
+import $ from "../../core/renderer";
+import { noop } from "../../core/utils/common";
+import { extend } from "../../core/utils/extend";
+import { getDefaultAlignment } from "../../core/utils/position";
 
 var COLUMN_INDICATORS_CLASS = "dx-column-indicators",
     GROUP_PANEL_ITEM_CLASS = "dx-group-panel-item";
@@ -33,7 +31,7 @@ module.exports = {
         return $span;
     },
 
-    _getIndicatorClassName: commonUtils.noop,
+    _getIndicatorClassName: noop,
 
     _getColumnAlignment: function(alignment, rtlEnabled) {
         rtlEnabled = rtlEnabled || this.option("rtlEnabled");
@@ -48,6 +46,8 @@ module.exports = {
         if(!$indicatorsContainer.length) {
             $indicatorsContainer = $("<div>").addClass(COLUMN_INDICATORS_CLASS);
         }
+
+        this.setAria("role", "presentation", $indicatorsContainer);
 
         return $indicatorsContainer.css("float", options.showColumnLines && !ignoreIndicatorAlignment ? indicatorAlignment : null);
     },
@@ -77,7 +77,7 @@ module.exports = {
             $cell,
             i;
 
-        if(!$cells || !$cells.length) return;
+        if(!$cells || columns.length !== $cells.length) return;
 
         for(i = 0; i < columns.length; i++) {
             $cell = $cells.eq(i);

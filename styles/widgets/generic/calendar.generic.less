@@ -75,7 +75,7 @@
 
     .dx-button {
         height: 100%;
-        .border-radius(0);
+        border-radius: 0;
         display: table-cell;
         border-color: @calendar-navigator-border-color;
 
@@ -118,6 +118,7 @@
 
             .dx-button-content {
                 padding: @GENERIC_CALENDAR_CAPTION_BUTTON_PADDING;
+                color: @calendar-button-caption-color;
             }
         }
     }
@@ -160,9 +161,9 @@
     left: 0px;
 
     &.dx-button {
-        .border-radius-custom(@calendar-navigator-border-radius, 0, 0, @calendar-navigator-border-radius);
+        border-radius: @calendar-navigator-border-radius 0 0 @calendar-navigator-border-radius;
 
-        .dx-icon{
+        .dx-icon {
             color: @calendar-shevron-icon-color;
         }
     }
@@ -173,9 +174,9 @@
     right: 0px;
 
     &.dx-button {
-        .border-radius-custom(0, @calendar-navigator-border-radius, @calendar-navigator-border-radius, 0);
+        border-radius: 0 @calendar-navigator-border-radius @calendar-navigator-border-radius 0;
 
-        .dx-icon{
+        .dx-icon {
             color: @calendar-shevron-icon-color;
         }
     }
@@ -195,7 +196,7 @@
             padding-bottom: 10px;
 
             th {
-                .box-shadow(inset 0px -1px 0px @calendar-border-color);
+                box-shadow: inset 0px -1px 0px @calendar-border-color;
                 color: @calendar-header-color;
             }
         }
@@ -220,14 +221,14 @@
     font-size: @GENERIC_CALENDAR_CELL_FONT_SIZE;
     border: 1px double transparent;
     width: 39px;
-    .border-radius(@calendar-cell-contoured-border-radius);
+    border-radius: @calendar-cell-contoured-border-radius;
 
     &.dx-calendar-today {
         font-weight: bold;
     }
 
     &.dx-state-hover {
-        .box-shadow(inset 0px -1px 0px 1000px @calendar-hover-bg);
+        box-shadow: inset 0px -1px 0px 1000px @calendar-hover-bg;
         color: @calendar-cell-hover-color;
     }
 
@@ -246,26 +247,26 @@
         background: @calendar-cell-empty-bg;
 
         &.dx-state-hover {
-            .box-shadow(none);
+            box-shadow: none;
         }
     }
 
     &.dx-state-active {
         &:not(.dx-calendar-empty-cell) {
             &:not(.dx-calendar-selected-date) {
-                .box-shadow(inset 0px -1px 0px 1000px @calendar-cell-active-bg);
+                box-shadow: inset 0px -1px 0px 1000px @calendar-cell-active-bg;
             }
         }
     }
 
     &.dx-calendar-contoured-date {
-        .box-shadow(inset 0px 0px 0px 1px @calendar-cell-contoured-border-color);
+        box-shadow: inset 0px 0px 0px 1px @calendar-cell-contoured-border-color;
     }
 
     &.dx-calendar-selected-date {
         &, &.dx-calendar-today {
-            color: @base-selected-text-color;
-            .box-shadow(inset 0px 0px 0px 1000px @calendar-cell-selected-bg);
+            color: @base-inverted-text-color;
+            box-shadow: inset 0px 0px 0px 1000px @calendar-cell-selected-bg;
             font-weight: normal;
 
             &.dx-calendar-contoured-date {
@@ -275,26 +276,20 @@
     }
 }
 
-    .dx-state-focused {
-        &.dx-calendar {
-            .box-shadow(none);
+.dx-invalid {
+    &.dx-calendar {
+        border-color: @calendar-invalid-faded-border-color;
+
+        &.dx-state-focused {
+            border-color: @calendar-invalid-focused-border-color;
         }
     }
+}
 
-    .dx-invalid {
-        &.dx-calendar {
-            border-color: @calendar-invalid-faded-border-color;
-
-            &.dx-state-focused {
-                border-color: @calendar-invalid-focused-border-color;
-            }
+.dx-popup-wrapper {
+    .dx-calendar {
+        .dx-calendar-caption-button {
+            margin: 0;
         }
     }
-
-    .dx-popup-wrapper {
-        .dx-calendar {
-            .dx-calendar-caption-button {
-                margin: 0;
-            }
-        }
-    }
+}

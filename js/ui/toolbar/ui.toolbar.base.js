@@ -1,13 +1,12 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
+    themes = require("../themes"),
     commonUtils = require("../../core/utils/common"),
     isPlainObject = require("../../core/utils/type").isPlainObject,
     registerComponent = require("../../core/component_registrator"),
     inArray = require("../../core/utils/array").inArray,
     extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
-    CollectionWidget = require("../collection/ui.collection_widget.edit"),
+    AsyncCollectionWidget = require("../collection/ui.collection_widget.async"),
     BindableTemplate = require("../widget/bindable_template");
 
 var TOOLBAR_CLASS = "dx-toolbar",
@@ -21,23 +20,34 @@ var TOOLBAR_CLASS = "dx-toolbar",
     TOOLBAR_BUTTON_CLASS = "dx-toolbar-button",
     TOOLBAR_ITEMS_CONTAINER_CLASS = "dx-toolbar-items-container",
     TOOLBAR_GROUP_CLASS = "dx-toolbar-group",
+    TOOLBAR_COMPACT_CLASS = "dx-toolbar-compact",
     TOOLBAR_LABEL_SELECTOR = "." + TOOLBAR_LABEL_CLASS,
-    BUTTON_FLAT_CLASS = "dx-button-flat",
+    TEXT_BUTTON_MODE = "text",
+    DEFAULT_BUTTON_TYPE = "default",
 
     TOOLBAR_ITEM_DATA_KEY = "dxToolbarItemDataKey";
 
-var ToolbarBase = CollectionWidget.inherit({
+var ToolbarBase = AsyncCollectionWidget.inherit({
+    compactMode: false,
+
     /**
-    * @name dxToolbarItemTemplate
-    * @inherits CollectionWidgetItemTemplate
+     * @name dxToolbarOptions.items
+     * @type Array<string, dxToolbarItem, object>
+     * @fires dxToolbarOptions.onOptionChanged
+     * @inheritdoc
+     */
+
+    /**
+    * @name dxToolbarItem
+    * @inherits CollectionWidgetItem
     * @type object
     */
     /**
-    * @name dxToolbarItemTemplate.widget
+    * @name dxToolbarItem.widget
     * @type Enums.ToolbarItemWidget
     */
     /**
-    * @name dxToolbarItemTemplate.options
+    * @name dxToolbarItem.options
     * @type object
     */
 
@@ -55,17 +65,14 @@ var ToolbarBase = CollectionWidget.inherit({
                 }
 
                 if(data.widget === "dxButton") {
-                    if(data.options) {
-                        var buttonContainerClass = this.option("useFlatButtons") ? BUTTON_FLAT_CLASS : "";
-                        if(data.options.elementAttr) {
-                            var customClass = data.options.elementAttr.class;
-                            if(customClass) {
-                                customClass = customClass.replace(BUTTON_FLAT_CLASS, "");
-                                buttonContainerClass += (" " + customClass);
-                            }
-                        }
+                    if(this.option("useFlatButtons")) {
+                        data.options = data.options || {};
+                        data.options.stylingMode = data.options.stylingMode || TEXT_BUTTON_MODE;
+                    }
 
-                        data.options = extend(data.options, { elementAttr: { class: buttonContainerClass } });
+                    if(this.option("useDefaultButtons")) {
+                        data.options = data.options || {};
+                        data.options.type = data.options.type || DEFAULT_BUTTON_TYPE;
                     }
                 }
             } else {
@@ -74,7 +81,8 @@ var ToolbarBase = CollectionWidget.inherit({
 
             this._getTemplate("dx-polymorph-widget").render({
                 container: $container,
-                model: rawModel
+                model: rawModel,
+                parent: this
             });
         }.bind(this), ["text", "html", "widget", "options"], this.option("integrationOptions.watchMethod"));
 
@@ -84,8 +92,26 @@ var ToolbarBase = CollectionWidget.inherit({
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
-            renderAs: "topToolbar"
+            renderAs: "topToolbar",
+
+            grouped: false,
+
+            useFlatButtons: false,
+            useDefaultButtons: false
         });
+    },
+
+    _defaultOptionsRules: function() {
+        return this.callBase().concat([
+            {
+                device: function() {
+                    return themes.isMaterial();
+                },
+                options: {
+                    useFlatButtons: true
+                }
+            }
+        ]);
     },
 
     _itemContainer: function() {
@@ -110,6 +136,7 @@ var ToolbarBase = CollectionWidget.inherit({
 
     _dimensionChanged: function() {
         this._arrangeItems();
+        this._applyCompactMode();
     },
 
     _initMarkup: function() {
@@ -123,6 +150,10 @@ var ToolbarBase = CollectionWidget.inherit({
 
     _render: function() {
         this.callBase();
+        this._renderItemsAsync();
+    },
+
+    _postProcessRenderItems: function() {
         this._arrangeItems();
     },
 
@@ -252,6 +283,14 @@ var ToolbarBase = CollectionWidget.inherit({
         }
     },
 
+    _applyCompactMode: function() {
+        var $element = this.$element();
+        $element.removeClass(TOOLBAR_COMPACT_CLASS);
+
+        if(this.option("compactMode") && this._getSummaryItemsWidth(this.itemElements(), true) > $element.width()) {
+            $element.addClass(TOOLBAR_COMPACT_CLASS);
+        }
+    },
 
     _getCurrentLabelsWidth: function(labels) {
         var width = 0;
@@ -275,13 +314,14 @@ var ToolbarBase = CollectionWidget.inherit({
 
     _renderItem: function(index, item, itemContainer, $after) {
         var location = item.location || "center",
-            container = itemContainer || this._$toolbarItemsContainer.find(".dx-toolbar-" + location),
-            itemHasText = Boolean(item.text) || Boolean(item.html),
+            container = itemContainer || this["_$" + location + "Section"],
+            itemHasText = !!(item.text || item.html),
             itemElement = this.callBase(index, item, container, $after);
 
         itemElement
             .toggleClass(this._buttonClass(), !itemHasText)
-            .toggleClass(TOOLBAR_LABEL_CLASS, itemHasText);
+            .toggleClass(TOOLBAR_LABEL_CLASS, itemHasText)
+            .addClass(item.cssClass);
 
         return itemElement;
     },
@@ -294,7 +334,9 @@ var ToolbarBase = CollectionWidget.inherit({
                 $container = $("<div>").addClass(TOOLBAR_GROUP_CLASS),
                 location = group.location || "center";
 
-            if(!groupItems.length) return;
+            if(!groupItems || !groupItems.length) {
+                return;
+            }
 
             each(groupItems, function(itemIndex, item) {
                 that._renderItem(itemIndex, item, $container, null);
@@ -305,7 +347,7 @@ var ToolbarBase = CollectionWidget.inherit({
     },
 
     _renderItems: function(items) {
-        var grouped = items.length && items[0].items;
+        var grouped = this.option("grouped") && items.length && items[0].items;
         grouped ? this._renderGroupedItems() : this.callBase(items);
     },
 
@@ -323,6 +365,8 @@ var ToolbarBase = CollectionWidget.inherit({
         } else {
             this._renderItems(items);
         }
+
+        this._applyCompactMode();
     },
 
     _renderEmptyMessage: commonUtils.noop,
@@ -360,7 +404,14 @@ var ToolbarBase = CollectionWidget.inherit({
                 this._dimensionChanged();
                 break;
             case "renderAs":
+            case "useFlatButtons":
+            case "useDefaultButtons":
                 this._invalidate();
+                break;
+            case "compactMode":
+                this._applyCompactMode();
+                break;
+            case "grouped":
                 break;
             default:
                 this.callBase.apply(this, arguments);

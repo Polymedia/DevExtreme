@@ -1,11 +1,9 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
+    config = require("../../core/config"),
     domAdapter = require("../../core/dom_adapter"),
     windowUtils = require("./window"),
     window = windowUtils.getWindow(),
     eventsEngine = require("../../events/core/events_engine"),
-    errors = require("../errors"),
     inArray = require("./array").inArray,
     typeUtils = require("./type"),
     isDefined = typeUtils.isDefined,
@@ -82,19 +80,9 @@ var uniqueId = (function() {
 var dataOptionsAttributeName = "data-options";
 
 var getElementOptions = function(element) {
-    /* jshint evil:true */
-    var optionsString = $(element).attr(dataOptionsAttributeName) || "",
-        result;
+    var optionsString = $(element).attr(dataOptionsAttributeName) || "";
 
-    if(optionsString.trim().charAt(0) !== "{") {
-        optionsString = "{" + optionsString + "}";
-    }
-    try {
-        result = (new Function("return " + optionsString))();
-    } catch(ex) {
-        throw errors.Error("E3018", ex, optionsString);
-    }
-    return result;
+    return config().optionsParser(optionsString);
 };
 
 var createComponents = function(elements, componentTypes) {
@@ -132,6 +120,21 @@ var createMarkupFromString = function(str) {
     return tempElement.contents();
 };
 
+var extractTemplateMarkup = function(element) {
+    element = $(element);
+
+    var templateTag = element.length && element.filter(function isNotExecutableScript() {
+        var $node = $(this);
+        return $node.is("script[type]") && ($node.attr("type").indexOf("script") < 0);
+    });
+
+    if(templateTag.length) {
+        return templateTag.eq(0).html();
+    } else {
+        element = $("<div>").append(element);
+        return element.html();
+    }
+};
 
 var normalizeTemplateElement = function(element) {
     var $element = isDefined(element) && (element.nodeType || isRenderer(element))
@@ -170,7 +173,7 @@ var contains = function(container, element) {
     }
     element = domAdapter.isTextNode(element) ? element.parentNode : element;
 
-    return domAdapter.isDocument(container) ? container.body.contains(element) : container.contains(element);
+    return domAdapter.isDocument(container) ? container.documentElement.contains(element) : container.contains(element);
 };
 
 var getPublicElement = function($element) {
@@ -193,6 +196,7 @@ exports.triggerHidingEvent = triggerVisibilityChangeEvent("dxhiding");
 exports.triggerResizeEvent = triggerVisibilityChangeEvent("dxresize");
 exports.getElementOptions = getElementOptions;
 exports.createComponents = createComponents;
+exports.extractTemplateMarkup = extractTemplateMarkup;
 exports.normalizeTemplateElement = normalizeTemplateElement;
 exports.clearSelection = clearSelection;
 exports.uniqueId = uniqueId;

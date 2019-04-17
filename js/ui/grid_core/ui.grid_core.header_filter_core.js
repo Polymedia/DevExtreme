@@ -1,15 +1,13 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    isDefined = require("../../core/utils/type").isDefined,
-    isFunction = require("../../core/utils/type").isFunction,
-    each = require("../../core/utils/iterator").each,
-    extend = require("../../core/utils/extend").extend,
-    Popup = require("../popup"),
-    TreeView = require("../tree_view"),
-    List = require("../list");
+import $ from "../../core/renderer";
+import modules from "./ui.grid_core.modules";
+import gridCoreUtils from "./ui.grid_core.utils";
+import { isDefined, isFunction } from "../../core/utils/type";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import eventsEngine from "../../events/core/events_engine";
+import Popup from "../popup";
+import TreeView from "../tree_view";
+import List from "../list";
 
 var HEADER_FILTER_CLASS = "dx-header-filter",
     HEADER_FILTER_MENU_CLASS = "dx-header-filter-menu";
@@ -143,7 +141,7 @@ exports.HeaderFilterView = modules.View.inherit({
                 my: alignment + " top",
                 at: alignment + " bottom",
                 of: $element,
-                collision: "flip fit"  // T291384
+                collision: "flip fit" // T291384
             });
         }
     },
@@ -157,7 +155,20 @@ exports.HeaderFilterView = modules.View.inherit({
             return DEFAULT_SEARCH_EXPRESSION;
         }
 
-        return lookup ? (lookup.displayExpr || "this") : (options.dataField || options.selector);
+        if(lookup) {
+            return lookup.displayExpr || "this";
+        }
+
+        if(options.dataSource) {
+            var group = options.dataSource.group;
+            if(Array.isArray(group) && group.length > 0) {
+                return group[0].selector;
+            } else if(isFunction(group)) {
+                return group;
+            }
+        }
+
+        return (options.dataField || options.selector);
     },
 
     _cleanPopupContent: function() {
@@ -180,6 +191,7 @@ exports.HeaderFilterView = modules.View.inherit({
                 closeOnTargetScroll: true,
                 dragEnabled: false,
                 closeOnOutsideClick: true,
+                focusStateEnabled: false,
                 toolbarItems: [
                     {
                         toolbar: "bottom", location: "after", widget: "dxButton", options: {
@@ -202,6 +214,9 @@ exports.HeaderFilterView = modules.View.inherit({
                     that._initializeListContainer(options);
                     options.onShowing && options.onShowing(e);
                 },
+                onShown: function(e) {
+                    eventsEngine.trigger(e.component.$content().find(".dx-checkbox").first(), "focus");
+                },
                 onHidden: options.onHidden,
                 onInitialized: function(e) {
                     var component = e.component;
@@ -223,6 +238,7 @@ exports.HeaderFilterView = modules.View.inherit({
             widgetOptions = {
                 searchEnabled: isSearchEnabled(that, options),
                 searchTimeout: that.option("headerFilter.searchTimeout"),
+                searchMode: options.headerFilter && options.headerFilter.searchMode || "",
                 dataSource: options.dataSource,
                 onContentReady: function() {
                     that.renderCompleted.fire();
@@ -364,7 +380,7 @@ exports.headerFilterMixin = {
 
     optionChanged: function(args) {
         if(args.name === "headerFilter") {
-            this._invalidate();
+            this._invalidate(true, true);
             args.handled = true;
         } else {
             this.callBase(args);

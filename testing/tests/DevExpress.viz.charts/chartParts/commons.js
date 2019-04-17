@@ -1,4 +1,3 @@
-"use strict";
 var $ = require("jquery"),
     vizMocks = require("../../../helpers/vizMocks.js"),
     labelModule = require("viz/series/points/label"),
@@ -157,6 +156,7 @@ exports.environment = {
             convertToAxisDataType: false
         });
         that.themeManager.getOptions.withArgs("resolveLabelOverlapping").returns(false);
+        that.themeManager.getOptions.withArgs("zoomAndPan").returns({ valueAxis: {}, argumentAxis: {} });
         that.themeManager.getOptions.returns({});
 
         that.layoutManager = new LayoutManager();

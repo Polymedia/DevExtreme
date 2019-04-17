@@ -1,8 +1,6 @@
-"use strict";
-
 var $ = require("jquery"),
     DataProvider = require("ui/pivot_grid/ui.pivot_grid.export").DataProvider,
-    clientExporter = require("client_exporter"),
+    clientExporter = require("exporter"),
     dateLocalization = require("localization/date"),
     executeAsyncMock = require("../../helpers/executeAsyncMock.js");
 
@@ -107,8 +105,8 @@ QUnit.module("dxPivotGrid", {
                         children: [
                             {
                                 value: "2", index: 3, children: [
-                                { value: "2", index: 3 },
-                                { value: "3", index: 4 }
+                                    { value: "2", index: 3 },
+                                    { value: "3", index: 4 }
                                 ]
                             },
                             { value: "3", index: 4 }
@@ -175,13 +173,13 @@ QUnit.test("getCellType", function(assert) {
     assert.strictEqual(this.dataProvider.getCellType(5, 0), "string", "ColsPart dataType is correct");
 });
 
-QUnit.test("getCellValue", function(assert) {
+QUnit.test("getCellData", function(assert) {
     // act, assert
-    assert.strictEqual(this.dataProvider.getCellValue(5, 5), 0.1, "CellsInfo cellValue is correct");
-    assert.strictEqual(this.dataProvider.getCellValue(1, 2), "Q1", "Header part cellText is correct");
+    assert.strictEqual(this.dataProvider.getCellData(5, 5).value, 0.1, "CellsInfo cellValue is correct");
+    assert.strictEqual(this.dataProvider.getCellData(1, 2).value, "Q1", "Header part cellText is correct");
 
-    assert.strictEqual(this.dataProvider.getCellValue(5, 0), "C1 Total", "RowInfo part cellText is correct");
-    assert.strictEqual(this.dataProvider.getCellValue(555, 555), undefined, "CellValue out of index is undefined");
+    assert.strictEqual(this.dataProvider.getCellData(5, 0).value, "C1 Total", "RowInfo part cellText is correct");
+    assert.strictEqual(this.dataProvider.getCellData(555, 555).value, undefined, "CellValue out of index is undefined");
 });
 
 QUnit.test("exportToExcel", function(assert) {
@@ -228,8 +226,7 @@ QUnit.test("getAllItems", function(assert) {
         text: "10%",
         value: 0.1,
         colspan: 1,
-        rowspan: 1,
-        precision: undefined
+        rowspan: 1
     }, "Data Item object has correct content");
     assert.deepEqual(this.items[0][0], {
         colspan: 2,
@@ -282,8 +279,7 @@ QUnit.test("Loading indicator showing", function(assert) {
 
 QUnit.test("Export with empty cellsInfo", function(assert) {
     // arrange
-    var items,
-        columnsInfo,
+    var columnsInfo,
         rowsInfo,
         cellsInfo,
         _getCellsInfo = this.pivotGrid._dataController.getCellsInfo,
@@ -297,7 +293,7 @@ QUnit.test("Export with empty cellsInfo", function(assert) {
     rowsInfo = this.pivotGrid._dataController.getRowsInfo(true);
     cellsInfo = this.pivotGrid._dataController.getCellsInfo(true);
 
-    items = this.pivotGrid._getAllItems(columnsInfo, rowsInfo, cellsInfo);
+    this.pivotGrid._getAllItems(columnsInfo, rowsInfo, cellsInfo);
 
     // act
     dataProvider.ready();
@@ -377,11 +373,11 @@ QUnit.test("getCellType. fields dataType is not defined", function(assert) {
         items: [
             [{ rowspan: 1 }, {}, {}, {}, {}, {}],
             [{ text: "row1" },
-                    { caption: "Val1", value: 10, dataIndex: 0 },
-                    { caption: "Val2", value: 10, dataIndex: 1 },
-                    { caption: "Val3", value: 10, dataIndex: 2 },
-                    { caption: "Val4", value: 10, dataIndex: 3 },
-                    { caption: "Val5", value: 10, dataIndex: 4 }
+                { caption: "Val1", value: 10, dataIndex: 0 },
+                { caption: "Val2", value: 10, dataIndex: 1 },
+                { caption: "Val3", value: 10, dataIndex: 2 },
+                { caption: "Val4", value: 10, dataIndex: 3 },
+                { caption: "Val5", value: 10, dataIndex: 4 }
             ]
         ],
         dataFields: [
@@ -407,22 +403,22 @@ QUnit.test("getCellType. fields dataType is not defined", function(assert) {
 QUnit.test("getCellType. Data fields have customizeText", function(assert) {
     var dataProvider = new DataProvider({
         items: [
-                [{ rowspan: 1 }, {}, {}, {}, {}, {}, {}],
+            [{ rowspan: 1 }, {}, {}, {}, {}, {}, {}],
             [{ text: "row1" },
-                    { caption: "Val1", dataIndex: 0, value: 10 },
-                    { caption: "Val2", dataIndex: 1, value: 10 },
-                    { caption: "Val3", dataIndex: 2, value: 10, text: "text" },
-                    { caption: "Val4", dataIndex: 3, value: 10 },
-                    { caption: "Val5", dataIndex: 4, value: 10 },
-                    { caption: "Val6", dataIndex: 5, value: new Date() }
+                { caption: "Val1", dataIndex: 0, value: 10 },
+                { caption: "Val2", dataIndex: 1, value: 10 },
+                { caption: "Val3", dataIndex: 2, value: 10, text: "text" },
+                { caption: "Val4", dataIndex: 3, value: 10 },
+                { caption: "Val5", dataIndex: 4, value: 10 },
+                { caption: "Val6", dataIndex: 5, value: new Date() }
             ]
         ],
         dataFields: [
-                { customizeText: function() { }, dataType: "string", format: "fixedPoint" },
-                { customizeText: function() { } },
-                { customizeText: function() { }, dataType: "number", format: "fixedPoint" },
-                { customizeText: function() { }, format: "fixedPoint" },
-                { customizeText: function() { }, format: "shortDate" }
+            { customizeText: function() { }, dataType: "string", format: "fixedPoint" },
+            { customizeText: function() { } },
+            { customizeText: function() { }, dataType: "number", format: "fixedPoint" },
+            { customizeText: function() { }, format: "fixedPoint" },
+            { customizeText: function() { }, format: "shortDate" }
         ]
     });
 
@@ -433,7 +429,7 @@ QUnit.test("getCellType. Data fields have customizeText", function(assert) {
     assert.strictEqual(dataProvider.getCellType(1, 1), "string", "Val1 format");
     assert.strictEqual(dataProvider.getCellType(1, 2), "string", "Val2 format");
     assert.strictEqual(dataProvider.getCellType(1, 3), "string", "Val3 format");
-    assert.strictEqual(dataProvider.getCellValue(1, 3), "text", "Val3 value");
+    assert.strictEqual(dataProvider.getCellData(1, 3).value, "text", "Val3 value");
     assert.strictEqual(dataProvider.getCellType(1, 4), "string", "Val4 format");
     assert.strictEqual(dataProvider.getCellType(1, 5), "string", "Val5 format");
 });
@@ -441,11 +437,11 @@ QUnit.test("getCellType. Data fields have customizeText", function(assert) {
 QUnit.test("getCellType for headers", function(assert) {
     var dataProvider = new DataProvider({
         items: [
-                [{ rowspan: 2, colspan: 2 }, { text: "a1", value: 1, format: "fixedPoint" }, { text: "a2", value: 2 }],
-                [{ text: "b1", value: 1, format: "fixedPoint" }, { text: "b2", value: 2 }],
+            [{ rowspan: 2, colspan: 2 }, { text: "a1", value: 1, format: "fixedPoint" }, { text: "a2", value: 2 }],
+            [{ text: "b1", value: 1, format: "fixedPoint" }, { text: "b2", value: 2 }],
             [{ text: "row1" }, { text: "row 2" },
-                    { caption: "Val1", dataIndex: 0, value: 10 },
-                    { caption: "Val2", dataIndex: 1, value: 10 }
+                { caption: "Val1", dataIndex: 0, value: 10 },
+                { caption: "Val2", dataIndex: 1, value: 10 }
             ]
         ],
         dataFields: [
@@ -577,7 +573,7 @@ QUnit.test("Data format", function(assert) {
             [{ text: "row1" }, { dataIndex: 0 }, { dataIndex: 1 }]
         ],
         dataFields: [
-            { format: "fixedPoint", precision: 0 },
+            { format: { type: "fixedPoint", precision: 0 } },
             { format: "currency" }
         ]
     });
@@ -586,8 +582,7 @@ QUnit.test("Data format", function(assert) {
 
     var styles = dataProvider.getStyles();
 
-    assert.strictEqual(styles[dataProvider.getStyleId(1, 1)].format, "fixedPoint");
-    assert.strictEqual(styles[dataProvider.getStyleId(1, 1)].precision, 0);
+    assert.deepEqual(styles[dataProvider.getStyleId(1, 1)].format, { type: "fixedPoint", precision: 0 });
     assert.strictEqual(styles[dataProvider.getStyleId(1, 1)].dataType, "number");
     assert.strictEqual(styles[dataProvider.getStyleId(1, 2)].format, "currency");
     assert.strictEqual(styles[dataProvider.getStyleId(1, 2)].precision, undefined);

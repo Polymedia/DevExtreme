@@ -1,31 +1,28 @@
-"use strict";
-
 var $ = require("../core/renderer"),
-    eventsEngine = require("../events/core/events_engine"),
-    dataUtils = require("../core/element_data"),
-    getPublicElement = require("../core/utils/dom").getPublicElement,
     devices = require("../core/devices"),
+    dataUtils = require("../core/element_data"),
+    eventsEngine = require("../events/core/events_engine"),
+    registerComponent = require("../core/component_registrator"),
+    browser = require("../core/utils/browser"),
     commonUtils = require("../core/utils/common"),
     noop = commonUtils.noop,
-    isDefined = require("../core/utils/type").isDefined,
-    typeUtils = require("../core/utils/type"),
-    windowUtils = require("../core/utils/window"),
-    iteratorUtils = require("../core/utils/iterator"),
-    extend = require("../core/utils/extend").extend,
-    messageLocalization = require("../localization/message"),
-    registerComponent = require("../core/component_registrator"),
-    eventUtils = require("../events/utils"),
-    SelectBox = require("./select_box"),
-    clickEvent = require("../events/click"),
-    caret = require("./text_box/utils.caret"),
-    browser = require("../core/utils/browser"),
     FilterCreator = require("../core/utils/selection_filter").SelectionFilterCreator,
     deferredUtils = require("../core/utils/deferred"),
     when = deferredUtils.when,
     Deferred = deferredUtils.Deferred,
-    BindableTemplate = require("./widget/bindable_template"),
+    getPublicElement = require("../core/utils/dom").getPublicElement,
+    typeUtils = require("../core/utils/type"),
+    isDefined = typeUtils.isDefined,
+    windowUtils = require("../core/utils/window"),
+    extend = require("../core/utils/extend").extend,
     inArray = require("../core/utils/array").inArray,
-    each = require("../core/utils/iterator").each;
+    each = require("../core/utils/iterator").each,
+    messageLocalization = require("../localization/message"),
+    eventUtils = require("../events/utils"),
+    clickEvent = require("../events/click"),
+    SelectBox = require("./select_box"),
+    caret = require("./text_box/utils.caret"),
+    BindableTemplate = require("./widget/bindable_template");
 
 var TAGBOX_TAG_DATA_KEY = "dxTagData";
 
@@ -59,6 +56,7 @@ var TagBox = SelectBox.inherit({
 
     _supportedKeys: function() {
         var parent = this.callBase();
+
         return extend(parent, {
             backspace: function(e) {
                 if(!this._isCaretAtTheStart()) {
@@ -117,6 +115,17 @@ var TagBox = SelectBox.inherit({
                 e.preventDefault();
                 this._keyboardProcessor._childProcessors[0].process(e);
             },
+            space: function(e) {
+                var isOpened = this.option("opened"),
+                    isInputActive = this._shouldRenderSearchEvent();
+
+                if(!isOpened || isInputActive) {
+                    return;
+                }
+
+                e.preventDefault();
+                this._keyboardProcessor._childProcessors[0].process(e);
+            },
             leftArrow: function(e) {
                 if(!this._isCaretAtTheStart()) {
                     return;
@@ -152,6 +161,10 @@ var TagBox = SelectBox.inherit({
                 !this.option("multiline") && this._scrollContainer(direction);
             }
         });
+    },
+
+    _allowSelectItemByTab: function() {
+        return false;
     },
 
     _isCaretAtTheStart: function() {
@@ -261,6 +274,11 @@ var TagBox = SelectBox.inherit({
             */
             value: [],
 
+            /**
+             * @name dxTagBoxOptions.showDropDownButton
+             * @inheritdoc
+             * @default false
+             */
             showDropDownButton: false,
 
             maxFilterLength: 1500,
@@ -403,26 +421,23 @@ var TagBox = SelectBox.inherit({
             */
 
             /**
-            * @name dxTagBoxOptions.maxLength
-            * @hidden
-            * @inheritdoc
-            */
-
-            /**
             * @name dxTagBoxOptions.onCopy
             * @hidden
+            * @action
             * @inheritdoc
             */
 
             /**
             * @name dxTagBoxOptions.onCut
             * @hidden
+            * @action
             * @inheritdoc
             */
 
             /**
             * @name dxTagBoxOptions.onPaste
             * @hidden
+            * @action
             * @inheritdoc
             */
 
@@ -462,7 +477,8 @@ var TagBox = SelectBox.inherit({
         this._multiTagPreparingAction = this._createActionByOption("onMultiTagPreparing", {
             beforeExecute: (function(e) {
                 this._multiTagPreparingHandler(e.args[0]);
-            }).bind(this)
+            }).bind(this),
+            excludeValidators: ["disabled", "readOnly"]
         });
     },
 
@@ -616,7 +632,8 @@ var TagBox = SelectBox.inherit({
 
     _renderTypingEvent: function() {
         eventsEngine.on(this._input(), eventUtils.addNamespace("keydown", this.NAME), (function(e) {
-            if(!this._isControlKey(e.key) && this._isEditable()) {
+            var keyName = eventUtils.normalizeKeyName(e);
+            if(!this._isControlKey(keyName) && this._isEditable()) {
                 this._clearTagFocus();
             }
         }).bind(this));
@@ -632,7 +649,7 @@ var TagBox = SelectBox.inherit({
     },
 
     _renderInputValueImpl: function() {
-        this._renderMultiSelect();
+        return this._renderMultiSelect();
     },
 
     _loadInputValue: function() {
@@ -707,14 +724,20 @@ var TagBox = SelectBox.inherit({
     },
 
     _renderMultiSelect: function() {
+        var d = new Deferred();
+
         this._$tagsContainer = this.$element()
             .find("." + TEXTEDITOR_CONTAINER_CLASS)
             .addClass(TAGBOX_TAG_CONTAINER_CLASS)
             .addClass(NATIVE_CLICK_CLASS);
 
         this._renderInputSize();
-        this._renderTags();
-        this._popup && this._popup.refreshPosition();
+        this._renderTags().always((function() {
+            this._popup && this._popup.refreshPosition();
+            d.resolve();
+        }).bind(this));
+
+        return d.promise();
     },
 
     _listItemClickHandler: function(e) {
@@ -725,6 +748,13 @@ var TagBox = SelectBox.inherit({
         }
 
         this.callBase(e);
+    },
+
+    _shouldClearFilter: function() {
+        var shouldClearFilter = this.callBase(),
+            showSelectionControls = this.option("showSelectionControls");
+
+        return !showSelectionControls && shouldClearFilter;
     },
 
     _renderInputSize: function() {
@@ -750,8 +780,8 @@ var TagBox = SelectBox.inherit({
 
     _renderMultiTag: function($input) {
         var $tag = $("<div>")
-                .addClass(TAGBOX_TAG_CLASS)
-                .addClass(TAGBOX_MULTI_TAG_CLASS);
+            .addClass(TAGBOX_TAG_CLASS)
+            .addClass(TAGBOX_MULTI_TAG_CLASS);
 
         var args = {
             multiTagElement: getPublicElement($tag),
@@ -787,41 +817,70 @@ var TagBox = SelectBox.inherit({
         if(selectedItemsAlreadyLoaded) {
             return d.resolve(filteredItems).promise();
         } else {
-            var dataSourceFilter = this._dataSource.filter(),
-                filterExpr = creator.getCombinedFilter(this.option("valueExpr"), dataSourceFilter),
-                filterLength = encodeURI(JSON.stringify(filterExpr)).length,
-                resultFilter = filterLength > this.option("maxFilterLength") ? undefined : filterExpr;
+            var dataSourceFilter = this._dataSource.filter();
+            var filterExpr = creator.getCombinedFilter(this.option("valueExpr"), dataSourceFilter);
+            var filterLength = encodeURI(JSON.stringify(filterExpr)).length;
+            var filter = filterLength > this.option("maxFilterLength") ? undefined : filterExpr;
+            var loadOptions = this._dataSource.loadOptions();
+            var customQueryParams = loadOptions.customQueryParams;
 
-            this._dataSource.store().load({ filter: resultFilter }).done(function(items) {
+            this._dataSource.store().load({ filter, customQueryParams }).done(function(items) {
                 d.resolve(items.filter(clientFilterFunction));
             });
 
             return d.promise();
         }
-
     },
 
-    _createTagData: function(values, filteredItems) {
+    _createTagsData: function(values, filteredItems) {
         var items = [];
+        var cache = {};
+        var isValueExprSpecified = this._valueGetterExpr() === "this";
+        var filteredValues = {};
 
-        iteratorUtils.each(values, function(valueIndex, value) {
-            var item = filteredItems[valueIndex];
+        filteredItems.forEach(function(filteredItem) {
+            var filteredItemValue = isValueExprSpecified ? JSON.stringify(filteredItem) : this._valueGetter(filteredItem);
 
-            if(isDefined(item)) {
-                this._selectedItems.push(item);
-                items.splice(valueIndex, 0, item);
+            filteredValues[filteredItemValue] = filteredItem;
+        }.bind(this));
+
+        var loadItemPromises = [];
+
+        values.forEach(function(value, index) {
+            var currentItem = filteredValues[isValueExprSpecified ? JSON.stringify(value) : value];
+
+            if(isValueExprSpecified && !isDefined(currentItem)) {
+                loadItemPromises.push(this._loadItem(value, cache).always((function(item) {
+                    var newItem = this._createTagData(items, item, value, index);
+                    items.splice(index, 0, newItem);
+                }).bind(this)));
             } else {
-                var selectedItem = this.option("selectedItem"),
-                    customItem = this._valueGetter(selectedItem) === value ? selectedItem : value;
-
-                items.splice(valueIndex, 0, customItem);
+                var newItem = this._createTagData(items, currentItem, value, index);
+                items.splice(index, 0, newItem);
             }
         }.bind(this));
 
-        return items;
+        var d = new Deferred();
+        when.apply(this, loadItemPromises).always(function() {
+            d.resolve(items);
+        });
+
+        return d.promise();
     },
 
-    _loadTagData: function() {
+    _createTagData: function(items, item, value, valueIndex) {
+        if(isDefined(item)) {
+            this._selectedItems.push(item);
+            return item;
+        } else {
+            var selectedItem = this.option("selectedItem"),
+                customItem = this._valueGetter(selectedItem) === value ? selectedItem : value;
+
+            return customItem;
+        }
+    },
+
+    _loadTagsData: function() {
         var values = this._getValue(),
             tagData = new Deferred();
 
@@ -829,8 +888,10 @@ var TagBox = SelectBox.inherit({
 
         this._getFilteredItems(values)
             .done(function(filteredItems) {
-                var items = this._createTagData(values, filteredItems);
-                tagData.resolve(items);
+                var items = this._createTagsData(values, filteredItems);
+                items.always(function(data) {
+                    tagData.resolve(data);
+                });
             }.bind(this))
             .fail(tagData.reject.bind(this));
 
@@ -838,15 +899,20 @@ var TagBox = SelectBox.inherit({
     },
 
     _renderTags: function() {
-        this._loadTagData().always((function(items) {
+        var d = new Deferred();
+
+        this._loadTagsData().always((function(items) {
             this._renderTagsCore(items);
+            this._renderEmptyState();
+
+            if(!this._preserveFocusedTag) {
+                this._clearTagFocus();
+            }
+
+            d.resolve();
         }).bind(this));
 
-        this._renderEmptyState();
-
-        if(!this._preserveFocusedTag) {
-            this._clearTagFocus();
-        }
+        return d.promise();
     },
 
     _renderTagsCore: function(items) {
@@ -920,14 +986,14 @@ var TagBox = SelectBox.inherit({
             return;
         }
 
-        var $tag = this._getTag(value);
+        var $tag = this._getTag(value),
+            displayValue = this._displayGetter(item),
+            itemModel = this._getItemModel(item, displayValue);
 
         if($tag) {
-            var displayValue = this._displayGetter(item);
-
             if(isDefined(displayValue)) {
                 $tag.empty();
-                this._applyTagTemplate(item, $tag);
+                this._applyTagTemplate(itemModel, $tag);
             }
 
             $tag.removeClass(TAGBOX_CUSTOM_TAG_CLASS);
@@ -935,11 +1001,19 @@ var TagBox = SelectBox.inherit({
             $tag = this._createTag(value, $input);
 
             if(isDefined(item)) {
-                this._applyTagTemplate(item, $tag);
+                this._applyTagTemplate(itemModel, $tag);
             } else {
                 $tag.addClass(TAGBOX_CUSTOM_TAG_CLASS);
                 this._applyTagTemplate(value, $tag);
             }
+        }
+    },
+
+    _getItemModel: function(item, displayValue) {
+        if(typeUtils.isObject(item)) {
+            return item;
+        } else {
+            return displayValue;
         }
     },
 
@@ -1023,11 +1097,11 @@ var TagBox = SelectBox.inherit({
 
         var value = this._getValue().slice();
 
-        iteratorUtils.each(e.removedItems || [], (function(_, removedItem) {
+        each(e.removedItems || [], (function(_, removedItem) {
             this._removeTag(value, this._valueGetter(removedItem));
         }).bind(this));
 
-        iteratorUtils.each(e.addedItems || [], (function(_, addedItem) {
+        each(e.addedItems || [], (function(_, addedItem) {
             this._addTag(value, this._valueGetter(addedItem));
         }).bind(this));
 
@@ -1107,7 +1181,7 @@ var TagBox = SelectBox.inherit({
         values = values || this._getValue();
 
 
-        iteratorUtils.each(values, (function(index, selectedValue) {
+        each(values, (function(index, selectedValue) {
             if(this._isValueEquals(value, selectedValue)) {
                 result = index;
                 return false;
@@ -1153,10 +1227,6 @@ var TagBox = SelectBox.inherit({
 
     _refreshSelected: function() {
         this._list && this._list.option("selectedItems", this._selectedItems);
-    },
-
-    _getDataSource: function() {
-        return this._dataSource;
     },
 
     _resetListDataSourceFilter: function() {
@@ -1206,7 +1276,7 @@ var TagBox = SelectBox.inherit({
     _dataSourceFilterExpr: function() {
         var filter = [];
 
-        iteratorUtils.each(this._getValue(), (function(index, value) {
+        each(this._getValue(), (function(index, value) {
             filter.push(["!", [this._valueGetterExpr(), value]]);
         }).bind(this));
 
@@ -1217,7 +1287,7 @@ var TagBox = SelectBox.inherit({
         var itemValue = this._valueGetter(itemData),
             result = true;
 
-        iteratorUtils.each(this._getValue(), (function(index, value) {
+        each(this._getValue(), (function(index, value) {
             if(this._isValueEquals(value, itemValue)) {
                 result = false;
                 return false;
@@ -1237,10 +1307,11 @@ var TagBox = SelectBox.inherit({
 
     _getSortedListValues: function() {
         var listValues = this._getListValues(),
-            currentValue = this.option("value"),
-            sortFunction = function(item1, item2) { return currentValue.indexOf(item2) - currentValue.indexOf(item1); };
+            currentValue = this.option("value") || [],
+            existedItems = listValues.length ? currentValue.filter(item => listValues.indexOf(item) !== -1) : [],
+            newItems = existedItems.length ? listValues.filter(item => currentValue.indexOf(item) === -1) : listValues;
 
-        return currentValue ? listValues.sort(sortFunction) : listValues;
+        return existedItems.concat(newItems);
     },
 
     _getListValues: function() {
@@ -1252,7 +1323,7 @@ var TagBox = SelectBox.inherit({
             selectedItems = this._getPlainItems(this._list.option("selectedItems")),
             result = [];
 
-        iteratorUtils.each(selectedItems, function(index, item) {
+        each(selectedItems, function(index, item) {
             result[index] = that._valueGetter(item);
         });
 
@@ -1265,6 +1336,11 @@ var TagBox = SelectBox.inherit({
         if(this.option("applyValueMode") === "useButtons" && !this.option("opened")) {
             this._refreshSelected();
         }
+    },
+
+    reset: function() {
+        this._restoreInputText();
+        this.callBase();
     },
 
     _clean: function() {
@@ -1361,13 +1437,6 @@ var TagBox = SelectBox.inherit({
     _popupHidingHandler: function() {
         this.callBase();
         this._clearFilter();
-    },
-
-    reset: function() {
-        this.option("value", []);
-
-        this._clearFilter();
-        this._clearSelectedItem();
     }
 });
 

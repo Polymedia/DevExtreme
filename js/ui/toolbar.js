@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     themes = require("./themes"),
     registerComponent = require("../core/component_registrator"),
@@ -57,29 +55,37 @@ var Toolbar = ToolbarBase.inherit({
             */
             submenuType: "dropDownMenu",
 
+            menuContainer: undefined,
+
             /**
-            * @name dxToolbarItemTemplate.location
+            * @name dxToolbarItem.location
             * @type Enums.ToolbarItemLocation
             * @default 'center'
             */
 
             /**
-            * @name dxToolbarItemTemplate.locateInMenu
+            * @name dxToolbarItem.locateInMenu
             * @type Enums.ToolbarItemLocateInMenuMode
             * @default 'never'
             */
 
             /**
-            * @name dxToolbarItemTemplate.showText
+            * @name dxToolbarItem.showText
             * @type Enums.ToolbarItemShowTextMode
             * @default 'always'
             */
 
             /**
-            * @name dxToolbarItemTemplate.menuItemTemplate
+            * @name dxToolbarItem.menuItemTemplate
             * @type template|function
             * @type_function_return string|Node|jQuery
             */
+
+            /**
+             * @name dxToolbarItem.cssClass
+             * @type string
+             * @default undefined
+             */
 
             /**
             * @name dxToolbarOptions.renderAs
@@ -148,17 +154,17 @@ var Toolbar = ToolbarBase.inherit({
             * @hidden
             * @inheritdoc
             */
-
-            useFlatButtons: false
         });
 
     },
 
     _defaultOptionsRules: function() {
+        var themeName = themes.current();
+
         return this.callBase().concat([
             {
                 device: function() {
-                    return /ios7.*/.test(themes.current());
+                    return themes.isIos7(themeName);
                 },
                 options: {
                     submenuType: "actionSheet"
@@ -166,7 +172,7 @@ var Toolbar = ToolbarBase.inherit({
             },
             {
                 device: function() {
-                    return /android5.*/.test(themes.current());
+                    return themes.isAndroid5(themeName);
                 },
                 options: {
                     submenuType: "dropDownMenu"
@@ -174,7 +180,7 @@ var Toolbar = ToolbarBase.inherit({
             },
             {
                 device: function() {
-                    return /win8.*/.test(themes.current());
+                    return themes.isWin8(themeName);
                 },
                 options: {
                     submenuType: "listBottom"
@@ -182,18 +188,10 @@ var Toolbar = ToolbarBase.inherit({
             },
             {
                 device: function() {
-                    return /win10.*/.test(themes.current());
+                    return themes.isWin10(themeName);
                 },
                 options: {
                     submenuType: "listTop"
-                }
-            },
-            {
-                device: function() {
-                    return themes.isMaterial();
-                },
-                options: {
-                    useFlatButtons: true
                 }
             }
         ]);
@@ -220,7 +218,7 @@ var Toolbar = ToolbarBase.inherit({
         this._renderMenu();
     },
 
-    _render: function() {
+    _postProcessRenderItems: function() {
         this._hideOverflowItems();
         this._menuStrategy._updateMenuVisibility();
         this.callBase();
@@ -241,6 +239,10 @@ var Toolbar = ToolbarBase.inherit({
         return itemElement;
     },
 
+    _getItemsWidth: function() {
+        return this._getSummaryItemsWidth([this._$beforeSection, this._$centerSection, this._$afterSection]);
+    },
+
     _hideOverflowItems: function(elementWidth) {
         var overflowItems = this.$element().find("." + TOOLBAR_AUTO_HIDE_ITEM_CLASS);
 
@@ -251,10 +253,7 @@ var Toolbar = ToolbarBase.inherit({
         elementWidth = elementWidth || this.$element().width();
         $(overflowItems).removeClass(TOOLBAR_HIDDEN_ITEM);
 
-        var beforeWidth = this._$beforeSection.outerWidth(),
-            centerWidth = this._$centerSection.outerWidth(),
-            afterWidth = this._$afterSection.outerWidth(),
-            itemsWidth = beforeWidth + centerWidth + afterWidth;
+        var itemsWidth = this._getItemsWidth();
 
         while(overflowItems.length && elementWidth < itemsWidth) {
             var $item = overflowItems.eq(-1);
@@ -275,7 +274,7 @@ var Toolbar = ToolbarBase.inherit({
             .not(".dx-state-invisible");
         this._restoreItems = this._restoreItems || [];
 
-        var overflowItems = iteratorUtils.map($hiddenItems, function(item) {
+        var overflowItems = [].slice.call($hiddenItems).map((item) => {
             var itemData = that._getItemData(item),
                 $itemContainer = $(item).children(),
                 $itemMarkup = $itemContainer.children();
@@ -389,7 +388,6 @@ var Toolbar = ToolbarBase.inherit({
 
         switch(name) {
             case "submenuType":
-            case "useFlatButtons":
                 this._invalidate();
                 break;
             case "visible":
@@ -402,6 +400,9 @@ var Toolbar = ToolbarBase.inherit({
             case "onItemClick":
                 this._changeMenuOption(name, value);
                 this.callBase.apply(this, arguments);
+                break;
+            case "menuContainer":
+                this._changeMenuOption("container", value);
                 break;
             default:
                 this.callBase.apply(this, arguments);

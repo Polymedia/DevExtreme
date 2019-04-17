@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     noop = require("../../core/utils/common").noop,
@@ -133,6 +131,7 @@ var SwitchableEditDecorator = EditDecorator.inherit({
             this._enablePositioning($itemElement);
             this._prepareDeleteReady($itemElement);
             this._animatePrepareDeleteReady($itemElement);
+            eventsEngine.off($itemElement, pointerEvents.up);
         } else {
             this._forgetDeleteReady($itemElement);
             this._animateForgetDeleteReady($itemElement).done(this._disablePositioning.bind(this, $itemElement));
@@ -142,6 +141,7 @@ var SwitchableEditDecorator = EditDecorator.inherit({
     _enablePositioning: function($itemElement) {
         $itemElement.addClass(SWITCHABLE_MENU_ITEM_SHIELD_POSITIONING_CLASS);
         eventsEngine.on($itemElement, ACTIVE_EVENT_NAME, noop);
+        eventsEngine.one($itemElement, pointerEvents.up, this._disablePositioning.bind(this, $itemElement));
     },
 
     _disablePositioning: function($itemElement) {

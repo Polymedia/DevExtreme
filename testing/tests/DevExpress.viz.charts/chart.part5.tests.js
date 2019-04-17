@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     commons = require("./chartParts/commons.js"),
@@ -26,55 +24,6 @@ var OldEventsName = {
 };
 
 QUnit.module("Zooming", commons.environment);
-
-QUnit.test("chart pass common series viewport to value axis on zoom", function(assert) {
-    var series1 = new MockSeries({}),
-        series2 = new MockSeries({});
-
-    series1.getViewport.returns({
-        min: 10,
-        max: 15
-    });
-
-    series2.getViewport.returns({
-        min: 5,
-        max: 12
-    });
-
-    chartMocks.seriesMockData.series.push(series1, series2);
-
-    var chart = this.createChart({
-        series: [{ type: "line" }, { type: "line" }]
-    });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
-    // act
-
-    chart.zoomArgument(10, 50);
-    // assert
-    assert.deepEqual(chart._argumentAxes[0].zoom.lastCall.args, [10, 50, undefined]);
-    assert.strictEqual(series1.getValueAxis().zoom.lastCall.args[0], 5, "min passed in value axis");
-    assert.strictEqual(series1.getValueAxis().zoom.lastCall.args[1], 15, "max passed in value axis");
-});
-
-QUnit.test("T576295. chart is not zoom value axis if series is not return their viewport", function(assert) {
-    var series = new MockSeries({});
-
-    series.getViewport.returns({});
-
-    chartMocks.seriesMockData.series.push(series);
-
-    var chart = this.createChart({
-        series: [{ type: "line" }]
-    });
-    // act
-
-    chart.zoomArgument(10, 50);
-    // assert
-    assert.ok(!series.getValueAxis().zoom.called);
-});
 
 QUnit.test("chart with single value axis. Zooming with all null/undefined values", function(assert) {
     chartMocks.seriesMockData.series.push(new MockSeries());
@@ -110,36 +59,10 @@ QUnit.test("chart with single value axis. Zooming with one null/undefined values
         chartRenderSpy = sinon.spy(chart, "_doRender");
 
     // act
-    chart.zoomArgument(10, null);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), {});
 
     // assert
     assert.equal(chartRenderSpy.callCount, 1);
-});
-
-QUnit.test("Reset zooming on dataSource Changed", function(assert) {
-    chartMocks.seriesMockData.series.push(new MockSeries());
-    chartMocks.seriesMockData.series.push(new MockSeries());
-    var chart = this.createChart({
-        argumentAxis: {
-            argumentType: "numeric"
-        },
-        series: [{
-            type: "line"
-        }, {
-            type: "line"
-        }]
-    });
-
-    chart.zoomArgument(10, 50);
-    chart.getAllSeries()[0].getValueAxis().zoom.reset();
-    // act
-    chart.option("dataSource", []);
-    // assert
-    assert.strictEqual(chart.getAllSeries()[0].getValueAxis().zoom.called, false);
-    assert.strictEqual(chart.getAllSeries()[1].getValueAxis().zoom.called, false);
-    assert.strictEqual(chart.getAllSeries()[0].getValueAxis().resetZoom.called, true);// T602156
-    assert.strictEqual(chart.getAllSeries()[1].getValueAxis().resetZoom.called, true);// T602156
-    assert.strictEqual(chart.getAllSeries()[0].getArgumentAxis().resetZoom.called, true);
 });
 
 QUnit.test("No reset zooming on series changed", function(assert) {
@@ -157,18 +80,17 @@ QUnit.test("No reset zooming on series changed", function(assert) {
             type: "line"
         }]
     });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
+
+    chart.getArgumentAxis().dataVisualRangeIsReduced = sinon.stub().returns(true);
 
     chart.zoomArgument(10, 50);
 
-    series1.getValueAxis().zoom.reset();
     series2.getViewport.returns({
         min: 5,
         max: 12
     });
+
+    chart._valueAxes[0].adjust.reset();
     // act
     chart.option({
         series: { type: "area" },
@@ -176,7 +98,45 @@ QUnit.test("No reset zooming on series changed", function(assert) {
     });
 
     // assert
-    assert.deepEqual(series2.getValueAxis().zoom.lastCall.args, [5, 12], "correct args passed to axis.zoom");
+    assert.deepEqual(series2.getValueAxis().adjust.callCount, 1);
+    assert.strictEqual(series2.getValueAxis().adjust.lastCall.args[0], false);
+});
+
+QUnit.test("No reset zooming on series changed with not zoomed axis", function(assert) {
+    var series1 = new MockSeries(),
+        series2 = new MockSeries();
+
+    chartMocks.seriesMockData.series.push(series1);
+    chartMocks.seriesMockData.series.push(series2);
+
+    var chart = this.createChart({
+        argumentAxis: {
+            argumentType: "numeric"
+        },
+        series: [{
+            type: "line"
+        }]
+    });
+
+    chart.getArgumentAxis().dataVisualRangeIsReduced = sinon.stub().returns(false);
+
+    chart.zoomArgument(10, 50);
+
+    series2.getViewport.returns({
+        min: 5,
+        max: 12
+    });
+
+    chart._valueAxes[0].adjust.reset();
+    // act
+    chart.option({
+        series: { type: "area" },
+        palette: ["black", "red"]
+    });
+
+    // assert
+    assert.deepEqual(series2.getValueAxis().adjust.callCount, 1);
+    assert.strictEqual(series2.getValueAxis().adjust.lastCall.args[0], true);
 });
 
 QUnit.test("chart with single value axis. Adjust on zoom = false", function(assert) {
@@ -193,49 +153,12 @@ QUnit.test("chart with single value axis. Adjust on zoom = false", function(asse
 
     chart.zoomArgument(10, 50);
     // assert
-    assert.ok(!series1.getValueAxis().zoom.called, "value axis are not zoomed");
-});
-
-QUnit.test("showZero has affect to value axis on zoom", function(assert) {
-    var series = new MockSeries({});
-
-    series.getViewport.returns({
-        min: 10,
-        max: 15
-    });
-    series.showZero = true;
-
-    chartMocks.seriesMockData.series.push(series);
-
-    var chart = this.createChart({
-        series: [{ type: "line" }]
-    });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
-    // act
-
-    chart.zoomArgument(10, 50);
-    // assert
-    assert.deepEqual(chart._argumentAxes[0].zoom.lastCall.args, [10, 50, undefined]);
-    assert.strictEqual(series.getValueAxis().zoom.lastCall.args[0], 0, "min passed in value axis");
-    assert.strictEqual(series.getValueAxis().zoom.lastCall.args[1], 15, "max passed in value axis");
+    assert.ok(!series1.getValueAxis().adjust.called, "value axis are not zoomed");
 });
 
 QUnit.test("MultiAxis chart", function(assert) {
     var series1 = new MockSeries({}),
         series2 = new MockSeries({});
-
-    series1.getViewport.returns({
-        min: 8,
-        max: 15
-    });
-
-    series2.getViewport.returns({
-        min: 5,
-        max: 12
-    });
 
     chartMocks.seriesMockData.series.push(series1, series2);
 
@@ -253,32 +176,22 @@ QUnit.test("MultiAxis chart", function(assert) {
             { name: "axis1" }
         ]
     });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
+
+    chart._valueAxes[0].adjust.reset();
+    chart._valueAxes[1].adjust.reset();
     // act
-    chart.zoomArgument(10, 50);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), {});
     // assert
 
-    assert.deepEqual(chart._argumentAxes[0].zoom.lastCall.args, [10, 50, undefined]);
-    assert.deepEqual(series1.getValueAxis().zoom.lastCall.args, [8, 15], "axis 1 viewport");
-    assert.deepEqual(series2.getValueAxis().zoom.lastCall.args, [5, 12], "axis 2 viewport");
+    assert.deepEqual(series1.getValueAxis().adjust.callCount, 1, "axis 1 viewport adjusted");
+    assert.deepEqual(series2.getValueAxis().adjust.callCount, 1, "axis 2 viewport adjusted");
+    assert.strictEqual(series1.getValueAxis().adjust.firstCall.args[0], false);
+    assert.strictEqual(series2.getValueAxis().adjust.firstCall.args[0], false);
 });
 
-QUnit.test("Zoom all argument axis", function(assert) {
+QUnit.test("Set visual range for all argument axis except original target one", function(assert) {
     var series1 = new MockSeries({}),
         series2 = new MockSeries({});
-
-    series1.getViewport.returns({
-        min: 8,
-        max: 15
-    });
-
-    series2.getViewport.returns({
-        min: 5,
-        max: 12
-    });
 
     chartMocks.seriesMockData.series.push(series1, series2);
 
@@ -296,52 +209,13 @@ QUnit.test("Zoom all argument axis", function(assert) {
             name: "p2"
         }]
     });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
+    chart._argumentAxes[0].visualRange.reset();
     // act
-    chart.zoomArgument(10, 50);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), [10, 50]);
     // assert
-
-    assert.deepEqual(chart._argumentAxes[0].zoom.lastCall.args, [10, 50, undefined]);
-    assert.deepEqual(chart._argumentAxes[1].zoom.lastCall.args, [10, 50, undefined]);
-    assert.deepEqual(series1.getValueAxis().zoom.lastCall.args, [8, 15], "axis 1 viewport");
-    assert.deepEqual(series2.getValueAxis().zoom.lastCall.args, [5, 12], "axis 2 viewport");
-});
-
-QUnit.test("Zoom argument axis, two series, one of them is not visible", function(assert) {
-    var series1 = new MockSeries({ visible: false }),
-        series2 = new MockSeries({});
-
-    series1.getViewport.returns({
-        min: 8,
-        max: 15
-    });
-
-    series2.getViewport.returns({
-        min: 5,
-        max: 12
-    });
-
-    chartMocks.seriesMockData.series.push(series1, series2);
-
-    var chart = this.createChart({
-        series: [{
-            type: "line"
-        }, {
-            type: "line"
-        }]
-    });
-    chart._argumentAxes[0].getViewport.returns({
-        min: 10,
-        max: 50
-    });
-    // act
-    chart.zoomArgument(10, 50);
-    // assert
-
-    assert.deepEqual(series2.getValueAxis().zoom.lastCall.args, [5, 12], "axis 2 viewport");
+    assert.deepEqual(chart._argumentAxes[0].visualRange.firstCall.args[0], [10, 50]);
+    assert.ok(!chart._argumentAxes[1].called);
+    assert.equal(chart._argumentAxes[1], chart.getArgumentAxis());
 });
 
 QUnit.test("chart with single value with aggregation. Adjust on zoom = true", function(assert) {
@@ -363,24 +237,7 @@ QUnit.test("chart with single value with aggregation. Adjust on zoom = true", fu
     });
 
     // assert
-    assert.strictEqual(series1.getValueAxis().zoom.callCount, 1);
-    assert.deepEqual(series1.getValueAxis().zoom.lastCall.args, [10, 15], "zoom args");
-});
-
-QUnit.test("chart with single value with aggregation. Adjust on zoom = false", function(assert) {
-    var series1 = new MockSeries({});
-
-    series1.useAggregation.returns(true);
-    chartMocks.seriesMockData.series.push(series1);
-
-    this.createChart({
-        adjustOnZoom: false,
-        series: [{
-            type: "line"
-        }]
-    });
-    // assert
-    assert.strictEqual(series1.getValueAxis().zoom.callCount, 0);
+    assert.strictEqual(series1.getValueAxis().adjust.callCount, 1);
 });
 
 QUnit.test("Aggregation with min and max on argument axis, without zooming", function(assert) {
@@ -402,8 +259,7 @@ QUnit.test("Aggregation with min and max on argument axis, without zooming", fun
         }]
     });
     // assert
-    assert.strictEqual(series1.getValueAxis().zoom.callCount, 1);
-    assert.deepEqual(series1.getValueAxis().zoom.lastCall.args, [50, 60], "zoom args");
+    assert.strictEqual(series1.getValueAxis().adjust.callCount, 1);
 });
 
 // T557040
@@ -432,64 +288,7 @@ QUnit.test("Aggregation. One of the series without points", function(assert) {
         }, {}]
     });
 
-    assert.strictEqual(series1.getValueAxis().zoom.callCount, 1);
-    assert.deepEqual(series1.getValueAxis().zoom.lastCall.args, [0, 15], "zoom args");
-});
-
-QUnit.test("Event, zoomEnd", function(assert) {
-    var zoomEnd = sinon.spy(),
-        series = new MockSeries();
-    chartMocks.seriesMockData.series.push(series);
-
-    var chart = this.createChart({
-        series: { type: "line" },
-        onZoomEnd: zoomEnd,
-        argumentAxis: {
-            mockRange: {
-                minVisible: 100,
-                maxVisible: 200
-            }
-        }
-    });
-
-    chart.zoomArgument(30, 80);
-
-    assert.equal(zoomEnd.callCount, 1);
-    assert.equal(zoomEnd.getCall(0).args[0].rangeStart, 100, 'rangeStart', "rangeStart from axis");
-    assert.equal(zoomEnd.getCall(0).args[0].rangeEnd, 200, 'rangeEnd', "rangeEnd from axis");
-});
-
-QUnit.test("Event, zoomStart", function(assert) {
-    chartMocks.seriesMockData.series.push(new MockSeries());
-    var zoomStart = sinon.spy();
-    var chart = this.createChart({
-        series: { type: "line" },
-        onZoomStart: zoomStart
-    });
-
-    chart.zoomArgument(30, 80);
-
-    assert.equal(zoomStart.callCount, 1);
-});
-
-// T520370
-QUnit.test("zoom end event, not rendered chart", function(assert) {
-    chartMocks.seriesMockData.series.push(new MockSeries({}));
-    var zoomEnd = sinon.spy();
-    var chart = this.createChart({
-        series: { type: "line" },
-        size: {
-            height: 10
-        },
-        margin: {
-            top: 100
-        },
-        onZoomEnd: zoomEnd
-    });
-
-    chart.zoomArgument(30, 80);
-
-    assert.equal(zoomEnd.callCount, 1);
+    assert.strictEqual(series1.getValueAxis().adjust.callCount, 1);
 });
 
 QUnit.module("MultiAxis Synchronization", commons.environment);
@@ -796,194 +595,11 @@ QUnit.test("chart with one empty pane", function(assert) {
     // assert
     assert.strictEqual(chart._argumentAxes[0].setBusinessRange.lastCall.args[0], chart._argumentAxes[1].setBusinessRange.lastCall.args[0]);
 
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, undefined, "bottom pane should not have value stubData");
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, undefined, "bottom pane should not have value stubData");
-});
+    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].isEmpty(), false);
+    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].isEmpty(), false);
 
-QUnit.test("chart with empty panes. Axis with argumentType", function(assert) {
-    // act
-    var chart = this.createChart({
-        argumentAxis: {
-            categories: categories,
-            argumentType: "datetime"
-        },
-        panes: [
-            { name: "empty" },
-            { name: "bottom" }
-        ],
-        valueAxis: {
-            mockTickValues: [20, 40, 60, 80]
-        }
-    });
-    // assert
-    assert.ok(chart.panes);
-    assert.equal(chart.panes.length, 2);
-
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.strictEqual(chart._valueAxes[1].setBusinessRange.lastCall.args[0].min, 0, "numeric stubDate");
-
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.strictEqual(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min, 0, "numeric stubDate");
-});
-
-QUnit.test("chart with empty panes. Axis with argumentType = numeric", function(assert) {
-    // act
-    var chart = this.createChart({
-        argumentAxis: {
-            categories: categories,
-            argumentType: "numeric"
-        },
-        panes: [
-            { name: "empty" },
-            { name: "bottom" }
-        ],
-
-        valueAxis: {
-            mockTickValues: [20, 40, 60, 80]
-        }
-    });
-    // assert
-    assert.ok(chart.panes);
-    assert.equal(chart.panes.length, 2);
-
-    // assert
-    assert.equal(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-
-    assert.strictEqual(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].min, 0, "numeric stubData");
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.strictEqual(chart._valueAxes[1].setBusinessRange.lastCall.args[0].min, 0, "numeric stubData");
-
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.strictEqual(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].min, 0, "numeric stubDate");
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.strictEqual(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min, 0, "numeric stubDate");
-});
-
-QUnit.test("chart with empty panes. valueAxis with dataType = datetime", function(assert) {
-    // act
-    var chart = this.createChart({
-        argumentAxis: {
-            categories: categories,
-            argumentType: "datetime"
-        },
-        panes: [
-            { name: "empty" },
-            { name: "bottom" }
-        ],
-
-        valueAxis: {
-            valueType: "datetime",
-            mockTickValues: [20, 40, 60, 80]
-        }
-    });
-    // assert
-    assert.ok(chart.panes);
-    assert.equal(chart.panes.length, 2);
-
-    assert.equal(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._valueAxes[1].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-});
-
-QUnit.test("chart with empty panes. Two value Axis", function(assert) {
-    // act
-    var chart = this.createChart({
-        argumentAxis: {
-            categories: categories,
-            argumentType: "datetime"
-        },
-        panes: [
-            { name: "empty" },
-            { name: "bottom" }
-        ],
-
-        valueAxis: [{
-            valueType: "datetime",
-            name: "dateAxis",
-            mockTickValues: [20, 40, 60, 80]
-        },
-        {
-            pane: "empty",
-            name: "numericAxis",
-            valueType: "numeric",
-            mockTickValues: [20, 40, 60, 80]
-        }
-        ]
-    });
-    // assert
-    assert.ok(chart.panes);
-    assert.equal(chart.panes.length, 2);
-    // assert
-    assert.equal(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].min instanceof Date, "argument datetime stubDate");
-
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].axis, "numericAxis");
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(!(chart._valueAxes[1].setBusinessRange.lastCall.args[0].min instanceof Date), "value datetime stubDate");
-
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].axis, "dateAxis");
-    assert.ok(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "argument datetime stubDate");
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "value numeric stubDate");
-});
-
-QUnit.test("chart with empty panes. three value Axis", function(assert) {
-    // act
-    var axis1Ticks = [20, 40, 60, 80],
-        axis2Ticks = [20, 40, 60, 80],
-        axis3Ticks = [20, 40, 60, 80];
-    var chart = this.createChart({
-        argumentAxis: {
-            categories: categories,
-            argumentType: "datetime"
-        },
-        panes: [{
-            name: "pane1"
-        }],
-
-        valueAxis: [{
-            valueType: "datetime",
-            pane: "pane1",
-            mockTickValues: axis1Ticks,
-            mockTickInterval: 20
-        },
-        {
-            valueType: "numeric",
-            pane: "pane1",
-            mockTickValues: axis2Ticks,
-            mockTickInterval: 20
-        },
-        {
-            pane: "pane1",
-            mockTickValues: axis3Ticks,
-            mockTickInterval: 20
-        }
-        ]
-    });
-    // assert
-    assert.ok(chart.panes);
-    assert.equal(chart.panes.length, 1);
-    // assert
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(chart._valueAxes[0].setBusinessRange.lastCall.args[0].min instanceof Date, "datetime stubDate");
-
-    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(!(chart._valueAxes[1].setBusinessRange.lastCall.args[0].min instanceof Date), "numeric stubDate");
-
-    assert.equal(chart._valueAxes[2].setBusinessRange.lastCall.args[0].stubData, true);
-    assert.ok(!(chart._valueAxes[2].setBusinessRange.lastCall.args[0].min instanceof Date), "numeric stubDate");
+    assert.equal(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].isEmpty(), false);
+    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].isEmpty(), true);
 });
 
 QUnit.test("Rotated chart with one empty pane", function(assert) {
@@ -1013,8 +629,11 @@ QUnit.test("Rotated chart with one empty pane", function(assert) {
     // assert
     assert.strictEqual(chart._argumentAxes[1].setBusinessRange.lastCall.args[0], chart._argumentAxes[0].setBusinessRange.lastCall.args[0], "all argument axes have same range");
 
-    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].stubData, undefined, "bottom pane should not have value stubData");
-    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].stubData, undefined, "bottom pane should not have argument stubData");
+    assert.equal(chart._valueAxes[0].setBusinessRange.lastCall.args[0].isEmpty(), false);
+    assert.equal(chart._argumentAxes[0].setBusinessRange.lastCall.args[0].isEmpty(), false);
+
+    assert.equal(chart._valueAxes[1].setBusinessRange.lastCall.args[0].isEmpty(), true);
+    assert.equal(chart._argumentAxes[1].setBusinessRange.lastCall.args[0].isEmpty(), false);
 });
 
 QUnit.test("Update axis canvas. One pane", function(assert) {
@@ -1138,47 +757,6 @@ QUnit.test("chart with visible scrollBar, argumentAxis.valueMarginsEnabled = tru
     assert.strictEqual(scrollBarClassModule.ScrollBar.lastCall.returnValue.init.lastCall.args[1], false);
 });
 
-QUnit.test("T175767. Argument axis has min/max", function(assert) {
-    this.createChart({
-        argumentAxis: {
-            mockRange: {
-                min: 0,
-                max: 20,
-                minVisible: 5,
-                maxVisible: 15
-            }
-        },
-        scrollBar: {
-            visible: true
-        }
-    });
-
-    var scrollBar = scrollBarClassModule.ScrollBar.lastCall.returnValue;
-    assert.ok(scrollBar.setPosition.calledOnce);
-    assert.deepEqual(scrollBar.setPosition.lastCall.args, [5, 15]);
-});
-
-QUnit.test("Discrete argument axis has min/max", function(assert) {
-    this.createChart({
-        dataSource: [{ arg: "A" }, { arg: "B" }, { arg: "C" }, { arg: "D" }, { arg: "E" }],
-        argumentAxis: {
-            mockRange: {
-                min: "A",
-                max: "E",
-                minVisible: "C",
-                maxVisible: "D"
-            }
-        },
-        scrollBar: {
-            visible: true
-        }
-    });
-
-    var scrollBar = scrollBarClassModule.ScrollBar.lastCall.returnValue;
-    assert.ok(scrollBar.setPosition.calledOnce);
-    assert.deepEqual(scrollBar.setPosition.lastCall.args, ["C", "D"]);
-});
-
 QUnit.test("T172802. Scroll bar after zooming. One categories", function(assert) {
     var chart = this.createChart({
             scrollBar: {
@@ -1197,7 +775,7 @@ QUnit.test("T172802. Scroll bar after zooming. One categories", function(assert)
 
     scrollBar.setPosition.reset();
 
-    chart.zoomArgument("January", "January", true);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: "January", endValue: "January" });
 
     assert.ok(scrollBar.setPosition.calledOnce);
     assert.deepEqual(scrollBar.setPosition.lastCall.args, [undefined, undefined]);
@@ -1426,7 +1004,6 @@ QUnit.module("Map events", $.extend({}, commons.environment, {
 
 QUnit.test("chart events", function(assert) {
     var events = {},
-        chart,
         target = { isTarget: true },
         event = { isEvent: true },
         targetArg = { target: target, event: event, argument: "argument" };
@@ -1434,7 +1011,7 @@ QUnit.test("chart events", function(assert) {
     $.each(OldEventsName, function(oldName, newName) {
         events[newName] = sinon.stub();
     });
-    chart = this.createChart(events);
+    this.createChart(events);
     // acts
     $.each(OldEventsName, function(eventName) {
         trackerModule.ChartTracker.lastCall.args[0].eventTrigger(eventName, targetArg);

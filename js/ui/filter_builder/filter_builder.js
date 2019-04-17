@@ -1,20 +1,21 @@
-"use strict";
+import $ from "../../core/renderer";
+import domAdapter from "../../core/dom_adapter";
+import Class from "../../core/class";
+import eventsEngine from "../../events/core/events_engine";
+import Widget from "../widget/ui.widget";
+import registerComponent from "../../core/component_registrator";
+import { extend } from "../../core/utils/extend";
+import messageLocalization from "../../localization/message";
+import utils from "./utils";
+import deferredUtils from "../../core/utils/deferred";
+import { isDefined } from "../../core/utils/type";
+import TreeView from "../tree_view";
+import Popup from "../popup";
+import { getElementMaxHeightByWindow } from "../overlay/utils";
+import EditorFactoryMixin from "../shared/ui.editor_factory_mixin";
+import { normalizeKeyName } from "../../events/utils";
 
-var $ = require("../../core/renderer"),
-    domAdapter = require("../../core/dom_adapter"),
-    Class = require("../../core/class"),
-    eventsEngine = require("../../events/core/events_engine"),
-    Widget = require("../widget/ui.widget"),
-    registerComponent = require("../../core/component_registrator"),
-    extend = require("../../core/utils/extend").extend,
-    messageLocalization = require("../../localization/message"),
-    utils = require("./utils"),
-    deferredUtils = require("../../core/utils/deferred"),
-    TreeView = require("../tree_view"),
-    Popup = require("../popup"),
-    EditorFactoryMixin = require("../shared/ui.editor_factory_mixin");
-
-var FILTER_BUILDER_CLASS = "dx-filterbuilder",
+const FILTER_BUILDER_CLASS = "dx-filterbuilder",
     FILTER_BUILDER_GROUP_CLASS = FILTER_BUILDER_CLASS + "-group",
     FILTER_BUILDER_GROUP_ITEM_CLASS = FILTER_BUILDER_GROUP_CLASS + "-item",
     FILTER_BUILDER_GROUP_CONTENT_CLASS = FILTER_BUILDER_GROUP_CLASS + "-content",
@@ -39,10 +40,11 @@ var FILTER_BUILDER_CLASS = "dx-filterbuilder",
     ACTIVE_CLASS = "dx-state-active",
     FILTER_BUILDER_MENU_CUSTOM_OPERATION_CLASS = FILTER_BUILDER_CLASS + "-menu-custom-operation",
     SOURCE = "filterBuilder",
+    DISABLED_STATE_CLASS = "dx-state-disabled",
 
-    TAB_KEY = 9,
-    ENTER_KEY = 13,
-    ESCAPE_KEY = 27;
+    TAB_KEY = "tab",
+    ENTER_KEY = "enter",
+    ESCAPE_KEY = "escape";
 
 var ACTIONS = [{
         name: "onEditorPreparing",
@@ -130,12 +132,6 @@ var FilterBuilder = Widget.inherit({
               * @action
              */
             onEditorPrepared: null,
-
-            /**
-            * @name dxFilterBuilderOptions.onContentReady
-            * @hidden true
-            * @action
-            */
 
             /**
             * @name dxFilterBuilderField
@@ -260,7 +256,7 @@ var FilterBuilder = Widget.inherit({
              * @type_function_return string
              */
 
-             /**
+            /**
              * @name dxFilterBuilderField.editorTemplate
              * @type template|function
              * @type_function_param1 conditionInfo:object
@@ -279,6 +275,20 @@ var FilterBuilder = Widget.inherit({
             * @hidden
             */
             defaultGroupOperation: "and",
+
+            /**
+             * @name dxFilterBuilderOptions.groupOperations
+             * @type Array<Enums.FilterBuilderGroupOperations>
+             * @default ['and', 'or', 'notAnd', 'notOr']
+             */
+            groupOperations: ["and", "or", "notAnd", "notOr"],
+
+            /**
+             * @name dxFilterBuilderOptions.maxGroupLevel
+             * @type number
+             * @default undefined
+             */
+            maxGroupLevel: undefined,
 
             /**
              * @name dxFilterBuilderOptions.value
@@ -497,6 +507,8 @@ var FilterBuilder = Widget.inherit({
                 break;
             case "fields":
             case "defaultGroupOperation":
+            case "maxGroupLevel":
+            case "groupOperations":
             case "allowHierarchicalFields":
             case "groupOperationDescriptions":
             case "filterOperationDescriptions":
@@ -525,7 +537,7 @@ var FilterBuilder = Widget.inherit({
     getFilterExpression: function() {
         var fields = this._getNormalizedFields(),
             value = extend(true, [], this._model);
-        return utils.getFilterExpression(utils.getNormalizedFilter(value, fields), fields, this._customOperations, SOURCE);
+        return utils.getFilterExpression(utils.getNormalizedFilter(value), fields, this._customOperations, SOURCE);
     },
 
     _getNormalizedFields: function() {
@@ -534,9 +546,14 @@ var FilterBuilder = Widget.inherit({
 
     _updateFilter: function() {
         this._disableInvalidateForValue = true;
-        var value = extend(true, [], this._model);
-        this.option("value", utils.getNormalizedFilter(value, this._getNormalizedFields()));
+        var value = extend(true, [], this._model),
+            normalizedValue = utils.getNormalizedFilter(value),
+            oldValue = utils.getNormalizedFilter(this._getModel(this.option("value")));
+        if(JSON.stringify(oldValue) !== JSON.stringify(normalizedValue)) {
+            this.option("value", normalizedValue);
+        }
         this._disableInvalidateForValue = false;
+        this._fireContentReadyAction();
     },
 
     _init: function() {
@@ -555,8 +572,12 @@ var FilterBuilder = Widget.inherit({
         this._customOperations = utils.getMergedOperations(this.option("customOperations"), this.option("filterOperationDescriptions.between"));
     },
 
+    _getModel: function(value) {
+        return utils.convertToInnerStructure(value, this._customOperations);
+    },
+
     _initModel: function() {
-        this._model = utils.convertToInnerStructure(this.option("value"), this._customOperations);
+        this._model = this._getModel(this.option("value"));
     },
 
     _initActions: function() {
@@ -588,15 +609,15 @@ var FilterBuilder = Widget.inherit({
             .append(this._createConditionItem(condition, parent));
     },
 
-    _createGroupElementByCriteria: function(criteria, parent) {
-        var $group = this._createGroupElement(criteria, parent),
+    _createGroupElementByCriteria: function(criteria, parent, groupLevel = 0) {
+        var $group = this._createGroupElement(criteria, parent, groupLevel),
             $groupContent = $group.find("." + FILTER_BUILDER_GROUP_CONTENT_CLASS),
             groupCriteria = utils.getGroupCriteria(criteria);
 
         for(var i = 0; i < groupCriteria.length; i++) {
             var innerCriteria = groupCriteria[i];
             if(utils.isGroup(innerCriteria)) {
-                this._createGroupElementByCriteria(innerCriteria, groupCriteria)
+                this._createGroupElementByCriteria(innerCriteria, groupCriteria, groupLevel + 1)
                     .appendTo($groupContent);
             } else if(utils.isCondition(innerCriteria)) {
                 this._createConditionElement(innerCriteria, groupCriteria)
@@ -606,68 +627,70 @@ var FilterBuilder = Widget.inherit({
         return $group;
     },
 
-    _createGroupElement: function(criteria, parent) {
-        var that = this,
-            $groupItem = $("<div>").addClass(FILTER_BUILDER_GROUP_ITEM_CLASS),
+    _createGroupElement: function(criteria, parent, groupLevel) {
+        var $groupItem = $("<div>").addClass(FILTER_BUILDER_GROUP_ITEM_CLASS),
             $groupContent = $("<div>").addClass(FILTER_BUILDER_GROUP_CONTENT_CLASS),
             $group = $("<div>").addClass(FILTER_BUILDER_GROUP_CLASS).append($groupItem).append($groupContent);
 
         if(parent != null) {
-            this._createRemoveButton(function() {
+            this._createRemoveButton(() => {
                 utils.removeItem(parent, criteria);
                 $group.remove();
-                if(!utils.isEmptyGroup(criteria)) {
-                    that._updateFilter();
-                }
+                this._updateFilter();
             }).appendTo($groupItem);
         }
 
         this._createGroupOperationButton(criteria).appendTo($groupItem);
 
-        this._createAddButton(function() {
-            var newGroup = utils.createEmptyGroup(that.option("defaultGroupOperation"));
+        this._createAddButton(() => {
+            var newGroup = utils.createEmptyGroup(this.option("defaultGroupOperation"));
             utils.addItem(newGroup, criteria);
-            that._createGroupElement(newGroup, criteria).appendTo($groupContent);
-        }, function() {
-            var field = that.option("fields")[0],
-                newCondition = utils.createCondition(field, that._customOperations);
+            this._createGroupElement(newGroup, criteria, groupLevel + 1).appendTo($groupContent);
+            this._updateFilter();
+        }, () => {
+            var field = this.option("fields")[0],
+                newCondition = utils.createCondition(field, this._customOperations);
             utils.addItem(newCondition, criteria);
-            that._createConditionElement(newCondition, criteria).appendTo($groupContent);
-            if(utils.isValidCondition(newCondition, field)) {
-                that._updateFilter();
-            }
-        }).appendTo($groupItem);
+            this._createConditionElement(newCondition, criteria).appendTo($groupContent);
+            this._updateFilter();
+        }, groupLevel).appendTo($groupItem);
 
         return $group;
     },
 
+    _createButton: function(caption) {
+        return $("<div>").text(caption);
+    },
+
     _createGroupOperationButton: function(criteria) {
-        var that = this,
-            groupOperations = this._getGroupOperations(),
+        let groupOperations = this._getGroupOperations(criteria),
             groupMenuItem = utils.getGroupMenuItem(criteria, groupOperations),
-            $operationButton = this._createButtonWithMenu({
-                caption: groupMenuItem.text,
-                menu: {
-                    items: groupOperations,
-                    displayExpr: "text",
-                    keyExpr: "value",
-                    onItemClick: function(e) {
-                        if(groupMenuItem !== e.itemData) {
-                            utils.setGroupValue(criteria, e.itemData.value);
-                            $operationButton.html(e.itemData.text);
-                            groupMenuItem = e.itemData;
-                            that._updateFilter();
-                        }
-                    },
-                    onContentReady: function(e) {
-                        e.component.selectItem(groupMenuItem);
-                    },
-                    cssClass: FILTER_BUILDER_GROUP_OPERATIONS_CLASS
-                }
-            }).addClass(FILTER_BUILDER_ITEM_TEXT_CLASS)
-                .addClass(FILTER_BUILDER_GROUP_OPERATION_CLASS)
-                .attr("tabindex", 0);
-        return $operationButton;
+            caption = groupMenuItem.text,
+            $operationButton = groupOperations && groupOperations.length < 2
+                ? this._createButton(caption).addClass(DISABLED_STATE_CLASS)
+                : this._createButtonWithMenu({
+                    caption: caption,
+                    menu: {
+                        items: groupOperations,
+                        displayExpr: "text",
+                        keyExpr: "value",
+                        onItemClick: (e) => {
+                            if(groupMenuItem !== e.itemData) {
+                                utils.setGroupValue(criteria, e.itemData.value);
+                                $operationButton.html(e.itemData.text);
+                                groupMenuItem = e.itemData;
+                                this._updateFilter();
+                            }
+                        },
+                        onContentReady: function(e) {
+                            e.component.selectItem(groupMenuItem);
+                        },
+                        cssClass: FILTER_BUILDER_GROUP_OPERATIONS_CLASS
+                    }
+                });
+        return $operationButton.addClass(FILTER_BUILDER_ITEM_TEXT_CLASS)
+            .addClass(FILTER_BUILDER_GROUP_OPERATION_CLASS)
+            .attr("tabindex", 0);
     },
 
     _createButtonWithMenu: function(options) {
@@ -687,7 +710,7 @@ var FilterBuilder = Widget.inherit({
                 };
             },
             position = rtlEnabled ? "right" : "left",
-            $button = $("<div>").text(options.caption);
+            $button = this._createButton(options.caption);
 
         extend(options.menu, {
             focusStateEnabled: true,
@@ -696,7 +719,7 @@ var FilterBuilder = Widget.inherit({
             onHiding: function(e) {
                 $button.removeClass(ACTIVE_CLASS);
             },
-            position: { my: position + " top", at: position + " bottom", offset: "0 1", of: $button },
+            position: { my: position + " top", at: position + " bottom", offset: "0 1", of: $button, collision: "flip" },
             animation: null,
             onHidden: function() {
                 removeMenu();
@@ -710,8 +733,10 @@ var FilterBuilder = Widget.inherit({
                 var treeViewElement = $(info.component.content()).find(".dx-treeview"),
                     treeView = treeViewElement.dxTreeView("instance");
                 eventsEngine.on(treeViewElement, "keyup keydown", function(e) {
-                    if((e.type === "keydown" && e.keyCode === TAB_KEY)
-                            || (e.type === "keyup" && (e.keyCode === ESCAPE_KEY || e.keyCode === ENTER_KEY))) {
+                    const keyName = normalizeKeyName(e);
+
+                    if((e.type === "keydown" && keyName === TAB_KEY)
+                            || (e.type === "keyup" && (keyName === ESCAPE_KEY || keyName === ENTER_KEY))) {
                         info.component.hide();
                         eventsEngine.trigger(options.menu.position.of, "focus");
                     }
@@ -752,7 +777,7 @@ var FilterBuilder = Widget.inherit({
                     onContentReady: function(e) {
                         e.component.selectItem(currentOperation);
                     },
-                    onItemClick: function(e) {
+                    onItemClick: (e) => {
                         if(currentOperation !== e.itemData) {
                             currentOperation = e.itemData;
                             utils.updateConditionByOperation(condition, currentOperation.value, that._customOperations);
@@ -766,7 +791,7 @@ var FilterBuilder = Widget.inherit({
                                 $valueButton.remove();
                             }
                             $operationButton.html(currentOperation.text);
-                            that._updateFilter();
+                            this._updateFilter();
                         }
                     },
                     cssClass: FILTER_BUILDER_FILTER_OPERATIONS_CLASS
@@ -804,19 +829,18 @@ var FilterBuilder = Widget.inherit({
                 dataStructure: "plain",
                 keyExpr: "dataField",
                 displayExpr: "caption",
-                onItemClick: function(e) {
+                onItemClick: (e) => {
                     if(item !== e.itemData) {
                         item = e.itemData;
                         condition[0] = item.dataField;
                         condition[2] = item.dataType === "object" ? null : "";
                         utils.updateConditionByOperation(condition, utils.getDefaultOperation(item), that._customOperations);
-
                         $fieldButton.siblings().filter("." + FILTER_BUILDER_ITEM_TEXT_CLASS).remove();
                         that._createOperationAndValueButtons(condition, item, $fieldButton.parent());
 
                         var caption = getFullCaption(item, e.component.option("items"));
                         $fieldButton.html(caption);
-                        that._updateFilter();
+                        this._updateFilter();
                     }
                 },
                 onContentReady: function(e) {
@@ -832,65 +856,69 @@ var FilterBuilder = Widget.inherit({
     },
 
     _createConditionItem: function(condition, parent) {
-        var that = this,
-            $item = $("<div>").addClass(FILTER_BUILDER_GROUP_ITEM_CLASS),
+        var $item = $("<div>").addClass(FILTER_BUILDER_GROUP_ITEM_CLASS),
             fields = this._getNormalizedFields(),
             field = utils.getField(condition[0], fields);
 
-        this._createRemoveButton(function() {
+        this._createRemoveButton(() => {
             utils.removeItem(parent, condition);
             $item.remove();
-            if(utils.isValidCondition(condition, field)) {
-                that._updateFilter();
-            }
+            this._updateFilter();
         }).appendTo($item);
         this._createFieldButtonWithMenu(fields, condition, field).appendTo($item);
         this._createOperationAndValueButtons(condition, field, $item);
         return $item;
     },
 
-    _getGroupOperations: function() {
-        var result = [],
-            operatorDescription,
+    _getGroupOperations: function(criteria) {
+        let groupOperations = this.option("groupOperations"),
             groupOperationDescriptions = this.option("groupOperationDescriptions");
 
-        for(operatorDescription in groupOperationDescriptions) {
-            result.push({
-                text: groupOperationDescriptions[operatorDescription],
-                value: OPERATORS[operatorDescription]
-            });
+        if(!groupOperations || !groupOperations.length) {
+            groupOperations = [utils.getGroupValue(criteria).replace("!", "not")];
         }
 
-        return result;
+        return groupOperations.map(operation => ({
+            text: groupOperationDescriptions[operation],
+            value: OPERATORS[operation]
+        }));
     },
 
     _createRemoveButton: function(handler) {
         var $removeButton = $("<div>")
-                .addClass(FILTER_BUILDER_IMAGE_CLASS)
-                .addClass(FILTER_BUILDER_IMAGE_REMOVE_CLASS)
-                .addClass(FILTER_BUILDER_ACTION_CLASS)
-                .attr("tabindex", 0);
+            .addClass(FILTER_BUILDER_IMAGE_CLASS)
+            .addClass(FILTER_BUILDER_IMAGE_REMOVE_CLASS)
+            .addClass(FILTER_BUILDER_ACTION_CLASS)
+            .attr("tabindex", 0);
         this._subscribeOnClickAndEnterKey($removeButton, handler);
         return $removeButton;
     },
 
-    _createAddButton: function(addGroupHandler, addConditionHandler) {
-        return this._createButtonWithMenu({
-            menu: {
-                items: [{
-                    caption: messageLocalization.format("dxFilterBuilder-addCondition"),
-                    click: addConditionHandler
-                }, {
-                    caption: messageLocalization.format("dxFilterBuilder-addGroup"),
-                    click: addGroupHandler
-                }],
-                displayExpr: "caption",
-                onItemClick: function(e) {
-                    e.itemData.click();
-                },
-                cssClass: FILTER_BUILDER_ADD_CONDITION_CLASS
-            }
-        }).addClass(FILTER_BUILDER_IMAGE_CLASS)
+    _createAddButton: function(addGroupHandler, addConditionHandler, groupLevel) {
+        let $button,
+            maxGroupLevel = this.option("maxGroupLevel");
+        if(isDefined(maxGroupLevel) && groupLevel >= maxGroupLevel) {
+            $button = this._createButton();
+            this._subscribeOnClickAndEnterKey($button, addConditionHandler);
+        } else {
+            $button = this._createButtonWithMenu({
+                menu: {
+                    items: [{
+                        caption: messageLocalization.format("dxFilterBuilder-addCondition"),
+                        click: addConditionHandler
+                    }, {
+                        caption: messageLocalization.format("dxFilterBuilder-addGroup"),
+                        click: addGroupHandler
+                    }],
+                    displayExpr: "caption",
+                    onItemClick: function(e) {
+                        e.itemData.click();
+                    },
+                    cssClass: FILTER_BUILDER_ADD_CONDITION_CLASS
+                }
+            });
+        }
+        return $button.addClass(FILTER_BUILDER_IMAGE_CLASS)
             .addClass(FILTER_BUILDER_IMAGE_ADD_CLASS)
             .addClass(FILTER_BUILDER_ACTION_CLASS)
             .attr("tabindex", 0);
@@ -932,84 +960,138 @@ var FilterBuilder = Widget.inherit({
             item[2] = value;
         }
         callback();
-        if(areValuesDifferent) {
-            this._updateFilter();
-        }
+        this._updateFilter();
+    },
+
+    _addDocumentKeyUp: function($editor, handler) {
+        var document = domAdapter.getDocument();
+        var documentKeyUpHandler = (e) => {
+            if(isComposing || hasCompositionJustEnded) {
+                // IME composing fires
+                hasCompositionJustEnded = false;
+                return;
+            }
+            handler(e);
+        };
+        eventsEngine.on(document, "keyup", documentKeyUpHandler);
+
+        var isComposing = false; // IME Composing going on
+        var hasCompositionJustEnded = false; // Used to swallow keyup event related to compositionend
+
+        var input = $editor.find("input");
+        eventsEngine.on(input, "compositionstart", () => {
+            isComposing = true;
+        });
+
+        eventsEngine.on(input, "compositionend", () => {
+            isComposing = false;
+            // some browsers (IE, Firefox, Safari) send a keyup event after
+            // compositionend, some (Chrome, Edge) don't. This is to swallow
+            // the next keyup event, unless a keydown event happens first
+            hasCompositionJustEnded = true;
+        });
+
+        // Safari on OS X may send a keydown of 229 after compositionend
+        eventsEngine.on(input, "keydown", (event) => {
+            if(event.which !== 229) {
+                hasCompositionJustEnded = false;
+            }
+        });
+
+        this._documentKeyUpHandler = documentKeyUpHandler;
+    },
+
+    _addDocumentClick: function($editor, closeEditorFunc) {
+        var document = domAdapter.getDocument();
+        var documentClickHandler = (e) => {
+            if(!this._isFocusOnEditorParts($editor, e.target)) {
+                eventsEngine.trigger($editor.find("input"), "change");
+                closeEditorFunc();
+            }
+        };
+        eventsEngine.on(document, "dxpointerdown", documentClickHandler);
+
+        this._documentClickHandler = documentClickHandler;
+    },
+
+    _isFocusOnEditorParts: function($editor, target) {
+        var activeElement = target || domAdapter.getActiveElement();
+        return $(activeElement).closest($editor.children()).length
+            || $(activeElement).closest(".dx-dropdowneditor-overlay").length;
+    },
+
+    _removeEvents: function() {
+        const document = domAdapter.getDocument();
+        isDefined(this._documentKeyUpHandler) && eventsEngine.off(document, "keyup", this._documentKeyUpHandler);
+        isDefined(this._documentClickHandler) && eventsEngine.off(document, "dxpointerdown", this._documentClickHandler);
+    },
+
+    _dispose: function() {
+        this._removeEvents();
+        this.callBase();
     },
 
     _createValueEditorWithEvents: function(item, field, $container) {
-        var document = domAdapter.getDocument(),
-            that = this,
-            value = item[2],
-            removeEvents = function() {
-                eventsEngine.off(document, "keyup", documentKeyUpHandler);
-                eventsEngine.off(document, "dxpointerdown", documentClickHandler);
-            },
-            isFocusOnEditorParts = function(target) {
-                var activeElement = target || domAdapter.getActiveElement();
-                return $(activeElement).closest($editor.children()).length
-                    || $(activeElement).closest(".dx-dropdowneditor-overlay").length;
-            },
-            createValueText = function() {
+        var value = item[2],
+            createValueText = () => {
                 $container.empty();
-                removeEvents();
-                return that._createValueText(item, field, $container);
+                this._removeEvents();
+                return this._createValueText(item, field, $container);
+            },
+            closeEditor = () => {
+                this._updateConditionValue(item, value, function() {
+                    createValueText();
+                });
             };
 
         var options = {
             value: value === "" ? null : value,
             filterOperation: utils.getOperationValue(item),
-            isValueChanged: true,
             setValue: function(data) {
                 value = data === null ? "" : data;
             },
+            closeEditor: closeEditor,
             text: $container.text()
         };
 
         $container.empty();
 
-        var $editor = that._createValueEditor($container, field, options);
-
+        var $editor = this._createValueEditor($container, field, options);
         eventsEngine.trigger($editor.find("input").not(':hidden').eq(0), "focus");
 
-        var documentClickHandler = function(e) {
-            if(!isFocusOnEditorParts(e.target)) {
-                utils.setFocusToBody();
-                that._updateConditionValue(item, value, function() {
-                    createValueText();
-                });
-            }
-        };
-        eventsEngine.on(document, "dxpointerdown", documentClickHandler);
+        this._removeEvents();
 
-        var documentKeyUpHandler = function(e) {
-            if(e.keyCode === TAB_KEY) {
-                if(isFocusOnEditorParts()) {
+        this._addDocumentClick($editor, closeEditor);
+        this._addDocumentKeyUp($editor, (e) => {
+            const keyName = normalizeKeyName(e);
+
+            if(keyName === TAB_KEY) {
+                if(this._isFocusOnEditorParts($editor)) {
                     return;
                 }
-                that._updateConditionValue(item, value, function() {
+                this._updateConditionValue(item, value, function() {
                     createValueText();
                     if(e.shiftKey) {
                         eventsEngine.trigger($container.prev(), "focus");
                     }
                 });
             }
-            if(e.keyCode === ESCAPE_KEY) {
+            if(keyName === ESCAPE_KEY) {
                 eventsEngine.trigger(createValueText(), "focus");
             }
-            if(e.keyCode === ENTER_KEY) {
-                that._updateConditionValue(item, value, function() {
+            if(keyName === ENTER_KEY) {
+                this._updateConditionValue(item, value, function() {
                     eventsEngine.trigger(createValueText(), "focus");
                 });
             }
-        };
-        eventsEngine.on(document, "keyup", documentKeyUpHandler);
+        });
+        this._fireContentReadyAction();
     },
 
     _createValueButton: function(item, field) {
         var $valueButton = $("<div>")
-                .addClass(FILTER_BUILDER_ITEM_TEXT_CLASS)
-                .addClass(FILTER_BUILDER_ITEM_VALUE_CLASS);
+            .addClass(FILTER_BUILDER_ITEM_TEXT_CLASS)
+            .addClass(FILTER_BUILDER_ITEM_VALUE_CLASS);
 
         this._createValueText(item, field, $valueButton);
         return $valueButton;
@@ -1050,6 +1132,9 @@ var FilterBuilder = Widget.inherit({
                 that._createComponent($menuContainer, TreeView, options.menu);
                 return $menuContainer;
             },
+            maxHeight: function() {
+                return getElementMaxHeightByWindow(options.menu.position.of);
+            },
             visible: true,
             focusStateEnabled: false,
             closeOnOutsideClick: true,
@@ -1064,7 +1149,7 @@ var FilterBuilder = Widget.inherit({
     _subscribeOnClickAndEnterKey: function($button, handler) {
         eventsEngine.on($button, "dxclick", handler);
         eventsEngine.on($button, "keyup", function(e) {
-            if(e.keyCode === ENTER_KEY) {
+            if(normalizeKeyName(e) === ENTER_KEY) {
                 handler(e);
             }
         });

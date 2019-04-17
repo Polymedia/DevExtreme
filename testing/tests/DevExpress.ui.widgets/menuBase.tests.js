@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     devices = require("core/devices"),
     isRenderer = require("core/utils/type").isRenderer,
@@ -218,6 +216,32 @@ QUnit.test("Separator should be shown if there are visible items after it (T2893
     assert.equal(menuBase.element.find(".dx-menu-separator").length, 1, "separator is visible");
 });
 
+QUnit.test("Separator should not be shown if there are no visible items before if", function(assert) {
+    var menuBase = createMenu({
+        items: [
+            { text: "000000", visible: false },
+            { text: "1111111", beginGroup: true },
+            { text: "2222222" }
+        ]
+    });
+
+    assert.equal(menuBase.element.find(".dx-menu-separator").length, 0, "there is no separators");
+});
+
+QUnit.test("Separator should not be shown if there is an invisible item between two groups", function(assert) {
+    var menuBase = createMenu({
+        items: [
+            { text: "item 1", beginGroup: true, visible: false },
+            { text: "item 2", visible: false },
+            { text: "item 3", beginGroup: true },
+            { text: "item 4" }
+        ]
+    });
+
+    assert.equal(menuBase.element.find(".dx-menu-separator").length, 0, "there is no separators");
+});
+
+
 QUnit.test("Render menu with hidden items (T310028)", function(assert) {
     createMenu({ items: [{ text: "item 1" }, { text: "item 2", visible: false }, { text: "item 3" }] });
 
@@ -400,8 +424,8 @@ QUnit.test('showSubmenuMode - onHover - set as string without delay', function(a
 QUnit.test('previous submenu should not appear if other submenu shown timeout is started', function(assert) {
     var menuBase = createMenu({
             items: [
-            { text: 'item1', items: [{ text: 'item1-1' }] },
-            { text: 'item2', items: [{ text: 'item2-1' }] }
+                { text: 'item1', items: [{ text: 'item1-1' }] },
+                { text: 'item2', items: [{ text: 'item2-1' }] }
             ],
             showSubmenuMode: { name: 'onHover', delay: 300 }
         }),
@@ -488,9 +512,9 @@ QUnit.test('Set selected item via item.selected option', function(assert) {
 
 QUnit.test('Priority of selection', function(assert) {
     var items = [
-        { text: 'item1' },
-        { text: 'item2', selected: true },
-        { text: 'item3' }],
+            { text: 'item1' },
+            { text: 'item2', selected: true },
+            { text: 'item3' }],
         menuBase = createMenu({
             items: items,
             selectedItem: items[2],
@@ -519,9 +543,9 @@ QUnit.test('Try to set selected state of several items via item.selected option'
 
 QUnit.test('Set selected item via selectedItem option', function(assert) {
     var items = [
-        { text: 'item1' },
-        { text: 'item2' },
-        { text: 'item3' }],
+            { text: 'item1' },
+            { text: 'item2' },
+            { text: 'item3' }],
         menuBase = createMenu({
             items: items,
             selectedItem: items[1],
@@ -717,14 +741,14 @@ QUnit.test("onSelectionChanged should have correct API (T311914)", function(asse
 QUnit.test('Prevent selection item on click', function(assert) {
     var items = [
             { text: 'item1' },
-        {
-            text: 'item2',
-            selected: true,
-            items: [
+            {
+                text: 'item2',
+                selected: true,
+                items: [
                     { text: 'item2-1' },
                     { text: 'item2-2' }
-            ]
-        }
+                ]
+            }
         ],
         menuBase = createMenu({
             items: items,
@@ -884,8 +908,8 @@ QUnit.test("menu item should not have aria-selected attribute", function(assert)
 QUnit.test("aria-haspopup attribute for items having child", function(assert) {
     var menuBase = createMenu({
             items: [
-            { text: "1", items: [{ text: "11" }] },
-            { text: "2" }
+                { text: "1", items: [{ text: "11" }] },
+                { text: "2" }
             ]
         }),
         $itemFirst = menuBase.element.find("." + DX_MENU_ITEM_CLASS).first(),

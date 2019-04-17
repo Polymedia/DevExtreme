@@ -1,11 +1,9 @@
-"use strict";
+import "ui/data_grid/ui.data_grid";
 
-require("ui/data_grid/ui.data_grid");
-
-var $ = require("jquery"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules;
+import $ from "jquery";
+import { DataSource } from "data/data_source/data_source";
+import CustomStore from "data/custom_store";
+import { setupDataGridModules } from "../../helpers/dataGridMocks.js";
 
 var FILTER_PANEL_CLASS = "dx-datagrid-filter-panel",
     FILTER_PANEL_TEXT_CLASS = FILTER_PANEL_CLASS + "-text",
@@ -148,6 +146,27 @@ QUnit.module("Filter Panel", {
         assert.equal(this.filterPanelView.element().find("." + FILTER_PANEL_TEXT_CLASS).text(), "[Field] Equals '1'", "check filter text");
     });
 
+    // T651579
+    QUnit.test("filter value with name in identifier shows in panel", function(assert) {
+        // arrange
+        this.initFilterPanelView({
+            columns: [{ name: "field", caption: "Field", allowFiltering: true }]
+        });
+
+        // assert
+        assert.equal(this.filterPanelView.element().find("." + FILTER_PANEL_TEXT_CLASS).text(), "[Field] Equals '1'", "check filter text");
+    });
+
+    QUnit.test("filter value with column witout caption contains empty string", function(assert) {
+        // arrange
+        this.initFilterPanelView({
+            columns: [{ name: "field", allowFiltering: true }]
+        });
+
+        // assert
+        assert.equal(this.filterPanelView.element().find("." + FILTER_PANEL_TEXT_CLASS).text(), "[] Equals '1'", "check filter text");
+    });
+
     QUnit.test("can customize hints", function(assert) {
         // arrange, act
         this.initFilterPanelView({
@@ -203,6 +222,73 @@ QUnit.module("Filter Panel", {
         assert.expect(1);
         this.filterPanelView.getFilterText(filter, [{ name: "anyof", caption: "Any of" }]).done(function(result) {
             assert.equal(result, "[Field] Any of('1', '2')");
+        });
+    });
+
+    // T663205
+    QUnit.test("from anyof build-in operation and lookup", function(assert) {
+        // arrange
+        var filter = ["field", "anyof", [1, 2]];
+        this.initFilterPanelView({
+            filterValue: filter,
+            headerFilter: {
+                texts: {}
+            },
+            columns: [{
+                dataField: "field",
+                lookup: {
+                    dataSource: [
+                        { id: 1, text: "Text 1" },
+                        { id: 2, text: "Text 2" }
+                    ],
+                    valueExpr: "id",
+                    displayExpr: "text"
+                }
+            }]
+        });
+
+        // act
+        assert.expect(1);
+        this.filterPanelView.getFilterText(filter, this.filterSyncController.getCustomFilterOperations()).done(function(result) {
+            assert.equal(result, "[Field] Is any of('Text 1', 'Text 2')");
+        });
+    });
+
+    // T703158
+    QUnit.test("skip additional load in anyof", function(assert) {
+        var spy = sinon.spy();
+        // arrange
+        var filter = ["field", "anyof", [1, 2]];
+        this.initFilterPanelView({
+            filterValue: filter,
+            headerFilter: {
+                texts: {}
+            },
+            columns: [{
+                dataField: "field",
+                lookup: {
+                    dataSource: {
+                        store: new CustomStore({
+                            load: function() {
+                                spy();
+                                return [
+                                    { id: 1, text: "Text 1" },
+                                    { id: 2, text: "Text 2" }
+                                ];
+                            }
+                        })
+                    },
+                    valueExpr: "id",
+                    displayExpr: "text"
+                }
+            }]
+        });
+
+        // act
+        assert.expect(2);
+        this.filterPanelView.getFilterText(filter, this.filterSyncController.getCustomFilterOperations()).done(function(result) {
+            assert.equal(result, "[Field] Is any of('Text 1', 'Text 2')");
+            assert.equal(spy.callCount, 1);
         });
     });
 
@@ -463,5 +549,31 @@ QUnit.module("Filter Panel", {
 
         // assert
         assert.ok(this.filterPanelView.element().hasClass(FILTER_PANEL_CLASS));
+    });
+
+    // T698723
+    QUnit.test("Has correct value when calculateDisplayValue is defined && column has lookup", function(assert) {
+        this.initFilterPanelView({
+            filterPanel: {
+                visible: true
+            },
+            filterValue: ["StateID", "=", 1],
+            columns: [{
+                dataField: "StateID",
+                calculateDisplayValue: "StateName",
+                lookup: {
+                    dataSource: [{
+                        "ID": 1,
+                        "Name": "Tuscaloosa",
+                        "StateID": 1
+                    }],
+                    valueExpr: "ID",
+                    displayExpr: "Name"
+                }
+            }]
+        });
+
+        // assert
+        assert.equal(this.filterPanelView.element().find("." + FILTER_PANEL_TEXT_CLASS).text(), "[State ID] Equals 'Tuscaloosa'", "filterPanel text");
     });
 });

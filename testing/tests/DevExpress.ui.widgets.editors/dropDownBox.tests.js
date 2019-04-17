@@ -1,27 +1,28 @@
-"use strict";
+import $ from "jquery";
+import renderer from "core/renderer";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import fx from "animation/fx";
+import DropDownBox from "ui/drop_down_box";
+import { isRenderer } from "core/utils/type";
+import config from "core/config";
+import browser from "core/utils/browser";
 
-var $ = require("jquery"),
-    renderer = require("core/renderer"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    fx = require("animation/fx"),
-    DropDownBox = require("ui/drop_down_box"),
-    isRenderer = require("core/utils/type").isRenderer,
-    config = require("core/config");
-
-require("common.css!");
+import "common.css!";
 
 QUnit.testStart(function() {
     var markup =
         '<div id="qunit-fixture" class="qunit-fixture-visible">\
             <div id="dropDownBox"></div>\
+            <div id="dropDownBoxAnonymous"><div id="inner">Test</div></div>\
         </div>';
 
     $("#qunit-fixture").html(markup);
 });
 
 var DX_TEXTEDITOR_INPUT_CLASS = "dx-texteditor-input",
-    TAB_KEY_CODE = 9,
-    DX_STATE_FOCUSED_CLASS = "dx-state-focused";
+    TAB_KEY_CODE = "Tab",
+    DX_STATE_FOCUSED_CLASS = "dx-state-focused",
+    OVERLAY_CONTENT_CLASS = "dx-overlay-content";
 
 var moduleConfig = {
     beforeEach: function() {
@@ -39,6 +40,8 @@ var moduleConfig = {
         this.clock.restore();
     }
 };
+
+const isIE11 = (browser.msie && parseInt(browser.version) === 11);
 
 QUnit.module("common", moduleConfig);
 
@@ -77,6 +80,18 @@ QUnit.test("array value should be supported", function(assert) {
 
     var $input = this.$element.find(".dx-texteditor-input");
     assert.equal($input.val(), "Item 2", "array value works");
+});
+
+QUnit.test("it should be possible to restore value after reset", function(assert) {
+    var instance = new DropDownBox(this.$element, {
+            value: 2
+        }),
+        $input = this.$element.find(".dx-texteditor-input");
+
+    instance.reset();
+    instance.option("value", "Test");
+
+    assert.equal($input.val(), "Test", "value has been applied");
 });
 
 QUnit.test("array value changing", function(assert) {
@@ -136,6 +151,25 @@ QUnit.test("value clearing", function(assert) {
     assert.equal($input.val(), "", "input was cleared");
 });
 
+QUnit.test("clear button should save valueChangeEvent", function(assert) {
+    var valueChangedHandler = sinon.spy();
+
+    new DropDownBox(this.$element, {
+        items: this.simpleItems,
+        showClearButton: true,
+        onValueChanged: valueChangedHandler,
+        valueExpr: "id",
+        displayExpr: "name",
+        value: [1]
+    });
+
+    var $clearButton = this.$element.find(".dx-clear-button-area");
+    $clearButton.trigger("dxclick");
+
+    assert.equal(valueChangedHandler.callCount, 1, "valueChangedHandler has been called");
+    assert.equal(valueChangedHandler.getCall(0).args[0].event.type, "dxclick", "event is correct");
+});
+
 QUnit.test("content template should work", function(assert) {
     assert.expect(4);
 
@@ -157,6 +191,15 @@ QUnit.test("content template should work", function(assert) {
     assert.equal($(instance.content()).text(), "Test content", "content template has been rendered");
 });
 
+QUnit.test("anonymous content template should work", function(assert) {
+    var $inner = $("#dropDownBoxAnonymous #inner"),
+        instance = new DropDownBox($("#dropDownBoxAnonymous"), { opened: true }),
+        $content = $(instance.content());
+
+    assert.equal($content.text(), "Test", "Anonymous template works");
+    assert.equal($content.find("#inner")[0], $inner[0], "Markup is equal by the link");
+});
+
 QUnit.test("popup and editor width should be equal", function(assert) {
     var instance = new DropDownBox(this.$element, {
         items: this.simpleItems,
@@ -176,6 +219,20 @@ QUnit.test("popup and editor width should be equal", function(assert) {
     instance.option("width", 700);
     assert.equal($(instance.content()).outerWidth(), this.$element.outerWidth(), "width are equal after option change");
     assert.equal($(instance.content()).outerWidth(), 700, "width are equal after option change");
+});
+
+QUnit.test("popup and editor width should be eual when the editor rendered in the hidden content", function(assert) {
+    this.$element.hide();
+    var instance = new DropDownBox(this.$element, {
+        deferRendering: false,
+        contentTemplate: function() {
+            return "Test content";
+        }
+    });
+
+    this.$element.show();
+    instance.open();
+    assert.equal($(instance.content()).outerWidth(), this.$element.outerWidth(), "width are equal");
 });
 
 QUnit.test("dropDownBox should work with the slow dataSource", function(assert) {
@@ -336,7 +393,7 @@ QUnit.test("popup should be flipped when container size is smaller than content 
             }
         });
 
-        var $popupContent = $(".dx-overlay-content");
+        var $popupContent = $("." + OVERLAY_CONTENT_CLASS);
 
         assert.ok($popupContent.hasClass("dx-dropdowneditor-overlay-flipped"), "popup was flipped");
     } finally {
@@ -362,13 +419,32 @@ QUnit.test("maxHeight should be 90% of maximum of top or bottom offsets includin
         var popup = $(".dx-popup").dxPopup("instance"),
             maxHeight = popup.option("maxHeight");
 
-        assert.roughEqual(Math.floor(maxHeight()), 523, 2, "maxHeight is correct");
+        assert.roughEqual(Math.floor(maxHeight()), 523, 3, "maxHeight is correct");
 
     } finally {
         scrollTop.restore();
         windowHeight.restore();
         offset.restore();
     }
+});
+
+QUnit.test("Dropdownbox popup should change height according to the content", assert => {
+    if(isIE11) {
+        assert.expect(0);
+        return;
+    }
+
+    const $content = $("<div>").attr("id", "content"),
+        instance = new DropDownBox($("#dropDownBox"), {
+            opened: true,
+            contentTemplate: () => $content
+        });
+
+    const $popupContent = $(instance.content()).parent("." + OVERLAY_CONTENT_CLASS),
+        popupHeight = $popupContent.height();
+
+    $("<div>").height(50).appendTo($content);
+    assert.strictEqual($popupContent.height(), popupHeight + 50, "popup height has been changed");
 });
 
 QUnit.module("keyboard navigation", moduleConfig);
@@ -388,7 +464,7 @@ QUnit.testInActiveWindow("first focusable element inside of content should get f
 
     keyboard.press("tab");
 
-    assert.equal($(instance.content()).parent(".dx-overlay-content").attr("tabindex"), -1, "popup content should not be tabbable");
+    assert.equal($(instance.content()).parent("." + OVERLAY_CONTENT_CLASS).attr("tabindex"), -1, "popup content should not be tabbable");
     assert.ok(instance.option("opened"), "popup was not closed after tab key pressed");
     assert.ok($input1.is(":focus"), "first focusable content element got focused");
 });
@@ -404,7 +480,7 @@ QUnit.testInActiveWindow("last focusable element inside of content should get fo
             }
         }),
         $input = this.$element.find("." + DX_TEXTEDITOR_INPUT_CLASS),
-        event = $.Event("keydown", { which: TAB_KEY_CODE, shiftKey: true });
+        event = $.Event("keydown", { key: TAB_KEY_CODE, shiftKey: true });
 
     $input.focus().trigger(event);
 
@@ -440,7 +516,7 @@ QUnit.testInActiveWindow("input should get focused when shift+tab pressed on fir
                 $(content).append($input1, $input2);
             }
         }),
-        event = $.Event("keydown", { which: TAB_KEY_CODE, shiftKey: true });
+        event = $.Event("keydown", { key: TAB_KEY_CODE, shiftKey: true });
 
     $input1.focus().trigger(event);
 

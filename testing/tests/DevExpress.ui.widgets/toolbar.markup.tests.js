@@ -1,5 +1,3 @@
-"use strict";
-
 import "ui/action_sheet";
 import "ui/button";
 import "ui/tabs";
@@ -143,8 +141,112 @@ QUnit.module("render", {
             assert.equal(element.find("." + TOOLBAR_CLASS + "-" + this).text(), this);
         });
     });
+
+    test("add a custom CSS class to item", (assert) => {
+        this.element.dxToolbar({
+            items: [
+                { location: "before", cssClass: "test-before" },
+                { location: "after", cssClass: "test-after" },
+                { location: "center", cssClass: "test-center" }
+            ]
+        });
+
+        const findItem = location => {
+            const selector = `.${TOOLBAR_CLASS + "-" + location} > .${TOOLBAR_ITEM_CLASS}.test-${location}`;
+            return this.element.find(selector);
+        };
+
+        $.each(["before", "after", "center"], (_, value) => {
+            assert.equal(findItem(value).length, 1, `item in the ${value} container`);
+        });
+    });
+
+    test("items with nested toolbar config 1", (assert) => {
+        this.element.dxToolbar({
+            items: [
+                {
+                    template: () => {
+                        return $('<div id="toolbar2">').dxToolbar({
+                            items: [{ html: '<div id="2">2</div>' }]
+                        });
+                    }
+                },
+                { html: '<div id="1">1</div>' }
+            ]
+        });
+
+        assert.equal(this.element.find("#1").length, 1, "#1");
+        assert.equal(this.element.find("#toolbar2 #1").length, 0, "#toolbar2 #1");
+
+        assert.equal(this.element.find("#2").length, 1, "#2");
+        assert.equal(this.element.find("#toolbar2 #2").length, 1, "#toolbar2 #2");
+    });
+
+    test("items with nested toolbar config 2", (assert) => {
+        this.element.dxToolbar({
+            items: [
+                { html: '<div id="1">1</div>' },
+                {
+                    template: () => {
+                        return $('<div id="toolbar2">').dxToolbar({
+                            items: [{ html: '<div id="2">2</div>' }]
+                        });
+                    }
+                }
+            ]
+        });
+
+        assert.equal(this.element.find("#1").length, 1, "#1");
+        assert.equal(this.element.find("#toolbar2 #1").length, 0, "#toolbar2 #1");
+
+        assert.equal(this.element.find("#2").length, 1, "#2");
+        assert.equal(this.element.find("#toolbar2 #2").length, 1, "#toolbar2 #2");
+    });
+
+    test("items with nested toolbar config 3", (assert) => {
+        this.element.dxToolbar({
+            items: [
+                {
+                    location: "before",
+                    template: () => {
+                        return $('<div id="toolbar2">').dxToolbar({
+                            items: [
+                                {
+                                    location: "center",
+                                    html: '<div id="2">2</div>'
+                                }
+                            ]
+                        });
+                    }
+                },
+                {
+                    location: "center",
+                    html: '<div id="1">1</div>'
+                }
+            ]
+        });
+
+        assert.equal(this.element.find("#1").length, 1, "#1");
+        assert.equal(this.element.find("#toolbar2 #1").length, 0, "#toolbar2 #1");
+
+        assert.equal(this.element.find("#2").length, 1, "#2");
+        assert.equal(this.element.find("#toolbar2 #2").length, 1, "#toolbar2 #2");
+    });
 });
 
+QUnit.test("elementAttr should be rendered on button items", function(assert) {
+    var $toolbar = $("#toolbar").dxToolbar({
+        items: [{
+            location: 'before',
+            widget: 'dxButton',
+            options: {
+                elementAttr: { 'test': '123' },
+            }
+        }]
+    });
+
+    assert.equal($toolbar.find(".dx-button").eq(0).attr("test"), 123, "test attr exists");
+});
 
 QUnit.module("option change handlers", {
     beforeEach: () => {
@@ -158,7 +260,6 @@ QUnit.module("option change handlers", {
         assert.equal(this.element.text(), "1");
     });
 });
-
 
 QUnit.module("regressions", {
     beforeEach: () => {
@@ -178,7 +279,6 @@ QUnit.module("regressions", {
     });
 });
 
-
 QUnit.module("aria accessibility", () => {
     test("aria role", (assert) => {
         let $element = $("#toolbar").dxToolbar();
@@ -186,7 +286,6 @@ QUnit.module("aria accessibility", () => {
         assert.equal($element.attr("role"), "toolbar", "role is correct");
     });
 });
-
 
 QUnit.module("item groups", {
     beforeEach: () => {
@@ -218,7 +317,8 @@ QUnit.module("item groups", {
 }, () => {
     test("toolbar should show item groups", (assert) => {
         let $element = this.$element.dxToolbar({
-                items: this.groups
+                items: this.groups,
+                grouped: true,
             }),
             $groups = $element.find("." + TOOLBAR_GROUP_CLASS);
 
@@ -229,7 +329,8 @@ QUnit.module("item groups", {
 
     test("toolbar groups should be placed inside toolbar blocks", (assert) => {
         let $element = this.$element.dxToolbar({
-                items: this.groups
+                items: this.groups,
+                grouped: true
             }),
             $before = $element.find("." + TOOLBAR_BEFORE_CONTAINER_CLASS).eq(0),
             $center = $element.find("." + TOOLBAR_CENTER_CONTAINER_CLASS).eq(0),
@@ -240,7 +341,6 @@ QUnit.module("item groups", {
         assert.equal($after.find("." + TOOLBAR_ITEM_CLASS).length, 2, "2 items are in after");
     });
 });
-
 
 QUnit.module("default template", () => {
     test("template should be rendered correctly with text", (assert) => {

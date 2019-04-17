@@ -1,5 +1,3 @@
-"use strict";
-
 var domAdapter = require("../../core/dom_adapter"),
     windowUtils = require("../../core/utils/window"),
     inflector = require("../../core/utils/inflector"),
@@ -10,7 +8,7 @@ var domAdapter = require("../../core/dom_adapter"),
     extend = require("../../core/utils/extend").extend,
     HALF_ARROW_WIDTH = 10,
     vizUtils = require("./utils"),
-    _format = require("./format"),
+    _format = require("../../format_helper").format,
     mathCeil = Math.ceil,
     mathMax = Math.max,
     mathMin = Math.min;
@@ -19,15 +17,14 @@ function hideElement($element) {
     $element.css({ left: "-9999px" }).detach();
 }
 
-// DEPRECATED_16_1 (precision part)
 function getSpecialFormatOptions(options, specialFormat) {
     var result = options;
     switch(specialFormat) {
         case "argument":
-            result = { format: options.argumentFormat, precision: options.argumentPrecision };
+            result = { format: options.argumentFormat };
             break;
         case "percent":
-            result = { format: { type: "percent", precision: (options.format && options.format.percentPrecision) || options.percentPrecision } };
+            result = { format: { type: "percent", precision: options.format && options.format.percentPrecision } };
             break;
     }
     return result;
@@ -42,7 +39,7 @@ function Tooltip(params) {
     that._widgetRoot = params.widgetRoot;
 
     that._wrapper = $("<div>")
-        .css({ position: "absolute", overflow: "visible", height: "1px", "pointerEvents": "none" })  // T265557, T447623
+        .css({ position: "absolute", overflow: "visible", height: "1px", "pointerEvents": "none" }) // T265557, T447623
         .addClass(params.cssClass);
 
     that._renderer = renderer = new rendererModule.Renderer({ pathModified: params.pathModified, container: that._wrapper[0] });
@@ -271,7 +268,7 @@ Tooltip.prototype = {
         }
 
         // move wrapper
-        offset = that._wrapper.css({ left: 0, top: 0 }).offset();   // T277991
+        offset = that._wrapper.css({ left: 0, top: 0 }).offset(); // T277991
         that._wrapper.css({
             left: coords.x - offset.left,
             top: coords.y - offset.top,
@@ -281,7 +278,7 @@ Tooltip.prototype = {
 
     formatValue: function(value, _specialFormat) {
         var options = _specialFormat ? getSpecialFormatOptions(this._options, _specialFormat) : this._options;
-        return _format(value, options);
+        return _format(value, options.format);
     },
 
     getLocation: function() {
@@ -329,54 +326,22 @@ Tooltip.prototype = {
             y3,
             y2 = contentHeight + arrowLength,
             hp = "center",
-            vp = "bottom",
-            hasDeprecatedPosition;
+            vp = "bottom";
 
         y1 = y3 = contentHeight;
 
-        switch(options.verticalAlignment) { // deprecated since 15.1
-            case "top":
-                vp = "bottom";
-                hasDeprecatedPosition = true;
-                break;
-            case "bottom":
-                vp = "top";
-                hasDeprecatedPosition = true;
-                break;
+        if(tTop > cTop && tBottom > cBottom) {
+            vp = "out";
+        } else if(tTop > cTop) {
+            vp = "top";
         }
 
-        if(!hasDeprecatedPosition) {
-            if(tTop > cTop && tBottom > cBottom) {
-                vp = "out";
-            } else if(tTop > cTop) {
-                vp = "top";
-            }
-        }
-        hasDeprecatedPosition = false;
-
-        switch(options.horizontalAlignment) { // deprecated since 15.1
-            case "left":
-                hp = "right";
-                hasDeprecatedPosition = true;
-                break;
-            case "center":
-                hp = "center";
-                hasDeprecatedPosition = true;
-                break;
-            case "right":
-                hp = "left";
-                hasDeprecatedPosition = true;
-                break;
-        }
-
-        if(!hasDeprecatedPosition) {
-            if(tLeft > cLeft && tRight > cRight) {
-                hp = "out";
-            } else if(tHalfLeft > cLeft && tRight < cRight) {
-                hp = "left";
-            } else if(tHalfRight > cRight && tLeft < cLeft) {
-                hp = "right";
-            }
+        if(tLeft > cLeft && tRight > cRight) {
+            hp = "out";
+        } else if(tHalfLeft > cLeft && tRight < cRight) {
+            hp = "left";
+        } else if(tHalfRight > cRight && tLeft < cLeft) {
+            hp = "right";
         }
 
         if(hp === "out") {

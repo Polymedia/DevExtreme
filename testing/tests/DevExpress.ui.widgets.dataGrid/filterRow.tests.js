@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<div>\
@@ -11,25 +9,25 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("generic_light.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-window.Hogan = require("../../../node_modules/hogan.js/dist/hogan-3.0.2.js");
+import hogan from "../../../node_modules/hogan.js/dist/hogan-3.0.2.js";
 
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop,
-    viewPort = require("core/utils/view_port").value,
-    devices = require("core/devices"),
-    device = devices.real(),
-    fx = require("animation/fx"),
-    setTemplateEngine = require("ui/set_template_engine"),
-    dateLocalization = require("localization/date"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    MockColumnsController = dataGridMocks.MockColumnsController;
+window.Hogan = hogan;
+
+import $ from "jquery";
+import { noop } from "core/utils/common";
+import { value as viewPort } from "core/utils/view_port";
+import devices from "core/devices";
+import fx from "animation/fx";
+import setTemplateEngine from "ui/set_template_engine";
+import dateLocalization from "localization/date";
+import { setupDataGridModules, MockDataController, MockColumnsController } from "../../helpers/dataGridMocks.js";
+
+var device = devices.real();
 
 var TEXTEDITOR_INPUT_SELECTOR = ".dx-texteditor-input";
 
@@ -110,8 +108,7 @@ QUnit.test('Hide items without descriptions', function(assert) {
     var $testElement = $('#container'),
         $filterMenu,
         $filterMenuItems,
-        rootMenuItem,
-        $cell;
+        rootMenuItem;
 
     $.extend(this.columns, [{ caption: 'Column 1', allowFiltering: true, filterOperations: ['=', '<>', 'isblank'] }]);
 
@@ -122,7 +119,7 @@ QUnit.test('Hide items without descriptions', function(assert) {
     rootMenuItem = $filterMenu.find(".dx-menu-item");
     $(rootMenuItem).trigger("dxclick");
 
-    $cell = $filterMenu.parent();
+    $filterMenu.parent();
     $filterMenuItems = $("#qunit-fixture").find('.dx-overlay-content').first().find('li');
 
     // assert
@@ -732,11 +729,11 @@ QUnit.test("update filter value for boolean column to false", function(assert) {
     });
 });
 
+import "ui/tag_box";
+
 QUnit.test("update filter value for array column with dxTagBox", function(assert) {
     // arrange
     var testElement = $("#container");
-
-    require("ui/tag_box");
 
     this.options.onEditorPreparing = function(e) {
         if(e.parentType === "filterRow" && e.caption === "Tags") {
@@ -790,9 +787,9 @@ QUnit.test('Draw filterRow when all columns grouped', function(assert) {
         filterRow;
 
     $.extend(this.columns, [{ headerCaption: 'Column 1', groupIndex: 0 },
-                            { headerCaption: 'Column 2', groupIndex: 1 },
-                            { headerCaption: 'Column 3', groupIndex: 2 },
-                            { command: 'empty' }
+        { headerCaption: 'Column 2', groupIndex: 1 },
+        { headerCaption: 'Column 3', groupIndex: 2 },
+        { command: 'empty' }
     ]);
 
     // act
@@ -1020,7 +1017,6 @@ QUnit.test("Set highlight when filter operation is changed", function(assert) {
 QUnit.test("Apply filter button is changed enabled state when filter operation is changed", function(assert) {
     // arrange
     var testElement = $('#container'),
-        filterMenu,
         $button,
         filterMenuItems;
 
@@ -1031,7 +1027,6 @@ QUnit.test("Apply filter button is changed enabled state when filter operation i
     this.applyFilterController.init();
     this.columnHeadersView.render(testElement);
 
-    filterMenu = $(this.columnHeadersView.element()).find('.dx-menu');
     filterMenuItems = $("#qunit-fixture").find('.dx-overlay-content').first().find('li');
 
     $(filterMenuItems.find('.dx-menu-item')[1]).trigger('dxclick');
@@ -1351,6 +1346,23 @@ QUnit.testInActiveWindow("Title is not appended for menu item of filter row", fu
     // assert
     assert.equal($filterMenu.attr("title"), undefined, "title of menu item");
 });
+
+// T688843
+QUnit.test("The filter menu should be rendered correctly when specified headerCellTemplate", function(assert) {
+    // arrange
+    var $firstCell,
+        $testElement = $("#container");
+
+    $.extend(this.columns, [{ caption: "Column 1", allowFiltering: true, filterOperations: ['=', '<>'], headerCellTemplate: function() {} }]);
+
+    // act
+    this.columnHeadersView.render($testElement);
+
+    // assert
+    $firstCell = $(this.columnHeadersView.element()).find(".dx-datagrid-filter-row").children().first();
+    assert.ok($firstCell.children().first().hasClass("dx-editor-with-menu"), "editor with menu");
+});
+
 
 QUnit.module('Filter Row with real dataController and columnsController', {
     beforeEach: function() {
@@ -2091,6 +2103,31 @@ QUnit.test("Filter by range when column with customizeText and filter value is a
     assert.equal(that.dataController.items().length, 1, "count item");
 });
 
+// T663887
+QUnit.test("Filter by range when column with calculateCellValue and filter value is array", function(assert) {
+    this.options.columns = [{
+        dataType: "date",
+        selectedFilterOperation: "between",
+        allowFiltering: true,
+        filterValue: [new Date(1992, 7, 6), new Date(1992, 7, 8)],
+        calculateCellValue: function(data) {
+            return new Date(data.OrderDate);
+        }
+    }];
+
+    setupDataGridModules(this, ["data", "columns", "filterRow"], {
+        initViews: true
+    });
+
+    // act
+    var filter = this.dataController.getCombinedFilter();
+
+    // assert
+    assert.equal(filter.length, 3, "has filter range content");
+    assert.equal(typeof filter[0][0], "function", "has selector");
+    assert.equal(typeof filter[2][0], "function", "has selector");
+});
+
 QUnit.test("Rows view is not rendered when value is entered to editor of the filter row (applyFilter mode is onClick)", function(assert) {
     // arrange
     var $testElement = $('#container'),
@@ -2236,7 +2273,7 @@ if(device.deviceType === "desktop") {
         assert.equal($numberBoxElements.length, 2, "count number box");
 
         // act
-        $($numberBoxElements.last().find(TEXTEDITOR_INPUT_SELECTOR)).trigger($.Event("keydown", { which: 9 })); // focus on menu of the second cell, hide range
+        $($numberBoxElements.last().find(TEXTEDITOR_INPUT_SELECTOR)).trigger($.Event("keydown", { key: "Tab" })); // focus on menu of the second cell, hide range
 
         // assert
         assert.equal($cells.first().find(".dx-filter-range-content").length, 1, "has filter range content");
@@ -2273,7 +2310,7 @@ if(device.deviceType === "desktop") {
         assert.equal($numberBoxElements.length, 2, "count number box");
 
         // act
-        $($numberBoxElements.first().find("input")).trigger($.Event("keydown", { which: 9, shiftKey: true })); // focus on menu of the first cell, hide range
+        $($numberBoxElements.first().find("input")).trigger($.Event("keydown", { key: "Tab", shiftKey: true })); // focus on menu of the first cell, hide range
 
         // assert
         assert.equal($cells.first().find(".dx-filter-range-content").length, 1, "has filter range content");

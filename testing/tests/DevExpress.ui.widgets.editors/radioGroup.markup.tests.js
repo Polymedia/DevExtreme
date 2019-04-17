@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "jquery";
 import executeAsyncMock from "../../helpers/executeAsyncMock.js";
 import "ui/radio_group";
@@ -209,15 +207,15 @@ QUnit.module("valueExpr", moduleConfig, () => {
         ];
 
         const radioGroup = $("#radioGroup")
-        .dxRadioGroup({
-            dataSource: items,
-            valueExpr: "number",
-            itemRender: function(item) {
-                return item.caption;
-            },
-            value: 0
-        })
-        .dxRadioGroup("instance");
+            .dxRadioGroup({
+                dataSource: items,
+                valueExpr: "number",
+                itemRender: function(item) {
+                    return item.caption;
+                },
+                value: 0
+            })
+            .dxRadioGroup("instance");
 
         const $firstItem = $(radioGroup.itemElements()).eq(0);
 

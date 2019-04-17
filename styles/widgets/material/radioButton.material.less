@@ -32,8 +32,8 @@
         display: block;
         position: absolute;
         z-index: 1;
-        .scale(0.5);
-        .transition(@MATERIAL_RADIOBUTTON_RIPPLE_TRANSITION);
+        transform: scale(0.5);
+        transition: @MATERIAL_RADIOBUTTON_RIPPLE_TRANSITION;
     }
 
     &:before {
@@ -43,13 +43,13 @@
         border: @MATERIAL_RADIOBUTTON_BORDER_WIDTH solid @radiogroup-border-color;
         background-color: @radiogroup-bg;
         content: "";
-        .border-radius(@MATERIAL_RADIOBUTTON_SIZE / 2);
-        .box-sizing(content-box);
+        border-radius: @MATERIAL_RADIOBUTTON_SIZE / 2;
+        box-sizing: content-box;
     }
 }
 
-.dx-radiobutton-checked  {
-    .dx-radiobutton-icon:before {
+.dx-radiobutton-icon-checked  {
+    &:before {
         border-color: @radiogroup-checked-bg;
     }
 
@@ -61,7 +61,7 @@
         height: @MATERIAL_RADIOBUTTON_DOT_SIZE;
         background: @radiogroup-checked-bg;
         content: "";
-        .border-radius(@MATERIAL_RADIOBUTTON_DOT_SIZE / 2);
+        border-radius: @MATERIAL_RADIOBUTTON_DOT_SIZE / 2;
     }
 }
 
@@ -72,18 +72,22 @@
     &.dx-state-focused {
         .dx-radiobutton-icon:after {
             background-color: fade(@base-text-color, 10%);
-            .scale(1);
+            transform: scale(1);
         }
     }
 
     &.dx-radiobutton-checked {
         &.dx-state-active,
         &.dx-state-focused {
-            .dx-radiobutton-icon:after {
+            .dx-radiobutton-icon-checked:after {
                 background-color: fade(@radiogroup-checked-bg, 10%);
-                .scale(1);
+                transform: scale(1);
             }
         }
+    }
+
+    &.dx-state-disabled {
+        opacity: @texteditor-disabled-opacity;
     }
 }
 
@@ -120,8 +124,16 @@
 
             .dx-radiobutton-icon:after {
                 background-color: fade(@radiobutton-invalid-focused-border-color, 10%);
-                .scale(1);
+                transform: scale(1);
             }
+        }
+    }
+}
+
+.dx-state-disabled {
+    .dx-radiobutton {
+        &.dx-state-disabled {
+            opacity: 1;
         }
     }
 }

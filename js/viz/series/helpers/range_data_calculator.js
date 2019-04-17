@@ -1,4 +1,3 @@
-"use strict";
 var unique = require("../../core/utils").unique,
     _isDefined = require("../../../core/utils/type").isDefined,
     noop = require("../../../core/utils/common").noop,
@@ -66,23 +65,32 @@ function getValueForArgument(point, extraPoint, x) {
 }
 
 function getViewPortFilter(viewport) {
-    if(!_isDefined(viewport.max) && !_isDefined(viewport.min)) {
+    if(viewport.categories) {
+        const dictionary = viewport.categories.reduce((result, category) => {
+            result[category.valueOf()] = true;
+            return result;
+        }, {});
+        return function(argument) {
+            return dictionary[argument.valueOf()];
+        };
+    }
+    if(!_isDefined(viewport.startValue) && !_isDefined(viewport.endValue)) {
         return function() {
             return true;
         };
     }
-    if(!_isDefined(viewport.max)) {
+    if(!_isDefined(viewport.endValue)) {
         return function(argument) {
-            return argument >= viewport.min;
+            return argument >= viewport.startValue;
         };
     }
-    if(!_isDefined(viewport.min)) {
+    if(!_isDefined(viewport.startValue)) {
         return function(argument) {
-            return argument <= viewport.max;
+            return argument <= viewport.endValue;
         };
     }
     return function(argument) {
-        return argument >= viewport.min && argument <= viewport.max;
+        return argument >= viewport.startValue && argument <= viewport.endValue;
     };
 }
 
@@ -97,7 +105,7 @@ function isLineSeries(series) {
 
 function getViewportReducer(series) {
     var rangeCalculator = getRangeCalculator(series.valueAxisType),
-        viewport = series.getArgumentAxis() && series.getArgumentAxis().getViewport() || {},
+        viewport = series.getArgumentAxis() && series.getArgumentAxis().visualRange() || {},
         viewportFilter,
         calculatePointBetweenPoints = isLineSeries(series) ? calculateRangeBetweenPoints : noop;
 
@@ -113,15 +121,15 @@ function getViewportReducer(series) {
         if(viewportFilter(argument)) {
             if(!range.startCalc) {
                 range.startCalc = true;
-                calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.min);
+                calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.startValue);
             }
             rangeCalculator(range, point.getMinValue(), point.getMaxValue());
-        } else if(_isDefined(viewport.max) && argument > viewport.max) {
+        } else if(!viewport.categories && _isDefined(viewport.startValue) && argument > viewport.startValue) {
             if(!range.startCalc) {
-                calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.min);
+                calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.startValue);
             }
             range.endCalc = true;
-            calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.max);
+            calculatePointBetweenPoints(rangeCalculator, range, point, points[index - 1], viewport.endValue);
         }
 
         return range;
@@ -174,8 +182,19 @@ module.exports = {
                 viewport: getInitialRange(series.valueAxisType, series.valueType, points.length ? series.getValueRangeInitialValue() : undefined)
             });
 
-        if(useAggregation && series.argumentAxisType === DISCRETE) {
-            range.arg = this.getArgumentRange(series);
+        if(useAggregation) {
+            const argumentRange = this.getArgumentRange(series);
+            if(series.argumentAxisType === DISCRETE) {
+                range.arg = argumentRange;
+            } else {
+                const viewport = series.getArgumentAxis().getViewport();
+                if(_isDefined(viewport.startValue) || _isDefined(viewport.length)) {
+                    argumentCalculator(range.arg, argumentRange.min, argumentRange.min);
+                }
+                if(_isDefined(viewport.endValue) || _isDefined(viewport.length) && _isDefined(viewport.startValue)) {
+                    argumentCalculator(range.arg, argumentRange.max, argumentRange.max);
+                }
+            }
         }
 
         processCategories(range.arg);
@@ -189,20 +208,19 @@ module.exports = {
             range = {},
             reducer;
 
-        if(series.valueAxisType !== DISCRETE && series.argumentAxisType !== DISCRETE) {
-            reducer = getViewportReducer(series);
-            range = getInitialRange(series.valueAxisType, series.valueType, points.length ? series.getValueRangeInitialValue() : undefined);
-            points.some(function(point, index) {
-                reducer(range, point, index, points);
-                return range.endCalc;
-            });
-        }
+        reducer = getViewportReducer(series);
+        range = getInitialRange(series.valueAxisType, series.valueType, points.length ? series.getValueRangeInitialValue() : undefined);
+        points.some(function(point, index) {
+            reducer(range, point, index, points);
+            return range.endCalc;
+        });
+
         return range;
     },
 
     getPointsInViewPort: function(series) {
-        var argumentViewPortFilter = getViewPortFilter(series.getArgumentAxis().getViewport() || {}),
-            valueViewPort = series.getValueAxis().getViewport() || {},
+        var argumentViewPortFilter = getViewPortFilter(series.getArgumentAxis().visualRange() || {}),
+            valueViewPort = series.getValueAxis().visualRange() || {},
             valueViewPortFilter = getViewPortFilter(valueViewPort),
             points = series.getPoints(),
             addValue = function(values, point, isEdge) {
@@ -219,9 +237,9 @@ module.exports = {
                 }
                 if(isEdge && !isMinValueInViewPort && !isMaxValueInViewPort) {
                     if(!values.length) {
-                        values.push(valueViewPort.min);
+                        values.push(valueViewPort.startValue);
                     } else {
-                        values.push(valueViewPort.max);
+                        values.push(valueViewPort.endValue);
                     }
                 }
             },

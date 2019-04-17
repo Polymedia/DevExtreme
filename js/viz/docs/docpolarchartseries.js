@@ -1,4 +1,30 @@
 /**
+ * @name PolarChartSeries
+ * @type object
+ * @inherits dxPolarChartSeriesTypes.CommonPolarChartSeries
+ */
+var polarChartSeries = {
+    /**
+    * @name PolarChartSeries.name
+    * @type string
+    * @default undefined
+    */
+    name: undefined,
+    /**
+    * @name PolarChartSeries.tag
+    * @type any
+    * @default undefined
+    */
+    tag: undefined,
+    /**
+    * @name PolarChartSeries.type
+    * @type Enums.PolarChartSeriesType
+    * @default 'scatter'
+    */
+    type: 'scatter'
+};
+
+/**
 * @name dxPolarChartSeriesTypes
 * @type object
 */
@@ -589,21 +615,10 @@ var CommonPolarChartSeries = {
         */
         format: '',
         /**
-        * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.precision
-        * @extends CommonVizPrecision
-        */
-        precision: 0,
-        /**
         * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.argumentFormat
         * @extends CommonVizFormat
         */
         argumentFormat: '',
-        /**
-        * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.argumentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        argumentPrecision: 0,
         /**
         * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.position
         * @type Enums.RelativePosition
@@ -613,38 +628,15 @@ var CommonPolarChartSeries = {
         position: 'outside',
         /**
         * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font
-        * @type object
+        * @type Font
+        * @default '#FFFFFF' @prop color
+        * @default 14 @prop size
         */
         font: {
-            /**
-            * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font.family
-            * @type string
-            * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-            */
-            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-            /**
-            * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font.weight
-            * @type number
-            * @default 400
-            */
+            family: undefined,
             weight: 400,
-            /**
-            * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font.color
-            * @type string
-            * @default '#FFFFFF'
-            */
             color: '#FFFFFF',
-            /**
-            * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font.size
-            * @type number|string
-            * @default 14
-            */
             size: 14,
-            /**
-            * @name dxPolarChartSeriesTypes.CommonPolarChartSeries.label.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**

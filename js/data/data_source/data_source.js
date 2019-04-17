@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../../core/class"),
     extend = require("../../core/utils/extend").extend,
     commonUtils = require("../../core/utils/common"),
@@ -7,6 +5,7 @@ var Class = require("../../core/class"),
     ajax = require("../../core/utils/ajax"),
     typeUtils = require("../../core/utils/type"),
     dataUtils = require("../utils"),
+    arrayUtils = require("../array_utils"),
     Store = require("../abstract_store"),
     ArrayStore = require("../array_store"),
     CustomStore = require("../custom_store"),
@@ -208,10 +207,31 @@ var DataSource = Class.inherit({
         */
 
         /**
+        * @name DataSourceOptions.pushAggregationTimeout
+        * @type number
+        * @default undefined
+        */
+        var onPushHandler = options.pushAggregationTimeout !== 0
+            ? dataUtils.throttleChanges(this._onPush, function() {
+                if(options.pushAggregationTimeout === undefined) {
+                    return that._changedTime * 5;
+                }
+                return options.pushAggregationTimeout;
+            })
+            : this._onPush;
+
+        this._changedTime = 0;
+
+        this._onPushHandler = (changes) => {
+            this._aggregationTimeoutId = onPushHandler.call(this, changes);
+        };
+
+        /**
         * @name DataSourceOptions.store
         * @type Store|StoreOptions|Array<any>|any
         */
         this._store = options.store;
+        this._store.on("push", this._onPushHandler);
 
         /**
         * @name DataSourceOptions.sort
@@ -304,11 +324,20 @@ var DataSource = Class.inherit({
         */
         this._paginate = options.paginate;
 
+        /**
+        * @name DataSourceOptions.reshapeOnPush
+        * @type Boolean
+        * @default false
+        */
+        this._reshapeOnPush = __isDefined(options.reshapeOnPush) ? options.reshapeOnPush : false;
+
         iteratorUtils.each(
             [
                 /**
                  * @name DataSourceOptions.onChanged
                  * @type function
+                 * @type_function_param1 e:Object
+                 * @type_function_param1_field1 changes:Array<any>
                  * @action
                  */
                 "onChanged",
@@ -361,7 +390,9 @@ var DataSource = Class.inherit({
     * @publicName dispose()
     */
     dispose: function() {
+        this._store.off("push", this._onPushHandler);
         this._disposeEvents();
+        clearTimeout(this._aggregationTimeoutId);
 
         delete this._store;
 
@@ -702,11 +733,15 @@ var DataSource = Class.inherit({
         });
     },
 
-    _scheduleChangedCallbacks: function(deferred) {
-        var that = this;
+    _fireChanged: function(args) {
+        var date = new Date();
+        this.fireEvent("changed", args);
+        this._changedTime = new Date() - date;
+    },
 
-        deferred.done(function() {
-            that.fireEvent("changed");
+    _scheduleChangedCallbacks: function(deferred) {
+        deferred.done(() => {
+            this._fireChanged();
         });
     },
 
@@ -808,6 +843,26 @@ var DataSource = Class.inherit({
         });
     },
 
+    _onPush: function(changes) {
+        if(this._reshapeOnPush) {
+            this.load();
+        } else {
+            this.fireEvent("changing", [{ changes: changes }]);
+
+            let group = this.group(),
+                items = this.items(),
+                groupLevel = 0,
+                dataSourceChanges = this.paginate() || group ? changes.filter(item => item.type === "update") : changes;
+
+            if(group) {
+                groupLevel = Array.isArray(group) ? group.length : 1;
+            }
+
+            arrayUtils.applyBatch(this.store(), items, dataSourceChanges, groupLevel, true);
+            this._fireChanged([{ changes: changes }]);
+        }
+    },
+
     _createLoadOperation: function(deferred) {
         var id = this._operationManager.add(deferred),
             options = this._createStoreLoadOptions();
@@ -844,6 +899,10 @@ var DataSource = Class.inherit({
      */
     cancel: function(operationId) {
         return this._operationManager.cancel(operationId);
+    },
+
+    cancelAll: function() {
+        return this._operationManager.cancelAll();
     },
 
     _addSearchOptions: function(storeLoadOptions) {

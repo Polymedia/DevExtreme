@@ -1,6 +1,4 @@
-"use strict";
-
-var $ = require("jquery");
+import $ from "jquery";
 
 QUnit.testStart(function() {
     var markup =
@@ -15,12 +13,13 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
+import "common.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    MockColumnsController = dataGridMocks.MockColumnsController,
+import dataGridMocks from "../../helpers/dataGridMocks.js";
+
+var MockColumnsController = dataGridMocks.MockColumnsController,
     MockDataController = dataGridMocks.MockDataController,
     setupDataGridModules = dataGridMocks.setupDataGridModules;
 
@@ -97,9 +96,9 @@ QUnit.test("Show context menu with defined menu items", function(assert) {
         testElement = $("#container");
 
     that.contextMenuItems1 = [
-                    { text: "asc" },
-                    { text: "desc" },
-                    { text: "none" }
+        { text: "asc" },
+        { text: "desc" },
+        { text: "none" }
     ];
 
     // act
@@ -294,13 +293,11 @@ QUnit.test("Context menu with option onContextMenuPreparing when no data and scr
     var that = this,
         $rowsViewElement,
         contextMenuInstance,
-        contextMenuOptions,
         $testElement = $("#secondContainer");
 
     that.options = {
         onContextMenuPreparing: function(options) {
             if(options.target === "content") {
-                contextMenuOptions = options;
                 options.items = [
                     { text: "Test1" },
                     { text: "Test2" },

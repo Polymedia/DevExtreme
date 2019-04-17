@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     DropDownAppointments = require("ui/scheduler/ui.scheduler.appointments.drop_down"),
     dataCoreUtils = require("core/utils/data"),
@@ -127,7 +125,7 @@ var moduleOptions = {
                     return 8;
                 }
             }
-                // TODO: rename arguments
+            // TODO: rename arguments
             if(command === "processDateDependOnTimezone") {
                 return field;
             }

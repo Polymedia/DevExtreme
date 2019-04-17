@@ -1,7 +1,6 @@
-"use strict";
-
 var $ = require("jquery"),
-    themes = require("ui/themes");
+    themes = require("ui/themes"),
+    dateSerialization = require("core/utils/date_serialization");
 
 QUnit.testStart(function() {
     $("#qunit-fixture").html(
@@ -14,8 +13,7 @@ require("common.css!");
 require("generic_light.css!");
 
 
-var $ = require("jquery"),
-    Tooltip = require("ui/tooltip"),
+var Tooltip = require("ui/tooltip"),
     tooltip = require("ui/tooltip/ui.tooltip"),
     resizeCallbacks = require("core/utils/resize_callbacks"),
     fx = require("animation/fx"),
@@ -58,6 +56,21 @@ QUnit.module("Integration: Appointment tooltip", {
         fx.off = false;
         tooltip.hide();
         this.clock.restore();
+    },
+    checkAppointmentDataInTooltipTemplate: function(assert, dataSource, currentDate) {
+        this.createInstance({
+            dataSource: dataSource,
+            height: 600,
+            currentDate: currentDate,
+            currentView: "month",
+            views: ["month"],
+            appointmentTooltipTemplate: function(appointmentData) {
+                assert.equal(dataSource.indexOf(appointmentData), 0, "appointment data contains in the data source");
+            }
+        });
+
+        $(this.instance.$element().find(".dx-scheduler-appointment").eq(0)).trigger("dxclick");
+        this.clock.tick(300);
     }
 });
 
@@ -104,7 +117,6 @@ QUnit.test("Click on disabled appointment should not call scheduler.showAppointm
     tooltip.hide();
 });
 
-
 QUnit.test("Click on appointment should not call scheduler.showAppointmentTooltip for disabled mode", function(assert) {
     var data = new DataSource({
         store: this.tasks
@@ -121,17 +133,17 @@ QUnit.test("Click on appointment should not call scheduler.showAppointmentToolti
 
 QUnit.test("Shown tooltip should have right boundary", function(assert) {
     var tasks = [
-        {
-            text: "Task 1",
-            startDate: new Date(2015, 1, 9, 1, 0),
-            endDate: new Date(2015, 1, 9, 2, 0)
-        },
-        {
-            text: "Task 2",
-            startDate: new Date(2015, 1, 9, 11, 0),
-            endDate: new Date(2015, 1, 9, 11, 0, 30),
-            allDay: true
-        }
+            {
+                text: "Task 1",
+                startDate: new Date(2015, 1, 9, 1, 0),
+                endDate: new Date(2015, 1, 9, 2, 0)
+            },
+            {
+                text: "Task 2",
+                startDate: new Date(2015, 1, 9, 11, 0),
+                endDate: new Date(2015, 1, 9, 11, 0, 30),
+                allDay: true
+            }
         ],
         data = new DataSource({
             store: tasks
@@ -419,7 +431,7 @@ QUnit.test("Click on tooltip-edit button should call scheduler.showAppointmentPo
         endDate: new Date(2015, 1, 9, 12, 0),
         text: "Task 2"
     },
-        "showAppointmentPopup has a right appointment data arg");
+    "showAppointmentPopup has a right appointment data arg");
 
     assert.equal(args[1], false, "showAppointmentPopup has a right 'createNewAppointment' arg");
 
@@ -447,6 +459,48 @@ QUnit.test("Click on tooltip-remove button should call scheduler.deleteAppointme
             text: "Task 2"
         },
         "deleteAppointment has a right arguments");
+
+    assert.equal($(".dx-scheduler-appointment-tooltip").length, 0, "tooltip was hidden");
+
+});
+
+QUnit.test("Click on tooltip-remove button should call scheduler.updateAppointment and hide tooltip, if recurrenceRuleExpr and recurrenceExceptionExpr is set", function(assert) {
+    this.createInstance({
+        currentDate: new Date(2018, 6, 30),
+        currentView: "month",
+        views: ["month"],
+        recurrenceRuleExpr: "SC_RecurrenceRule",
+        recurrenceExceptionExpr: "SC_RecurrenceException",
+        recurrenceEditMode: "occurrence",
+        dataSource: [{
+            text: "Meeting of Instructors",
+            startDate: new Date(2018, 6, 30, 10, 0),
+            endDate: new Date(2018, 6, 30, 11, 0),
+            SC_RecurrenceRule: "FREQ=DAILY;COUNT=3",
+            SC_RecurrenceException: "20170626T100000Z"
+        }
+        ]
+    });
+    var stub = sinon.stub(this.instance, "_updateAppointment");
+
+    $(this.instance.$element()).find(".dx-scheduler-appointment").eq(1).trigger("dxclick");
+    this.clock.tick(300);
+
+    var $tooltip = $(".dx-scheduler-appointment-tooltip");
+    $tooltip.find(".dx-scheduler-appointment-tooltip-buttons").find(".dx-button").eq(0).trigger("dxclick");
+
+    var exceptionDate = new Date(2018, 6, 31, 10, 0, 0, 0),
+        exceptionString = dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ");
+
+    assert.deepEqual(stub.getCall(0).args[1],
+        {
+            startDate: new Date(2018, 6, 30, 10, 0),
+            endDate: new Date(2018, 6, 30, 11, 0),
+            text: "Meeting of Instructors",
+            SC_RecurrenceRule: "FREQ=DAILY;COUNT=3",
+            SC_RecurrenceException: "20170626T100000Z," + exceptionString
+        },
+        "updateAppointment has a right arguments");
 
     assert.equal($(".dx-scheduler-appointment-tooltip").length, 0, "tooltip was hidden");
 
@@ -678,7 +732,6 @@ QUnit.test("Tooltip for recurrence appointment should display right dates(T38418
     tooltip.hide();
 });
 
-
 QUnit.test("Tooltip should hide when window was resized", function(assert) {
     this.createInstance({
         currentDate: new Date(2016, 1, 11),
@@ -761,7 +814,6 @@ QUnit.test("Appointment tooltip should be hidden after immediately delete key pr
     assert.notOk(notifyStub.withArgs("showAppointmentTooltip").called, "showAppointmentTooltip isn't called");
 });
 
-
 QUnit.test("Scheduler appointment tooltip should has right content in Material theme", function(assert) {
     var origIsMaterial = themes.isMaterial;
     themes.isMaterial = function() { return true; };
@@ -798,7 +850,6 @@ QUnit.test("Scheduler appointment tooltip should has right content in Material t
     themes.isMaterial = origIsMaterial;
 });
 
-
 QUnit.test("Scheduler appointment tooltip should has buttons at the bottom in generic theme", function(assert) {
     var data = new DataSource({
         store: this.tasks
@@ -815,4 +866,98 @@ QUnit.test("Scheduler appointment tooltip should has buttons at the bottom in ge
     assert.ok($tooltipContainers.eq(2).hasClass("dx-scheduler-appointment-tooltip-buttons"), "third container - buttons container");
 
     tooltip.hide();
+});
+
+QUnit.test("Tooltip should has right boundary in timeline view if appointment is allDay", function(assert) {
+    this.createInstance({
+        dataSource: [{
+            startDate: new Date(2018, 8, 24),
+            endDate: new Date(2018, 8, 25)
+        }],
+        currentView: "timelineDay",
+        currentDate: new Date(2018, 8, 24)
+    });
+
+    $(this.instance.$element()).find(".dx-scheduler-appointment").eq(0).trigger("dxclick");
+    this.clock.tick(300);
+
+    var tooltip = Tooltip.getInstance($(".dx-tooltip")),
+        tooltipBoundary = tooltip.option("position").boundary.get(0),
+        containerBoundary = this.instance.getWorkSpaceScrollableContainer().get(0);
+
+    assert.deepEqual(tooltipBoundary, containerBoundary, "tooltip has right boundary");
+});
+
+QUnit.test("the targetedAppointmentData parameter appends to arguments of the appointment tooltip template for a recurrence rule", function(assert) {
+    this.createInstance({
+        dataSource: [{
+            startDate: new Date(2015, 4, 24, 9),
+            endDate: new Date(2015, 4, 24, 11),
+            allDay: true,
+            recurrenceRule: "FREQ=DAILY;COUNT=3",
+            text: "Task 2"
+        }],
+        height: 600,
+        currentDate: new Date(2015, 4, 24),
+        currentView: "month",
+        views: ["month"],
+        appointmentTooltipTemplate: function(data, index, targetedAppointmentData) {
+            assert.deepEqual(targetedAppointmentData, {
+                allDay: true,
+                endDate: new Date(2015, 4, 25, 11),
+                recurrenceRule: "FREQ=DAILY;COUNT=3",
+                startDate: new Date(2015, 4, 25, 9),
+                text: "Task 2"
+            });
+        }
+    });
+
+    $(this.instance.$element().find(".dx-scheduler-appointment").eq(1)).trigger("dxclick");
+    this.clock.tick(300);
+});
+
+QUnit.test("the targetedAppointmentData parameter appends to arguments of the appointment tooltip template for a non-recurrence rule", function(assert) {
+    this.createInstance({
+        dataSource: [{
+            startDate: new Date(2015, 4, 24, 9),
+            endDate: new Date(2015, 4, 24, 11),
+            text: "Task 1"
+        }],
+        height: 600,
+        currentDate: new Date(2015, 4, 24),
+        currentView: "month",
+        views: ["month"],
+        appointmentTooltipTemplate: function(data, index, targetedAppointmentData) {
+            assert.deepEqual(targetedAppointmentData, {
+                startDate: new Date(2015, 4, 24, 9),
+                endDate: new Date(2015, 4, 24, 11),
+                text: "Task 1"
+            });
+        }
+    });
+
+    $(this.instance.$element().find(".dx-scheduler-appointment").eq(0)).trigger("dxclick");
+    this.clock.tick(300);
+});
+
+QUnit.test("The appointmentData argument of the appointment tooltip template is should be instance of the data source", function(assert) {
+    this.checkAppointmentDataInTooltipTemplate(assert, this.tasks, new Date(2015, 1, 9));
+});
+
+QUnit.test("The appointmentData argument of the appointment tooltip template is should be instance of the data source for recurrence rule", function(assert) {
+    var dataSource = [{
+        startDate: new Date(2015, 4, 24, 9),
+        endDate: new Date(2015, 4, 24, 11),
+        recurrenceRule: "FREQ=DAILY;COUNT=3",
+        allDay: true,
+        text: "Task 1"
+    }, {
+        startDate: new Date(2015, 4, 24, 19),
+        endDate: new Date(2015, 4, 24, 31),
+        allDay: true,
+        recurrenceRule: "FREQ=DAILY;COUNT=2",
+        text: "Task 2"
+    }];
+
+    this.checkAppointmentDataInTooltipTemplate(assert, dataSource, new Date(2015, 4, 24));
 });

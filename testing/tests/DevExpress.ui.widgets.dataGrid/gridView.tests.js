@@ -1,11 +1,12 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<style>\
     body {\
         padding: 0;\
         margin: 0;\
+    }\
+    .gridWithHeight {\
+        height: 440px;\
     }\
 </style>\
 <div style="padding: 0px 40px; margin: 0px 50px">\
@@ -20,19 +21,16 @@ QUnit.testStart(function() {
 });
 
 
-require("common.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var $ = require("jquery"),
-    gridCore = require("ui/data_grid/ui.data_grid.core"),
-    domUtils = require("core/utils/dom"),
-    devices = require("core/devices"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    MockColumnsController = dataGridMocks.MockColumnsController,
-    getCells = dataGridMocks.getCells;
+import $ from "jquery";
+import gridCore from "ui/data_grid/ui.data_grid.core";
+import domUtils from "core/utils/dom";
+import devices from "core/devices";
+import { setupDataGridModules, MockDataController, MockColumnsController, getCells } from "../../helpers/dataGridMocks.js";
 
 function getTextFromCell(cell) {
     return $(cell).text();
@@ -45,7 +43,7 @@ function createGridView(options, userOptions) {
         showColumnHeaders: true
     }, userOptions);
 
-    setupDataGridModules(this, ['data', 'columns', 'columnHeaders', 'rows', 'headerPanel', 'grouping', 'pager', 'sorting', 'gridView', 'filterRow', 'headerFilter', 'search', 'columnsResizingReordering', 'editorFactory', 'columnChooser', 'summary', 'columnFixing'],
+    setupDataGridModules(this, ['data', 'columns', 'columnHeaders', 'rows', 'headerPanel', 'grouping', 'pager', 'sorting', 'gridView', 'filterRow', 'headerFilter', 'search', 'columnsResizingReordering', 'editing', 'editorFactory', 'columnChooser', 'summary', 'columnFixing', 'masterDetail'],
         {
             initViews: true,
             controllers: {
@@ -77,6 +75,9 @@ function createGridView(options, userOptions) {
                 })
             };
             this.createGridView = createGridView;
+        },
+        afterEach: function() {
+            this.dispose();
         }
     });
 
@@ -346,7 +347,7 @@ function createGridView(options, userOptions) {
 
         // assert
         assert.notEqual(columnHeadersViewHeight, gridView.getView("columnHeadersView").getHeight());
-        assert.equal(Math.round(columnHeadersViewHeight + rowsViewHeight), Math.round(gridView.getView("columnHeadersView").getHeight() + gridView.getView("rowsView").element().height()));
+        assert.roughEqual(Math.round(columnHeadersViewHeight + rowsViewHeight), Math.round(gridView.getView("columnHeadersView").getHeight() + gridView.getView("rowsView").element().height()), 1.01);
     });
 
     QUnit.test('Show headers', function(assert) {
@@ -429,18 +430,18 @@ function createGridView(options, userOptions) {
     QUnit.test('Hide filterRow by filterRow visible', function(assert) {
         // arrange
         var gridView = this.createGridView(this.defaultOptions,
-            {
-                showColumnHeaders: false,
-                filterRow: {
-                    visible: false
-                },
-                groupPanel: {
-                    visible: false
-                },
-                searchPanel: {
-                    visible: false
-                }
-            }),
+                {
+                    showColumnHeaders: false,
+                    filterRow: {
+                        visible: false
+                    },
+                    groupPanel: {
+                        visible: false
+                    },
+                    searchPanel: {
+                        visible: false
+                    }
+                }),
             testElement = $('#container'),
             headers;
 
@@ -458,8 +459,8 @@ function createGridView(options, userOptions) {
         var done = assert.async(),
             defaultOptions = {
                 columnsController: new MockColumnsController([
-                { caption: 'Column 1', width: 500, allowResizing: true },
-                { caption: 'Column 2', width: 500, allowResizing: true }
+                    { caption: 'Column 1', width: 500, allowResizing: true },
+                    { caption: 'Column 2', width: 500, allowResizing: true }
                 ], this.commonColumnSettings),
                 dataController: new MockDataController({
                     items: [{ values: ['', ''] }]
@@ -494,8 +495,8 @@ function createGridView(options, userOptions) {
             columnsController: new MockColumnsController([{ caption: 'Column 1', visible: true }]),
             dataController: new MockDataController({
                 items: [
-                            { values: [1] },
-                            { values: [2] }
+                    { values: [1] },
+                    { values: [2] }
                 ]
             })
         });
@@ -523,24 +524,24 @@ function createGridView(options, userOptions) {
                 columnsController: new MockColumnsController([{ caption: 'Column 1', visible: true }]),
                 dataController: new MockDataController({
                     items: [
-                            { values: [1] },
-                            { values: [2] },
-                            { values: [3] },
-                            { values: [4] },
-                            { values: [5] }
+                        { values: [1] },
+                        { values: [2] },
+                        { values: [3] },
+                        { values: [4] },
+                        { values: [5] }
                     ],
                     totalItem: {
                         summaryCells: [
-                        { summaryType: "count", value: 100 },
-                        { summaryType: "min", value: 0 },
-                        { summaryType: "max", value: 120001 }
+                            { summaryType: "count", value: 100 },
+                            { summaryType: "min", value: 0 },
+                            { summaryType: "max", value: 120001 }
                         ]
                     }
                 })
             }),
             $container = $('#container');
 
-        $container.height(100).width(1000);
+        $container.height(110).width(1000);
         gridView.render($container, $.extend(this.options, {
             scrolling: {},
             showColumnHeaders: true,
@@ -580,11 +581,11 @@ function createGridView(options, userOptions) {
             columnsController: new MockColumnsController([{ caption: 'Column 1', visible: true }]),
             dataController: new MockDataController({
                 items: [
-                            { values: [1] },
-                            { values: [2] },
-                            { values: [3] },
-                            { values: [4] },
-                            { values: [5] }
+                    { values: [1] },
+                    { values: [2] },
+                    { values: [3] },
+                    { values: [4] },
+                    { values: [5] }
                 ]
             })
         });
@@ -640,9 +641,9 @@ function createGridView(options, userOptions) {
         var pagerView = gridView.getView('pagerView');
 
         // B232626
-        assert.strictEqual(Math.round(columnsHeaderViewContainer.height() + rowsViewViewContainer.height() + pagerView.getHeight()), 100);
-        assert.notStrictEqual(columnsHeaderViewContainer.height(), 0);
-        assert.notStrictEqual(rowsViewViewContainer.height(), 0);
+        assert.strictEqual(Math.round(columnsHeaderViewContainer[0].offsetHeight + rowsViewViewContainer[0].offsetHeight + pagerView.getHeight()), 100);
+        assert.notStrictEqual(columnsHeaderViewContainer[0].offsetHeight, 0);
+        assert.notStrictEqual(rowsViewViewContainer[0].offsetHeight, 0);
         assert.notStrictEqual(pagerView.getHeight(), 0);
     });
 
@@ -670,7 +671,7 @@ function createGridView(options, userOptions) {
 
         var rowsViewViewContainer = gridView.getView("rowsView").element();
 
-        assert.strictEqual(rowsViewViewContainer.height(), 100);
+        assert.strictEqual(rowsViewViewContainer[0].offsetHeight, 100);
     });
 
     QUnit.test('RowsView height calculation when data not loaded and allRowsCount defined', function(assert) {
@@ -697,7 +698,7 @@ function createGridView(options, userOptions) {
 
         var rowsViewViewContainer = gridView.getView("rowsView").element();
 
-        assert.strictEqual(rowsViewViewContainer.height(), 100);
+        assert.strictEqual(rowsViewViewContainer[0].offsetHeight, 100);
     });
 
     QUnit.test('RowsView height calculation when no data and loadIndicator is not visible', function(assert) {
@@ -724,15 +725,15 @@ function createGridView(options, userOptions) {
 
         var rowsViewViewContainer = gridView.getView("rowsView").element();
 
-        assert.strictEqual(rowsViewViewContainer.height(), 100);
+        assert.strictEqual(rowsViewViewContainer[0].offsetHeight, 100);
     });
 
     QUnit.test('Scroller shown after inserting items', function(assert) {
         // arrange, act
         var dataController = new MockDataController({
                 items: [
-                { values: [1] },
-                { values: [2] }
+                    { values: [1] },
+                    { values: [2] }
                 ]
             }),
             columnsController = new MockColumnsController([{ caption: 'Column 1', visible: true }]),
@@ -948,6 +949,68 @@ function createGridView(options, userOptions) {
         $rowsViewContainer = gridView.getView("rowsView").element();
         assert.strictEqual($rowsViewContainer.get(0).style.height, "", "height of the rowsView");
     });
+
+    // T654070
+    QUnit.test("Render scrollable after showing grid", function(assert) {
+        // arrange
+        var $testElement = $("#container");
+
+        $testElement.hide();
+        $testElement.addClass("gridWithHeight");
+
+        var gridView = this.createGridView({
+            columnsController: new MockColumnsController([{ caption: 'Column 1', visible: true }]),
+            dataController: new MockDataController({
+                items: [ { values: [1] } ]
+            })
+        });
+
+        gridView.render($testElement);
+        gridView.update();
+
+        // assert
+        assert.notOk(this.rowsView.element().hasClass("dx-scrollable"), "hasn't scrollable");
+
+        // act
+        $testElement.show();
+        this.updateDimensions();
+
+        // assert
+        assert.ok(this.rowsView.element().hasClass("dx-scrollable"), "has scrollable");
+    });
+
+    // T722415
+    QUnit.test("Header container should have padding-right when using editCellTemplate, native scrolling and setting the grid's max-height CSS attribute", function(assert) {
+        // arrange
+        var $testElement = $("#container").css("maxHeight", "200px");
+
+        var gridView = this.createGridView({
+            columnsController: new MockColumnsController([{
+                caption: 'Column 1',
+                dataField: "Column1",
+                visible: true,
+                showEditorAlways: true,
+                allowEditing: true,
+                editCellTemplate: (_, options) => {
+                    return $("<textarea/>").css("minHeight", "100px").val(options.value);
+                }
+            }]),
+            dataController: new MockDataController({
+                items: [{ values: [1], rowType: "data" }, { values: [2], rowType: "data" }, { values: [3], rowType: "data" }, { values: [4], rowType: "data" }]
+            })
+        }, {
+            scrolling: {
+                useNative: true
+            }
+        });
+
+        // act
+        gridView.render($testElement);
+        gridView.update();
+
+        // assert
+        assert.strictEqual(parseFloat($(this.columnHeadersView.element()).css("paddingRight")), this.rowsView.getScrollbarWidth(), "padding-right");
+    });
 }());
 
 // Synchronize columns module///
@@ -963,6 +1026,7 @@ function createGridView(options, userOptions) {
             this.clock = sinon.useFakeTimers();
         },
         afterEach: function() {
+            this.dispose();
             this.clock.restore();
         }
     });
@@ -1388,7 +1452,7 @@ function createGridView(options, userOptions) {
         // arrange
         var defaultOptions = {
                 columnsController: new MockColumnsController([
-                { caption: 'Column 1', width: '120px' },
+                    { caption: 'Column 1', width: '120px' },
                     {
                         caption: 'Column 2', width: '130px', cellTemplate: function(container, options) {
                             $(container).append('<div style="width: 130px" />');
@@ -1586,9 +1650,9 @@ function createGridView(options, userOptions) {
                     items: [{ values: [''] }],
                     totalItem: {
                         summaryCells: [
-                        { summaryType: "count", value: 100 },
-                        { summaryType: "min", value: 0 },
-                        { summaryType: "max", value: 120001 }
+                            { summaryType: "count", value: 100 },
+                            { summaryType: "min", value: 0 },
+                            { summaryType: "max", value: 120001 }
                         ]
                     }
                 })
@@ -1792,6 +1856,195 @@ function createGridView(options, userOptions) {
         assert.strictEqual($colElements.get(3).style.width, "70px", "width of a fourth column");
         assert.strictEqual($colElements.get(4).style.width, "150px", "width of a fifth column");
     });
+
+    // T649950
+    QUnit.test("The width of the last data column should be correctly updated when inserting row after resizing columns", function(assert) {
+        // arrange
+        var that = this,
+            gridView,
+            resizeController,
+            $testElement = $('#container');
+
+        that.$element = function() {
+            return $testElement;
+        };
+
+        gridView = that.createGridView({}, {
+            dataSource: [],
+            allowColumnResizing: true,
+            columnResizingMode: "widget",
+            columnAutoWidth: true,
+            editing: {
+                mode: "cell",
+                allowAdding: true,
+                allowDeleting: true,
+                allowUpdating: true
+            },
+            columns: [{ dataField: "field1", width: 100, allowEditing: true }, "field2", "field3", "field4"]
+        });
+
+        gridView.render($testElement);
+        gridView.update();
+
+        resizeController = that.getController("columnsResizer");
+        resizeController._isResizing = true;
+        resizeController._targetPoint = { columnIndex: 0 };
+        resizeController._setupResizingInfo(-9900);
+        resizeController._moveSeparator({
+            event: {
+                data: resizeController,
+                type: "mousemove",
+                pageX: -9950,
+                preventDefault: function() {}
+            }
+        });
+        resizeController._endResizing({
+            event: {
+                data: resizeController
+            }
+        });
+
+        // act
+        that.addRow();
+        that.clock.tick();
+
+        // assert
+        assert.notOk($(that.getCellElement(0, "field4"))[0].style.width, "the fourth column has no width");
+        assert.notOk($(that.getCellElement(0, "field4"))[0].style.maxWidth, "the fourth column has no maxWidth");
+        assert.notOk($(that.getCellElement(0, "field4"))[0].style.minWidth, "the fourth column has no minWidth");
+    });
+
+    // T626875
+    QUnit.test("Column with percentage width and fixed min-width when columnWidth is auto", function(assert) {
+        // arrange
+        var defaultOptions = {
+                columnsController: new MockColumnsController([{ caption: "Column 1" }, { caption: "Column 2", width: "30%", minWidth: 130 }, { caption: "Column 3" }, { caption: "Column 4" }, { caption: "Column 5" }, { caption: "Column 6" }]),
+                dataController: new MockDataController({
+                    items: [{ values: ["Test1", "Test222222222", "Test3333333", "Test44", "Test55555555", "Test666"] }]
+                })
+            },
+            gridView = this.createGridView(defaultOptions, { columnAutoWidth: true }),
+            $testElement = $("<div />").width(500).appendTo($("#container")),
+            $colElements;
+
+        // act
+        gridView.render($testElement);
+        gridView.update();
+        defaultOptions.columnsController.columnsChanged.fire({
+            changeTypes: { columns: true, length: 1 },
+            optionNames: { visibleWidth: true, length: 1 }
+        });
+
+        $colElements = $testElement.find(".dx-datagrid-rowsview table").find("colgroup > col");
+
+        // assert
+        assert.strictEqual($colElements[1].style.width, "130px", "column width");
+    });
+
+    QUnit.test("The command column widths must be correct", function(assert) {
+        // arrange
+        var $colElements,
+            $testElement = $('<div />').appendTo($('#container')),
+            gridView = this.createGridView({}, {
+                editing: {
+                    mode: "row",
+                    allowUpdating: true
+                },
+                columnAutoWidth: true,
+                dataSource: [{ field1: "test1", field2: "test2", field3: "test3" }],
+                columns: [
+                    { dataField: "field1" },
+                    { type: "buttons" },
+                    { type: "buttons", buttons: [{ text: "test" }], width: 250 },
+                    { dataField: "field2" },
+                    { dataField: "field3" }
+                ]
+            });
+
+        // act
+        gridView.render($testElement);
+        gridView.update();
+
+        // assert
+        $colElements = $testElement.find(".dx-datagrid-headers").find("col");
+        assert.strictEqual($colElements.length, 5, "column count");
+        assert.strictEqual($colElements.get(1).style.width, "100px", "width of a first command column");
+        assert.strictEqual($colElements.get(2).style.width, "250px", "width of a second command column");
+    });
+
+    QUnit.test("Group and detail column widths must be correct", function(assert) {
+        // arrange
+        var $colElements,
+            $testElement = $('<div />').appendTo($('#container')),
+            gridView = this.createGridView({}, {
+                masterDetail: {
+                    enabled: true
+                },
+                columnAutoWidth: true,
+                dataSource: [{ field1: "test1", field2: "test2", field3: "test3" }],
+                columns: [
+                    { dataField: "field1" },
+                    { type: "detailExpand" },
+                    { type: "groupExpand", width: 100 },
+                    { dataField: "field2", groupIndex: 0 },
+                    { dataField: "field3", groupIndex: 1 }
+                ]
+            });
+
+        // act
+        gridView.render($testElement);
+        gridView.update();
+
+        // assert
+        $colElements = $testElement.find(".dx-datagrid-headers").find("col");
+        assert.strictEqual($colElements.length, 4, "column count");
+        assert.strictEqual($colElements.get(1).style.width, "30px", "width of the detail column");
+        assert.strictEqual($colElements.get(2).style.width, "100px", "width of the group column");
+        assert.strictEqual($colElements.get(3).style.width, "100px", "width of the group column");
+    });
+
+    // T729862
+    QUnit.test("Expand column width should be correct when the grouping and summary options are changed dynamically", function(assert) {
+        // arrange
+        var $colElements,
+            $testElement = $('<div />').appendTo($('#container')),
+            gridView = this.createGridView({}, {
+                loadingTimeout: undefined,
+                dataSource: [{ field1: "test1", field2: "test2", field3: "test3" }],
+                columns: [
+                    { dataField: "field1" },
+                    { dataField: "field2" },
+                    { dataField: "field3" }
+                ],
+                summary: {
+                    totalItems: [{
+                        column: "field1",
+                        summaryType: "count"
+                    }],
+                    texts: {
+                        count: "Count={0}"
+                    }
+                }
+            });
+
+        gridView.render($testElement);
+        gridView.update();
+
+        // act
+        this.dataController.beginUpdate();
+        this.columnsController.beginUpdate();
+
+        this.option("summary", []);
+        this.dataController.optionChanged({ name: "summary", fullName: "summary", value: [] });
+        this.columnOption("field1", "groupIndex", 0);
+
+        this.columnsController.endUpdate();
+        this.dataController.endUpdate();
+
+        // assert
+        $colElements = $testElement.find(".dx-datagrid-rowsview").find("col");
+        assert.strictEqual($colElements.get(0).style.width, "30px", "width of the expand column");
+    });
 }());
 
 // Fixed columns///
@@ -1807,6 +2060,9 @@ function createGridView(options, userOptions) {
                 })
             };
             this.createGridView = createGridView;
+        },
+        afterEach: function() {
+            this.dispose();
         }
     });
 
@@ -1820,12 +2076,12 @@ function createGridView(options, userOptions) {
                 { caption: 'Column 4', width: 100, fixed: true }]);
             this.defaultOptions.dataController.items = function() {
                 return [{ values: [1, 2, 'test 1', 15], rowType: "data" },
-                        { values: [3, 4, 'test 2', 16], rowType: "data" },
-                        { values: [5, 6, 'test 3', 17], rowType: "data" },
-                        { values: [7, 8, 'test 4', 18], rowType: "data" },
-                        { values: [9, 10, 'test 5', 19], rowType: "data" },
-                        { values: [11, 12, 'test 6', 20], rowType: "data" },
-                        { values: [13, 14, 'test 7', 21], rowType: "data" }];
+                    { values: [3, 4, 'test 2', 16], rowType: "data" },
+                    { values: [5, 6, 'test 3', 17], rowType: "data" },
+                    { values: [7, 8, 'test 4', 18], rowType: "data" },
+                    { values: [9, 10, 'test 5', 19], rowType: "data" },
+                    { values: [11, 12, 'test 6', 20], rowType: "data" },
+                    { values: [13, 14, 'test 7', 21], rowType: "data" }];
             };
 
             var gridView = this.createGridView(this.defaultOptions, {
@@ -1846,6 +2102,43 @@ function createGridView(options, userOptions) {
             assert.ok(parseFloat(fixedContent.css("marginBottom")) > 0, "margin bottom in fixed content");
             fixedContent = testElement.find(".dx-datagrid-headers").children(".dx-datagrid-content-fixed");
             assert.ok(parseFloat(fixedContent.css("paddingRight")) > 0, "padding right in fixed content");
+        });
+
+        // T716971
+        QUnit.test("Draw grid view with a simulated scrolling when scrolling.showScrollbar is 'always'", function(assert) {
+            // arrange
+            this.defaultOptions.columnsController = new MockColumnsController([
+                { caption: 'Column 1', width: 100, fixed: true },
+                { caption: 'Column 2', width: 100 },
+                { caption: 'Column 3', width: 100 },
+                { caption: 'Column 4', width: 100, fixed: true }]);
+            this.defaultOptions.dataController.items = function() {
+                return [{ values: [1, 2, 'test 1', 15], rowType: "data" },
+                    { values: [3, 4, 'test 2', 16], rowType: "data" },
+                    { values: [5, 6, 'test 3', 17], rowType: "data" },
+                    { values: [7, 8, 'test 4', 18], rowType: "data" },
+                    { values: [9, 10, 'test 5', 19], rowType: "data" },
+                    { values: [11, 12, 'test 6', 20], rowType: "data" },
+                    { values: [13, 14, 'test 7', 21], rowType: "data" }];
+            };
+
+            var gridView = this.createGridView(this.defaultOptions, {
+                    scrolling: {
+                        showScrollbar: "always",
+                        useNative: false
+                    }
+                }),
+                $fixedContent,
+                $testElement = $('#container').width(300).height(200);
+
+            // act
+            gridView.render($testElement);
+            gridView.update();
+
+            // assert
+            $fixedContent = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed");
+            assert.strictEqual(parseFloat($fixedContent.css("marginBottom")), 0, "margin bottom in fixed content");
+            assert.ok(parseFloat($fixedContent.find("table").first().css("marginBottom")) > 0, "margin bottom in fixed table");
         });
     }
 
@@ -1882,5 +2175,49 @@ function createGridView(options, userOptions) {
         assert.notOk($colElements.eq(0).attr("style"), "width of the first col");
         assert.notOk($colElements.eq(1).attr("style"), "width of the second col");
         assert.strictEqual($colElements.eq(2).attr("style"), "width: 100px;", "width of the third col");
+    });
+
+    // T719132
+    QUnit.test("The fixed column width should not be changed after expanding a detail row", function(assert) {
+        // arrange
+        var gridView = this.createGridView({}, {
+                columnAutoWidth: true,
+                keyExpr: "id",
+                dataSource: [{ id: 0, field1: "test1", field2: "test2", field3: "test3" }],
+                columns: [
+                    {
+                        dataField: "field1", fixed: true, allowFixing: true
+                    },
+                    {
+                        dataField: "field2", allowFixing: true
+                    },
+                    {
+                        dataField: "field3", allowFixing: true
+                    }
+                ],
+                masterDetail: {
+                    enabled: true,
+                    template: function() {
+                        return $("<div/>").text("Test").width(1000);
+                    }
+                },
+            }),
+            fixedColumnWidth,
+            $testElement = $('#container').width(500);
+
+        gridView.render($testElement);
+        gridView.update();
+        gridView.resize();
+
+        fixedColumnWidth = $(this.getCellElement(0, 1)).width();
+
+        // act
+        this.expandRow(0);
+        gridView.update();
+        gridView.resize();
+
+        // assert
+        assert.ok($testElement.find(".dx-master-detail-row").length > 0, "has master detail");
+        assert.strictEqual(fixedColumnWidth, $(this.getCellElement(0, 1)).width(), "fixed column width isn't changed");
     });
 }());

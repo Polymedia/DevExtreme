@@ -1,11 +1,9 @@
-"use strict";
+import $ from "jquery";
+import windowUtils from "core/utils/window";
 
-var $ = require("jquery"),
-    windowUtils = require("core/utils/window");
+import "ui/data_grid";
 
-require("ui/data_grid");
-
-require("common.css!");
+import "common.css!";
 
 
 QUnit.testStart(function() {
@@ -130,7 +128,7 @@ QUnit.test("markup with virtual scrolling", function(assert) {
     this.clock.tick(300);
     var $virtualRows = $element.find(".dx-datagrid-rowsview .dx-datagrid-table .dx-virtual-row");
     assert.equal($virtualRows.length, 1, "one virtual row is rendered");
-    assert.ok(parseInt($virtualRows.get(0).style.height) > 20, "first virtual row height");
+    assert.ok(parseInt($virtualRows.eq(0).children().get(0).style.height) > 20, "first virtual row height");
 });
 
 QUnit.test("markup with editing", function(assert) {

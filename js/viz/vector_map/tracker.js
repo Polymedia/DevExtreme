@@ -1,49 +1,47 @@
-"use strict";
+import eventsEngine from "../../events/core/events_engine";
+import windowUtils from "../../core/utils/window";
+import domAdapter from "../../core/dom_adapter";
+import eventEmitterModule from "./event_emitter";
+import eventUtils from "../../events/utils";
+import { name as wheelEventName } from "../../events/core/wheel";
+import { parseScalar } from "../core/utils";
 
-var eventsEngine = require("../../events/core/events_engine"),
-    windowUtils = require("../../core/utils/window"),
-    domAdapter = require("../../core/dom_adapter"),
-    navigator = windowUtils.getNavigator(),
-    _math = Math,
-    _abs = _math.abs,
-    _sqrt = _math.sqrt,
-    _round = _math.round,
+const navigator = windowUtils.getNavigator();
+const _math = Math;
+const _abs = _math.abs;
+const _sqrt = _math.sqrt;
+const _round = _math.round;
+const _addNamespace = eventUtils.addNamespace;
+const _now = Date.now;
 
-    eventEmitterModule = require("./event_emitter"),
-    eventUtils = require("../../events/utils"),
-    wheelEventName = require("../../events/core/wheel").name,
-    _addNamespace = eventUtils.addNamespace,
-    _parseScalar = require("../core/utils").parseScalar,
-    _now = Date.now,
+const _NAME = "dxVectorMap";
+const EVENT_START = "start";
+const EVENT_MOVE = "move";
+const EVENT_END = "end";
+const EVENT_ZOOM = "zoom";
+const EVENT_HOVER_ON = "hover-on";
+const EVENT_HOVER_OFF = "hover-off";
+const EVENT_CLICK = "click";
+const EVENT_FOCUS_ON = "focus-on";
+const EVENT_FOCUS_MOVE = "focus-move";
+const EVENT_FOCUS_OFF = "focus-off";
 
-    _NAME = "dxVectorMap",
-    EVENTS = {};
+const CLICK_TIME_THRESHOLD = 500;
+const CLICK_COORD_THRESHOLD_MOUSE = 5;
+const CLICK_COORD_THRESHOLD_TOUCH = 20;
+const DRAG_COORD_THRESHOLD_MOUSE = 5;
+const DRAG_COORD_THRESHOLD_TOUCH = 10;
+const FOCUS_ON_DELAY_MOUSE = 300;
+const FOCUS_OFF_DELAY_MOUSE = 300;
+const FOCUS_ON_DELAY_TOUCH = 300;
+const FOCUS_OFF_DELAY_TOUCH = 400;
+const FOCUS_COORD_THRESHOLD_MOUSE = 5;
+const WHEEL_COOLDOWN = 50;
+const WHEEL_DIRECTION_COOLDOWN = 300;
+
+let EVENTS;
 
 setupEvents();
-
-var EVENT_START = "start",
-    EVENT_MOVE = "move",
-    EVENT_END = "end",
-    EVENT_ZOOM = "zoom",
-    EVENT_HOVER_ON = "hover-on",
-    EVENT_HOVER_OFF = "hover-off",
-    EVENT_CLICK = "click",
-    EVENT_FOCUS_ON = "focus-on",
-    EVENT_FOCUS_MOVE = "focus-move",
-    EVENT_FOCUS_OFF = "focus-off",
-
-    CLICK_TIME_THRESHOLD = 500,
-    CLICK_COORD_THRESHOLD_MOUSE = 5,
-    CLICK_COORD_THRESHOLD_TOUCH = 20,
-    DRAG_COORD_THRESHOLD_MOUSE = 5,
-    DRAG_COORD_THRESHOLD_TOUCH = 10,
-    FOCUS_ON_DELAY_MOUSE = 300,
-    FOCUS_OFF_DELAY_MOUSE = 300,
-    FOCUS_ON_DELAY_TOUCH = 300,
-    FOCUS_OFF_DELAY_TOUCH = 400,
-    FOCUS_COORD_THRESHOLD_MOUSE = 5,
-    WHEEL_COOLDOWN = 50,
-    WHEEL_DIRECTION_COOLDOWN = 300;
 
 function Tracker(parameters) {
     var that = this;
@@ -308,7 +306,7 @@ Tracker.prototype = {
             if(isTouch && !that._isTouchEnabled) { return; }
             if(data) {
                 event.preventDefault();
-                event.stopPropagation();    // T322560
+                event.stopPropagation(); // T322560
             }
 
             that._startClick(event, data);
@@ -350,7 +348,7 @@ Tracker.prototype = {
             var data = getData(event);
             if(data) {
                 event.preventDefault();
-                event.stopPropagation();    // T249548
+                event.stopPropagation(); // T249548
                 that._wheelZoom(event, data);
             }
         };
@@ -366,7 +364,7 @@ Tracker.prototype = {
 
     _createProjectionHandlers: function(projection) {
         var that = this;
-        projection.on({ "center": handler, "zoom": handler });  // T247841
+        projection.on({ "center": handler, "zoom": handler }); // T247841
         function handler() {
             // `_cancelHover` probably should also be called here but for now let it not be so
             that._cancelFocus();
@@ -385,8 +383,8 @@ Tracker.prototype = {
         var that = this;
         that.reset();
         that._detachHandlers();
-        that._isTouchEnabled = !!_parseScalar(options.touchEnabled, true);
-        that._isWheelEnabled = !!_parseScalar(options.wheelEnabled, true);
+        that._isTouchEnabled = !!parseScalar(options.touchEnabled, true);
+        that._isWheelEnabled = !!parseScalar(options.wheelEnabled, true);
         that._attachHandlers();
     },
 

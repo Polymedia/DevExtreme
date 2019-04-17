@@ -1,5 +1,3 @@
-"use strict";
-
 var mixins = {},
     statesConsts = require("../../components/consts").states,
     symbolPoint = require("./symbol_point"),
@@ -124,21 +122,21 @@ Point.prototype = {
 
     updateData: function(dataItem) {
         var that = this;
+        const argumentWasChanged = that.argument !== dataItem.argument;
         that.argument = that.initialArgument = that.originalArgument = dataItem.argument;
         that.tag = dataItem.tag;
         that.index = dataItem.index;
 
-        this._dataItem = dataItem;
+        that._dataItem = dataItem;
 
-        this.data = dataItem.data;
+        that.data = dataItem.data;
 
         that.lowError = dataItem.lowError;
         that.highError = dataItem.highError;
 
         that.aggregationInfo = dataItem.aggregationInfo;
 
-        that._updateData(dataItem);
-
+        that._updateData(dataItem, argumentWasChanged);
 
         !that.hasValue() && that.setInvisibility();
 
@@ -154,8 +152,6 @@ Point.prototype = {
         that.graphic = null;
     },
 
-    _drawErrorBar: _noop,
-
     draw: function(renderer, groups, animationEnabled, firstDrawing) {
         var that = this;
         if(that._needDeletingOnDraw) {
@@ -168,7 +164,7 @@ Point.prototype = {
         }
 
         if(!that._hasGraphic()) {
-            that._getMarkerVisibility() && that._drawMarker(renderer, groups.markers, animationEnabled, firstDrawing);
+            that.getMarkerVisibility() && that._drawMarker(renderer, groups.markers, animationEnabled, firstDrawing);
         } else {
             that._updateMarker(animationEnabled, this._getStyle(), groups.markers);
         }
@@ -176,20 +172,6 @@ Point.prototype = {
         that._drawLabel();
 
         that._drawErrorBar(renderer, groups.errorBars, animationEnabled);
-        return that;
-    },
-
-    applyStyle: function(style, callback) {
-        var that = this;
-        that._currentStyle = style;
-        if(that.graphic) {
-            if(style === "normal") {
-                that.clearMarker();
-            } else {
-                that.graphic.toForeground();
-            }
-            that._updateMarker(true, that._styles[style], undefined, callback);
-        }
         return that;
     },
 
@@ -221,7 +203,16 @@ Point.prototype = {
 
     applyView: function(legendCallback) {
         var style = this._getViewStyle();
-        this.applyStyle(style, legendCallback);
+        var that = this;
+        that._currentStyle = style;
+        if(that.graphic) {
+            if(style === "normal") {
+                that.clearMarker();
+            } else {
+                that.graphic.toForeground();
+            }
+            that._updateMarker(true, that._styles[style], undefined, legendCallback);
+        }
     },
 
     setView: function(style) {
@@ -230,15 +221,12 @@ Point.prototype = {
     },
 
     resetView: function(style) {
-        --this._viewCounters[style];
+        var viewCounters = this._viewCounters;
 
-        ///#DEBUG
-        if(this._viewCounters[style] < 0) {
-            var debug = require("../../../core/utils/console").debug;
-            debug.assert(false, "incorrect view style couinter " + this._viewCounters[style] + " " + style);
+        --viewCounters[style];
+        if(viewCounters[style] < 0) { // T661080
+            viewCounters[style] = 0;
         }
-        ///#ENDDEBUG
-
         this.applyView();
     },
 
@@ -413,7 +401,7 @@ Point.prototype = {
             ((visibleArea.minY) > (y + (height || 0))) || ((visibleArea.maxY) < y)) ||
             (rotated && _isDefined(width) && width !== 0 && (visibleArea.minX === (x + width) || visibleArea.maxX === x)) ||
         (!rotated && _isDefined(height) && height !== 0 && (visibleArea.minY === (y + height) || visibleArea.maxY === y))
-            ) {
+        ) {
             that.inVisibleArea = false;
         } else {
             that.inVisibleArea = true;
@@ -452,6 +440,8 @@ Point.prototype = {
     correctLabelPosition: _noop,
     getMinValue: _noop,
     getMaxValue: _noop,
+    _drawErrorBar: _noop,
+    getMarkerVisibility: _noop,
     dispose: function() {
         var that = this;
         that.deleteMarker();

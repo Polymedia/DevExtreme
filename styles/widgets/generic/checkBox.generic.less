@@ -2,7 +2,7 @@
     @GENERIC_CHECKBOX_SIZE: 22px;
     @GENERIC_CHECKBOX_ARROW_ICON_SIZE: 16px;
 
-    @GENERIC_CHECKBOX_INTERMIDIATE_ICON_SIZE: 12px;
+    @GENERIC_CHECKBOX_INTERMIDIATE_ICON_SIZE: 14px;
     @GENERIC_CHECKBOX_INTERMIDIATE_ICON_MARGIN: 4px;
 }
 
@@ -33,8 +33,6 @@
     }
 
     &.dx-state-focused {
-        .box-shadow(none);
-
         .dx-checkbox-icon {
             border: 1px solid @checkbox-focused-borderd-color;
         }
@@ -50,7 +48,7 @@
 .dx-checkbox-icon {
     width: @GENERIC_CHECKBOX_SIZE;
     height: @GENERIC_CHECKBOX_SIZE;
-    .border-radius(@checkbox-icon-border-radius);
+    border-radius: @checkbox-icon-border-radius;
     border: 1px solid @checkbox-border-color;
     background-color: @checkbox-bg;
 
@@ -61,15 +59,9 @@
     }
 
     .dx-checkbox-indeterminate & {
-        &:before {
-            content: '';
-            width: @GENERIC_CHECKBOX_INTERMIDIATE_ICON_SIZE;
-            height: @GENERIC_CHECKBOX_INTERMIDIATE_ICON_SIZE;
-            background-color: @checkbox-indeterminate-bg;
-            position: absolute;
-            left: @GENERIC_CHECKBOX_INTERMIDIATE_ICON_MARGIN;
-            top: @GENERIC_CHECKBOX_INTERMIDIATE_ICON_MARGIN;
-        }
+        .dx-icon-square;
+        color: @checkbox-indeterminate-bg;
+        .dx-icon-font-centered-sizing(@GENERIC_CHECKBOX_INTERMIDIATE_ICON_SIZE);
     }
 }
 

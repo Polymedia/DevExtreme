@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     Callbacks = require("../../core/utils/callbacks"),
     each = require("../../core/utils/iterator").each,
@@ -75,7 +73,8 @@ var ScrollViewScroller = simulatedStrategy.Scroller.inherit({
     _updateScrollbar: function() {
         this._scrollbar.option({
             containerSize: this._containerSize(),
-            contentSize: this._contentSize() - this._topPocketSize - this._bottomPocketSize
+            contentSize: this._contentSize() - this._topPocketSize - this._bottomPocketSize,
+            scaleRatio: this._getScaleRatio()
         });
     },
 

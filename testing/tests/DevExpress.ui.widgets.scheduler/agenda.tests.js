@@ -1,7 +1,5 @@
-"use strict";
-
 var $ = require("jquery"),
-    SchedulerAgenda = require("ui/scheduler/ui.scheduler.agenda"),
+    SchedulerAgenda = require("ui/scheduler/workspaces/ui.scheduler.agenda"),
     dateLocalization = require("localization/date"),
     ResourceManager = require("ui/scheduler/ui.scheduler.resource_manager");
 

@@ -1,43 +1,39 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    Callbacks = require("../../core/utils/callbacks"),
-    isWrapped = require("../../core/utils/variable_wrapper").isWrapped,
-    dataCoreUtils = require("../../core/utils/data"),
-    grep = require("../../core/utils/common").grep,
-    typeUtils = require("../../core/utils/type"),
-    iteratorUtils = require("../../core/utils/iterator"),
-    getDefaultAlignment = require("../../core/utils/position").getDefaultAlignment,
-    extend = require("../../core/utils/extend").extend,
-    inArray = require("../../core/utils/array").inArray,
-    config = require("../../core/config"),
-    isDefined = typeUtils.isDefined,
-    objectUtils = require("../../core/utils/object"),
-    errors = require("../widget/ui.errors"),
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    normalizeSortingInfo = gridCoreUtils.normalizeSortingInfo,
-    equalSortParameters = gridCoreUtils.equalSortParameters,
-    normalizeIndexes = require("../../core/utils/array").normalizeIndexes,
-    inflector = require("../../core/utils/inflector"),
-    dateSerialization = require("../../core/utils/date_serialization"),
-    numberLocalization = require("../../localization/number"),
-    dateLocalization = require("../../localization/date"),
-    messageLocalization = require("../../localization/message"),
-    deferredUtils = require("../../core/utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred,
-    Store = require("../../data/abstract_store"),
-    DataSourceModule = require("../../data/data_source/data_source"),
-    normalizeDataSourceOptions = DataSourceModule.normalizeDataSourceOptions,
-    filterUtils = require("../shared/filtering");
+import $ from "../../core/renderer";
+import Callbacks from "../../core/utils/callbacks";
+import { isWrapped } from "../../core/utils/variable_wrapper";
+import dataCoreUtils from "../../core/utils/data";
+import { grep } from "../../core/utils/common";
+import { isDefined, isString, isNumeric, isFunction, isObject, isPlainObject, type } from "../../core/utils/type";
+import iteratorUtils from "../../core/utils/iterator";
+import { getDefaultAlignment } from "../../core/utils/position";
+import { extend } from "../../core/utils/extend";
+import { inArray } from "../../core/utils/array";
+import config from "../../core/config";
+import { orderEach, deepExtendArraySafe } from "../../core/utils/object";
+import errors from "../widget/ui.errors";
+import modules from "./ui.grid_core.modules";
+import { isDateType, getFormatByDataType, getDisplayValue, normalizeSortingInfo, equalSortParameters } from "./ui.grid_core.utils";
+import { normalizeIndexes } from "../../core/utils/array";
+import inflector from "../../core/utils/inflector";
+import dateSerialization from "../../core/utils/date_serialization";
+import numberLocalization from "../../localization/number";
+import dateLocalization from "../../localization/date";
+import messageLocalization from "../../localization/message";
+import { when, Deferred } from "../../core/utils/deferred";
+import Store from "../../data/abstract_store";
+import { DataSource, normalizeDataSourceOptions } from "../../data/data_source/data_source";
+import filterUtils from "../shared/filtering";
 
 var USER_STATE_FIELD_NAMES_15_1 = ["filterValues", "filterType", "fixed", "fixedPosition"],
     USER_STATE_FIELD_NAMES = ["visibleIndex", "dataField", "name", "dataType", "width", "visible", "sortOrder", "lastSortOrder", "sortIndex", "groupIndex", "filterValue", "selectedFilterOperation", "added"].concat(USER_STATE_FIELD_NAMES_15_1),
     IGNORE_COLUMN_OPTION_NAMES = { visibleWidth: true, bestFitWidth: true, bufferedFilterValue: true },
-    COMMAND_EXPAND_CLASS = "dx-command-expand";
+    COMMAND_EXPAND_CLASS = "dx-command-expand",
+    MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991/* IE11 */,
+    GROUP_COMMAND_COLUMN_NAME = "groupExpand";
 
 var regExp = /columns\[(\d+)\]\.?/gi;
+
+var globalColumnId = 1;
 
 module.exports = {
     defaultOptions: function() {
@@ -128,7 +124,7 @@ module.exports = {
              * @name GridBaseColumn.visible
              * @type boolean
              * @default true
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.hidingPriority
@@ -169,7 +165,7 @@ module.exports = {
              * @name GridBaseColumn.visibleIndex
              * @type number
              * @default undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.showInColumnChooser
@@ -272,13 +268,13 @@ module.exports = {
              * @type Enums.SortOrder
              * @default undefined
              * @acceptValues undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.sortIndex
              * @type number
              * @default undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.showEditorAlways
@@ -307,12 +303,6 @@ module.exports = {
              * @type_function_return string
              */
             /**
-             * @name dxDataGridColumn.precision
-             * @type number
-             * @default undefined
-             * @deprecated
-             */
-            /**
              * @name GridBaseColumn.filterOperations
              * @type Array<string>
              * @acceptValues "=" | "<>" | "<" | "<=" | ">" | ">=" | "notcontains" | "contains" | "startswith" | "endswith" | "between"
@@ -322,19 +312,19 @@ module.exports = {
              * @name GridBaseColumn.selectedFilterOperation
              * @type Enums.FilterOperations
              * @default undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.filterValue
              * @type any
              * @default undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
              */
             /**
              * @name GridBaseColumn.filterValues
              * @type Array<any>
              * @default undefined
-             * @fires GridBase.onOptionChanged
+             * @fires GridBaseOptions.onOptionChanged
             */
             /**
              * @name GridBaseColumn.filterType
@@ -369,7 +359,7 @@ module.exports = {
              * @name dxDataGridColumn.groupIndex
              * @type number
              * @default undefined
-             * @fires dxDataGrid.onOptionChanged
+             * @fires dxDataGridOptions.onOptionChanged
              */
             /**
              * @name dxDataGridColumn.grouped
@@ -438,6 +428,11 @@ module.exports = {
              * @default true
              */
             /**
+             * @name GridBaseColumn.renderAsync
+             * @type boolean
+             * @default false
+             */
+            /**
              * @name dxDataGridColumn.resized
              * @type function
              * @hidden
@@ -503,6 +498,11 @@ module.exports = {
              * @default false
              */
             /**
+             * @name GridBaseColumn.headerFilter.searchMode
+             * @type Enums.CollectionSearchMode
+             * @default 'contains'
+             */
+            /**
              * @name GridBaseColumn.headerFilter.width
              * @type number
              * @default undefined
@@ -519,6 +519,134 @@ module.exports = {
             /**
              * @name GridBaseColumn.formItem
              * @type dxFormSimpleItem
+             */
+            /**
+             * @name dxDataGridColumn.type
+             * @publicName type
+             * @type Enums.GridCommandColumnType
+             */
+            /**
+             * @name dxTreeListColumn.type
+             * @publicName type
+             * @type Enums.TreeListCommandColumnType
+             */
+            /**
+             * @name dxDataGridColumn.buttons
+             * @type Array<Enums.GridColumnButtonName,dxDataGridColumnButton>
+             */
+            /**
+             * @name dxTreeListColumn.buttons
+             * @type Array<Enums.TreeListColumnButtonName,dxTreeListColumnButton>
+             */
+            /**
+             * @name GridBaseColumnButton
+             * @type Object
+             */
+            /**
+             * @name GridBaseColumnButton.text
+             * @type string
+             */
+            /**
+             * @name GridBaseColumnButton.icon
+             * @type string
+             */
+            /**
+             * @name GridBaseColumnButton.hint
+             * @type string
+             */
+            /**
+             * @name GridBaseColumnButton.cssClass
+             * @type string
+             */
+            /**
+             * @name dxDataGridColumnButton
+             * @inherits GridBaseColumnButton
+             * @type Object
+             */
+            /**
+             * @name dxTreeListColumnButton
+             * @inherits GridBaseColumnButton
+             * @type Object
+             */
+            /**
+             * @name dxDataGridColumnButton.name
+             * @type Enums.GridColumnButtonName|string
+             */
+            /**
+             * @name dxTreeListColumnButton.name
+             * @type Enums.TreeListColumnButtonName|string
+             */
+            /**
+             * @name dxDataGridColumnButton.onClick
+             * @type function(e)|string
+             * @type_function_param1 e:object
+             * @type_function_param1_field1 component:dxDataGrid
+             * @type_function_param1_field2 element:dxElement
+             * @type_function_param1_field3 model:object
+             * @type_function_param1_field4 event:event
+             * @type_function_param1_field5 row:dxDataGridRowObject
+             * @type_function_param1_field6 column:dxDataGridColumn
+             */
+            /**
+             * @name dxTreeListColumnButton.onClick
+             * @type function(e)|string
+             * @type_function_param1 e:object
+             * @type_function_param1_field1 component:dxTreeList
+             * @type_function_param1_field2 element:dxElement
+             * @type_function_param1_field3 model:object
+             * @type_function_param1_field4 event:event
+             * @type_function_param1_field5 row:dxTreeListRowObject
+             * @type_function_param1_field6 column:dxTreeListColumn
+             */
+            /**
+             * @name dxDataGridColumnButton.visible
+             * @type boolean|function
+             * @default true
+             * @type_function_param1 options:object
+             * @type_function_param1_field1 component:dxDataGrid
+             * @type_function_param1_field2 row:dxDataGridRowObject
+             * @type_function_param1_field3 column:dxDataGridColumn
+             * @type_function_return Boolean
+             */
+            /**
+             * @name dxTreeListColumnButton.visible
+             * @type boolean|function
+             * @default true
+             * @type_function_param1 options:object
+             * @type_function_param1_field1 component:dxTreeList
+             * @type_function_param1_field2 row:dxTreeListRowObject
+             * @type_function_param1_field3 column:dxTreeListColumn
+             * @type_function_return Boolean
+             */
+            /**
+             * @name dxDataGridColumnButton.template
+             * @type template|function
+             * @type_function_param1 cellElement:dxElement
+             * @type_function_param2 cellInfo:object
+             * @type_function_param2_field1 component:dxDataGrid
+             * @type_function_param2_field2 data:object
+             * @type_function_param2_field3 key:any
+             * @type_function_param2_field4 columnIndex:number
+             * @type_function_param2_field5 column:dxDataGridColumn
+             * @type_function_param2_field6 rowIndex:number
+             * @type_function_param2_field7 rowType:string
+             * @type_function_param2_field8 row:dxDataGridRowObject
+             * @type_function_return string|Node|jQuery
+             */
+            /**
+             * @name dxTreeListColumnButton.template
+             * @type template|function
+             * @type_function_param1 cellElement:dxElement
+             * @type_function_param2 cellInfo:object
+             * @type_function_param2_field1 component:dxTreeList
+             * @type_function_param2_field2 data:object
+             * @type_function_param2_field3 key:any
+             * @type_function_param2_field4 columnIndex:number
+             * @type_function_param2_field5 column:dxTreeListColumn
+             * @type_function_param2_field6 rowIndex:number
+             * @type_function_param2_field7 rowType:string
+             * @type_function_param2_field8 row:dxTreeListRowObject
+             * @type_function_return string|Node|jQuery
              */
             regenerateColumnsByVisibleItems: false,
             /**
@@ -561,35 +689,41 @@ module.exports = {
                 GROUP_LOCATION = "group",
                 COLUMN_CHOOSER_LOCATION = "columnChooser";
 
+            var setFilterOperationsAsDefaultValues = function(column) {
+                column.filterOperations = column.defaultFilterOperations;
+            };
+
             var createColumn = function(that, columnOptions, userStateColumnOptions, bandColumn) {
                 var commonColumnOptions = {},
-                    calculatedColumnOptions,
-                    isDefaultCommandColumn;
+                    calculatedColumnOptions;
 
                 if(columnOptions) {
-                    if(typeUtils.isString(columnOptions)) {
+                    if(isString(columnOptions)) {
                         columnOptions = {
                             dataField: columnOptions
                         };
                     }
 
+                    let result;
                     if(columnOptions.command) {
-                        isDefaultCommandColumn = that._commandColumns.some((column) => column.command === columnOptions.command);
-
-                        if(!isDefaultCommandColumn) {
-                            commonColumnOptions.visible = true;
-                        }
-
-                        return extend(true, commonColumnOptions, columnOptions);
+                        result = deepExtendArraySafe(commonColumnOptions, columnOptions);
                     } else {
-                        commonColumnOptions = that.getCommonSettings();
+                        commonColumnOptions = that.getCommonSettings(columnOptions);
                         if(userStateColumnOptions && userStateColumnOptions.name && userStateColumnOptions.dataField) {
                             columnOptions = extend({}, columnOptions, { dataField: userStateColumnOptions.dataField });
                         }
                         calculatedColumnOptions = that._createCalculatedColumnOptions(columnOptions, bandColumn);
 
-                        return extend(true, {}, DEFAULT_COLUMN_OPTIONS, commonColumnOptions, calculatedColumnOptions, columnOptions, { selector: null });
+                        result = deepExtendArraySafe({ headerId: `dx-col-${globalColumnId++}` }, DEFAULT_COLUMN_OPTIONS);
+                        deepExtendArraySafe(result, commonColumnOptions);
+                        deepExtendArraySafe(result, calculatedColumnOptions);
+                        deepExtendArraySafe(result, columnOptions);
+                        deepExtendArraySafe(result, { selector: null });
                     }
+                    if(columnOptions.filterOperations === columnOptions.defaultFilterOperations) {
+                        setFilterOperationsAsDefaultValues(result);
+                    }
+                    return result;
                 }
             };
 
@@ -695,7 +829,7 @@ module.exports = {
                 iteratorUtils.each(columns, function(_, column) {
                     if(column.isBand) {
                         column.colspan = column.colspan || calculateColspan(that, column.index);
-                        colspan += column.colspan;
+                        colspan += column.colspan || 1;
                     } else {
                         colspan += 1;
                     }
@@ -728,7 +862,7 @@ module.exports = {
             };
 
             var getValueDataType = function(value) {
-                var dataType = typeUtils.type(value);
+                var dataType = type(value);
                 if(dataType !== "string" && dataType !== "boolean" && dataType !== "number" && dataType !== "date" && dataType !== "object") {
                     dataType = undefined;
                 }
@@ -741,11 +875,11 @@ module.exports = {
                     case "datetime":
                         return dateSerialization.getDateSerializationFormat(value);
                     case "number":
-                        if(typeUtils.isString(value)) {
+                        if(isString(value)) {
                             return "string";
                         }
 
-                        if(typeUtils.isNumeric(value)) {
+                        if(isNumeric(value)) {
                             return null;
                         }
                 }
@@ -753,12 +887,12 @@ module.exports = {
 
             var updateSerializers = function(options, dataType) {
                 if(!options.deserializeValue) {
-                    if(gridCoreUtils.isDateType(dataType)) {
+                    if(isDateType(dataType)) {
                         options.deserializeValue = function(value) {
                             return dateSerialization.deserializeDate(value);
                         };
                         options.serializeValue = function(value) {
-                            return typeUtils.isString(value) ? value : dateSerialization.serializeDate(value, this.serializationFormat);
+                            return isString(value) ? value : dateSerialization.serializeDate(value, this.serializationFormat);
                         };
                     }
                     if(dataType === "number") {
@@ -809,7 +943,7 @@ module.exports = {
                 for(i = 0; i < firstItems.length; i++) {
                     if(firstItems[i]) {
                         for(fieldName in firstItems[i]) {
-                            if(!typeUtils.isFunction(firstItems[i][fieldName]) || isWrapped(firstItems[i][fieldName])) {
+                            if(!isFunction(firstItems[i][fieldName]) || isWrapped(firstItems[i][fieldName])) {
                                 processedFields[fieldName] = true;
                             }
                         }
@@ -831,7 +965,7 @@ module.exports = {
                 });
 
                 iteratorUtils.each(that._columns, function(index, column) {
-                    if(typeUtils.isObject(column.ownerBand)) {
+                    if(isObject(column.ownerBand)) {
                         column.ownerBand = column.ownerBand.index;
                     }
                 });
@@ -893,12 +1027,16 @@ module.exports = {
             };
 
             var getColumnIndexByVisibleIndex = function(that, visibleIndex, location) {
-                var rowIndex = typeUtils.isObject(visibleIndex) ? visibleIndex.rowIndex : null,
+                var rowIndex = isObject(visibleIndex) ? visibleIndex.rowIndex : null,
                     columns = location === GROUP_LOCATION ? that.getGroupColumns() : location === COLUMN_CHOOSER_LOCATION ? that.getChooserColumns() : that.getVisibleColumns(rowIndex),
                     column;
 
-                visibleIndex = typeUtils.isObject(visibleIndex) ? visibleIndex.columnIndex : visibleIndex;
+                visibleIndex = isObject(visibleIndex) ? visibleIndex.columnIndex : visibleIndex;
                 column = columns[visibleIndex];
+
+                if(column && column.type === GROUP_COMMAND_COLUMN_NAME) {
+                    column = that._columns.filter((col) => column.type === col.type)[0] || column;
+                }
 
                 return column && isDefined(column.index) ? column.index : -1;
             };
@@ -957,6 +1095,9 @@ module.exports = {
                                 column[fieldName] = userStateColumn[fieldName];
                             }
                         } else {
+                            if(fieldName === "selectedFilterOperation" && userStateColumn[fieldName]) {
+                                column.defaultSelectedFilterOperation = column[fieldName] || null;
+                            }
                             column[fieldName] = userStateColumn[fieldName];
                         }
                     }
@@ -1007,6 +1148,7 @@ module.exports = {
                             applyFieldsState(column, columnUserState);
                             resultColumns.push(column);
                             if(columnUserState.added.columns) {
+                                updateColumnIndexes(that);
                                 resultColumns = createColumnsFromOptions(that, resultColumns);
                             }
                         }
@@ -1075,7 +1217,7 @@ module.exports = {
                         that._updateLockCount--;
                     }
                     that._columnChanges = undefined;
-                    if(columnChanges.optionNames && (columnChanges.optionNames.dataField || columnChanges.optionNames.lookup)) {
+                    if(columnChanges.optionNames && (columnChanges.optionNames.dataField || columnChanges.optionNames.lookup || columnChanges.optionNames.dataType)) {
                         that.reinit();
                     } else {
                         that.columnsChanged.fire(columnChanges);
@@ -1115,17 +1257,18 @@ module.exports = {
                     optionSetter,
                     columns,
                     changeType,
-                    fullOptionName;
+                    fullOptionName,
+                    initialColumn;
 
                 if(arguments.length === 3) {
                     return optionGetter(column, { functionsAsIs: true });
                 }
                 prevValue = optionGetter(column, { functionsAsIs: true });
                 if(prevValue !== value) {
-                    if(optionName === "groupIndex") {
+                    if(optionName === "groupIndex" || optionName === "calculateGroupValue") {
                         changeType = "grouping";
                         updateSortOrderWhenGrouping(column, value, prevValue);
-                    } else if(optionName === "sortIndex" || optionName === "sortOrder") {
+                    } else if(optionName === "sortIndex" || optionName === "sortOrder" || optionName === "calculateSortValue") {
                         changeType = "sorting";
                     } else {
                         changeType = "columns";
@@ -1149,12 +1292,12 @@ module.exports = {
                         // T346972
                         if(inArray(optionName, USER_STATE_FIELD_NAMES) < 0 && optionName !== "visibleWidth") {
                             columns = that.option("columns");
-                            column = that.getColumnByPath(fullOptionName, columns);
-                            if(typeUtils.isString(column)) {
-                                column = columns[columnIndex] = { dataField: column };
+                            initialColumn = that.getColumnByPath(fullOptionName, columns);
+                            if(isString(initialColumn)) {
+                                initialColumn = columns[columnIndex] = { dataField: initialColumn };
                             }
-                            if(column) {
-                                optionSetter(column, value, { functionsAsIs: true });
+                            if(initialColumn && checkUserStateColumn(initialColumn, column)) {
+                                optionSetter(initialColumn, value, { functionsAsIs: true });
                             }
                         }
                         updateColumnChanges(that, changeType, optionName, columnIndex);
@@ -1227,19 +1370,34 @@ module.exports = {
                 return rowCount;
             };
 
-            var getFixedPosition = function(column) {
-                return !column.fixedPosition ? "left" : column.fixedPosition;
+            var getFixedPosition = function(that, column) {
+                var rtlEnabled = that.option("rtlEnabled");
+
+                if(column.command && !isCustomCommandColumn(that, column) || !column.fixedPosition) {
+                    return rtlEnabled ? "right" : "left";
+                }
+
+                return column.fixedPosition;
             };
 
-            var processExpandColumns = function(columns, expandColumns, columnIndex) {
-                var rowspan = columns[columnIndex] && columns[columnIndex].rowspan,
-                    expandColumnsByRow = expandColumns.slice(0);
+            var processExpandColumns = function(columns, expandColumns, type, columnIndex) {
+                var customColumnIndex,
+                    rowCount = this.getRowCount(),
+                    rowspan = columns[columnIndex] && columns[columnIndex].rowspan,
+                    expandColumnsByType = expandColumns.filter((column) => column.type === type);
+
+                columns.forEach((column, index) => {
+                    if(column.type === type) {
+                        customColumnIndex = index;
+                        rowspan = columns[index + 1] ? columns[index + 1].rowspan : rowCount;
+                    }
+                });
 
                 if(rowspan > 1) {
-                    expandColumnsByRow = iteratorUtils.map(expandColumnsByRow, function(expandColumn) { return extend({}, expandColumn, { rowspan: rowspan }); });
+                    expandColumnsByType = iteratorUtils.map(expandColumnsByType, function(expandColumn) { return extend({}, expandColumn, { rowspan: rowspan }); });
                 }
-                expandColumnsByRow.unshift(columnIndex, 0);
-                columns.splice.apply(columns, expandColumnsByRow);
+                expandColumnsByType.unshift.apply(expandColumnsByType, isDefined(customColumnIndex) ? [customColumnIndex, 1] : [columnIndex, 0]);
+                columns.splice.apply(columns, expandColumnsByType);
 
                 return rowspan || 1;
             };
@@ -1264,38 +1422,59 @@ module.exports = {
                 return str;
             };
 
-            var mergeColumns = (columns, commandColumns, needToExtend) => {
+            var mergeColumns = (that, columns, commandColumns, needToExtend) => {
                 var i,
                     column,
+                    columnOptions,
                     commandColumnIndex,
-                    result = columns.length ? (needToExtend && commandColumns || columns).slice() : [],
+                    result = columns.slice().map(column => extend({}, column)),
+                    isColumnFixing = that._isColumnFixing(),
+                    defaultCommandColumns = commandColumns.slice().map(column => extend({ fixed: isColumnFixing }, column)),
                     getCommandColumnIndex = (column) => commandColumns.reduce((result, commandColumn, index) => {
-                        return commandColumn.command === column.command ? index : result;
-                    }, -1);
+                        var columnType = needToExtend && column.type === GROUP_COMMAND_COLUMN_NAME ? "expand" : column.type;
+                        return commandColumn.type === columnType || commandColumn.command === column.command ? index : result;
+                    }, -1),
+                    callbackFilter = (commandColumn) => commandColumn.command !== commandColumns[commandColumnIndex].command;
 
-                if(result.length) {
-                    for(i = 0; i < columns.length; i++) {
-                        column = columns[i];
+                for(i = 0; i < columns.length; i++) {
+                    column = columns[i];
 
-                        commandColumnIndex = column && column.command ? getCommandColumnIndex(column) : -1;
-                        if(commandColumnIndex >= 0) {
-                            if(needToExtend) {
-                                result[commandColumnIndex] = extend({}, result[commandColumnIndex], column);
-                            } else {
-                                result[i] = extend({}, result[i], commandColumns[commandColumnIndex]);
+                    commandColumnIndex = column && (column.type || column.command) ? getCommandColumnIndex(column) : -1;
+                    if(commandColumnIndex >= 0) {
+                        if(needToExtend) {
+                            result[i] = extend({ fixed: isColumnFixing }, commandColumns[commandColumnIndex], column);
+                            if(column.type !== GROUP_COMMAND_COLUMN_NAME) {
+                                defaultCommandColumns = defaultCommandColumns.filter(callbackFilter);
                             }
-                        } else if(column && needToExtend) {
-                            result.push(extend({}, column));
+                        } else {
+                            columnOptions = {
+                                visibleIndex: column.visibleIndex,
+                                index: column.index,
+                                headerId: column.headerId,
+                                allowFixing: column.groupIndex === 0,
+                                allowReordering: column.groupIndex === 0,
+                                groupIndex: column.groupIndex
+                            };
+                            result[i] = extend({}, column, commandColumns[commandColumnIndex], column.type === GROUP_COMMAND_COLUMN_NAME && columnOptions);
                         }
                     }
+                }
+
+                if(columns.length && needToExtend && defaultCommandColumns.length) {
+                    result = result.concat(defaultCommandColumns);
                 }
 
                 return result;
             };
 
+            var isCustomCommandColumn = (that, commandColumn) => !!that._columns.filter((column) => column.type === commandColumn.type).length;
+
+            var isColumnFixed = (that, column) => isDefined(column.fixed) || !column.type ? column.fixed : that._isColumnFixing();
+
             return {
                 _getExpandColumnOptions: function() {
                     return {
+                        type: "expand",
                         command: "expand",
                         width: "auto",
                         cssClass: COMMAND_EXPAND_CLASS,
@@ -1334,7 +1513,7 @@ module.exports = {
                     return items;
                 },
                 _endUpdateCore: function() {
-                    fireColumnsChanged(this);
+                    !this._skipProcessingColumnsChange && fireColumnsChanged(this);
                 },
                 init: function() {
                     var that = this,
@@ -1344,8 +1523,6 @@ module.exports = {
 
                     that._columns = that._columns || [];
 
-                    addExpandColumn(that);
-
                     that._isColumnsFromOptions = !!columns;
 
                     if(that._isColumnsFromOptions) {
@@ -1354,6 +1531,8 @@ module.exports = {
                     } else {
                         assignColumns(that, that._columnsUserState ? createColumnsFromOptions(that, that._columnsUserState) : that._columns);
                     }
+
+                    addExpandColumn(that);
 
                     if(that._dataSourceApplied) {
                         that.applyDataSource(that._dataSource, true);
@@ -1377,9 +1556,9 @@ module.exports = {
 
                     if(columnIndexes.length) {
                         if(columns) {
-                            column = columnIndexes.reduce(function(prevColumn, index) {
-                                return prevColumn ? prevColumn.columns[index] : columns[index];
-                            }, 0);
+                            column = columnIndexes.reduce(function(column, index) {
+                                return column && column.columns && column.columns[index];
+                            }, { columns: columns });
                         } else {
                             column = getColumnByIndexes(that, columnIndexes);
                         }
@@ -1403,6 +1582,8 @@ module.exports = {
                                 } else {
                                     this._columnOptionChanged(args);
                                 }
+                            } else {
+                                this._updateRequireResize(args);
                             }
                             break;
                         case "commonColumnSettings":
@@ -1442,11 +1623,15 @@ module.exports = {
                         } else {
                             columnOptionValue = args.value;
                         }
-
                         this.columnOption(column.index, columnOptionValue);
-                        if(columnOptionName === "width") {
-                            this.component._requireResize = true;
-                        }
+                    }
+                },
+
+                _updateRequireResize: function(args) {
+                    var component = this.component;
+
+                    if(args.fullName.replace(regExp, "") === "width" && component._updateLockCount) {
+                        component._requireResize = true;
                     }
                 },
 
@@ -1502,8 +1687,8 @@ module.exports = {
                 isDataSourceApplied: function() {
                     return this._dataSourceApplied;
                 },
-                getCommonSettings: function() {
-                    var commonColumnSettings = this.option("commonColumnSettings") || {},
+                getCommonSettings: function(column) {
+                    var commonColumnSettings = (!column || !column.type) && this.option("commonColumnSettings") || {},
                         groupingOptions = this.option("grouping") || {},
                         groupPanelOptions = this.option("groupPanel") || {};
 
@@ -1599,8 +1784,15 @@ module.exports = {
                     return this._fixedColumns[rowIndex] || [];
 
                 },
-                getFilteringColumns: function(rowIndex) {
-                    return this.getColumns().filter(item => item.dataField && item.allowFiltering);
+                getFilteringColumns: function() {
+                    return this.getColumns().filter(item => (item.dataField || item.name) && (item.allowFiltering || item.allowHeaderFiltering)).map(item => {
+                        let field = extend(true, {}, item);
+                        if(!isDefined(field.dataField)) {
+                            field.dataField = field.name;
+                        }
+                        field.filterOperations = item.filterOperations !== item.defaultFilterOperations ? field.filterOperations : null;
+                        return field;
+                    });
                 },
                 _getFixedColumnsCore: function() {
                     var that = this,
@@ -1629,27 +1821,25 @@ module.exports = {
                                 prevColumn = visibleColumns[j - 1];
                                 column = visibleColumns[j];
 
-                                if(!column.command) {
-                                    if(!column.fixed) {
-                                        if(i === 0) {
-                                            if(column.isBand && column.colspan) {
-                                                transparentColspan += column.colspan;
-                                            } else {
-                                                transparentColspan++;
-                                            }
+                                if(!column.fixed) {
+                                    if(i === 0) {
+                                        if(column.isBand && column.colspan) {
+                                            transparentColspan += column.colspan;
+                                        } else {
+                                            transparentColspan++;
                                         }
-
-                                        notFixedColumnCount++;
-                                        if(!isDefined(transparentColumnIndex)) {
-                                            transparentColumnIndex = j;
-                                        }
-                                    } else if(prevColumn && prevColumn.fixed && getFixedPosition(prevColumn) !== getFixedPosition(column)) {
-                                        if(!isDefined(transparentColumnIndex)) {
-                                            transparentColumnIndex = j;
-                                        }
-                                    } else {
-                                        lastFixedPosition = column.fixedPosition;
                                     }
+
+                                    notFixedColumnCount++;
+                                    if(!isDefined(transparentColumnIndex)) {
+                                        transparentColumnIndex = j;
+                                    }
+                                } else if(prevColumn && prevColumn.fixed && getFixedPosition(that, prevColumn) !== getFixedPosition(that, column)) {
+                                    if(!isDefined(transparentColumnIndex)) {
+                                        transparentColumnIndex = j;
+                                    }
+                                } else {
+                                    lastFixedPosition = column.fixedPosition;
                                 }
                             }
 
@@ -1688,19 +1878,26 @@ module.exports = {
                 },
                 getExpandColumns: function() {
                     var expandColumns = this._getExpandColumnsCore(),
-                        expandColumn;
+                        expandColumn,
+                        firstGroupColumn = expandColumns.filter((column) => column.groupIndex === 0)[0],
+                        isFixedFirstGroupColumn = firstGroupColumn && firstGroupColumn.fixed,
+                        isColumnFixing = this._isColumnFixing();
 
                     if(expandColumns.length) {
                         expandColumn = this.columnOption("command:expand");
                     }
 
-                    expandColumns = iteratorUtils.map(expandColumns, function(column) {
+                    expandColumns = iteratorUtils.map(expandColumns, (column) => {
                         return extend({}, column, {
                             visibleWidth: null,
                             minWidth: null,
-                            cellTemplate: !typeUtils.isDefined(column.groupIndex) ? column.cellTemplate : null,
-                            headerCellTemplate: null
-                        }, expandColumn, { index: column.index });
+                            cellTemplate: !isDefined(column.groupIndex) ? column.cellTemplate : null,
+                            headerCellTemplate: null,
+                            fixed: !isDefined(column.groupIndex) || !isFixedFirstGroupColumn ? isColumnFixing : true,
+                        }, expandColumn, {
+                            index: column.index,
+                            type: column.type || GROUP_COMMAND_COLUMN_NAME
+                        });
                     });
 
                     return expandColumns;
@@ -1748,17 +1945,18 @@ module.exports = {
                     var that = this,
                         i,
                         result = [],
+                        rowspanGroupColumns = 0,
                         rowspanExpandColumns = 0,
                         firstPositiveIndexColumn,
-                        expandColumns = mergeColumns(that.getExpandColumns(), that._columns),
                         rowCount = that.getRowCount(),
                         positiveIndexedColumns = [],
                         negativeIndexedColumns = [],
                         notGroupedColumnsCount = 0,
                         isFixedToEnd,
                         rtlEnabled = that.option("rtlEnabled"),
-                        columns = mergeColumns(that._columns, that._commandColumns, true),
                         bandColumnsCache = that.getBandColumnsCache(),
+                        expandColumns = mergeColumns(that, that.getExpandColumns(), that._columns),
+                        columns = mergeColumns(that, that._columns, that._commandColumns, true),
                         columnDigitsCount = digitsCount(columns.length);
 
                     processBandColumns(that, columns, bandColumnsCache);
@@ -1787,14 +1985,14 @@ module.exports = {
                                 column.fixed = parentBandColumns.length ? parentBandColumns[0].fixed : column.fixed;
                                 column.fixedPosition = parentBandColumns.length ? parentBandColumns[0].fixedPosition : column.fixedPosition;
 
-                                if(column.fixed || column.command) {
+                                if(column.fixed) {
                                     isFixedToEnd = column.fixedPosition === "right";
 
-                                    if(rtlEnabled) {
+                                    if(rtlEnabled && (!column.command || isCustomCommandColumn(that, column))) {
                                         isFixedToEnd = !isFixedToEnd;
                                     }
 
-                                    if(isFixedToEnd || column.command) {
+                                    if(isFixedToEnd) {
                                         indexedColumns = positiveIndexedColumns[rowIndex][2];
                                     } else {
                                         indexedColumns = positiveIndexedColumns[rowIndex][0];
@@ -1818,19 +2016,24 @@ module.exports = {
                     });
 
                     iteratorUtils.each(result, function(rowIndex) {
-                        objectUtils.orderEach(negativeIndexedColumns[rowIndex], function(_, columns) {
+                        orderEach(negativeIndexedColumns[rowIndex], function(_, columns) {
                             result[rowIndex].unshift.apply(result[rowIndex], columns);
                         });
 
                         firstPositiveIndexColumn = result[rowIndex].length;
                         iteratorUtils.each(positiveIndexedColumns[rowIndex], function(index, columnsByFixing) {
-                            objectUtils.orderEach(columnsByFixing, function(_, columnsByVisibleIndex) {
+                            orderEach(columnsByFixing, function(_, columnsByVisibleIndex) {
                                 result[rowIndex].push.apply(result[rowIndex], columnsByVisibleIndex);
                             });
                         });
 
+                        // The order of processing is important
                         if(rowspanExpandColumns < (rowIndex + 1)) {
-                            rowspanExpandColumns += processExpandColumns(result[rowIndex], expandColumns, firstPositiveIndexColumn);
+                            rowspanExpandColumns += processExpandColumns.call(that, result[rowIndex], expandColumns, "detailExpand", firstPositiveIndexColumn);
+                        }
+
+                        if(rowspanGroupColumns < (rowIndex + 1)) {
+                            rowspanGroupColumns += processExpandColumns.call(that, result[rowIndex], expandColumns, GROUP_COMMAND_COLUMN_NAME, firstPositiveIndexColumn);
                         }
                     });
 
@@ -1889,8 +2092,8 @@ module.exports = {
                                 return false;
                             }
 
-                            fromVisibleIndex = typeUtils.isObject(fromVisibleIndex) ? fromVisibleIndex.columnIndex : fromVisibleIndex;
-                            toVisibleIndex = typeUtils.isObject(toVisibleIndex) ? toVisibleIndex.columnIndex : toVisibleIndex;
+                            fromVisibleIndex = isObject(fromVisibleIndex) ? fromVisibleIndex.columnIndex : fromVisibleIndex;
+                            toVisibleIndex = isObject(toVisibleIndex) ? toVisibleIndex.columnIndex : toVisibleIndex;
 
                             return fromVisibleIndex !== toVisibleIndex && fromVisibleIndex + 1 !== toVisibleIndex;
                         } else if((sourceLocation === GROUP_LOCATION && targetLocation !== COLUMN_CHOOSER_LOCATION) || targetLocation === GROUP_LOCATION) {
@@ -1913,7 +2116,7 @@ module.exports = {
 
                     if(fromIndex >= 0) {
                         column = that._columns[fromIndex];
-                        toVisibleIndex = typeUtils.isObject(toVisibleIndex) ? toVisibleIndex.columnIndex : toVisibleIndex;
+                        toVisibleIndex = isObject(toVisibleIndex) ? toVisibleIndex.columnIndex : toVisibleIndex;
                         targetGroupIndex = toIndex >= 0 ? that._columns[toIndex].groupIndex : -1;
 
                         if(isDefined(column.groupIndex) && sourceLocation === GROUP_LOCATION) {
@@ -1936,10 +2139,10 @@ module.exports = {
                             var targetColumn = that._columns[toIndex];
 
                             if(!targetColumn || column.ownerBand !== targetColumn.ownerBand) {
-                                options.visibleIndex = undefined;
+                                options.visibleIndex = MAX_SAFE_INTEGER;
                             } else {
-                                if(column.fixed ^ targetColumn.fixed) {
-                                    options.visibleIndex = undefined;
+                                if(isColumnFixed(that, column) ^ isColumnFixed(that, targetColumn)) {
+                                    options.visibleIndex = MAX_SAFE_INTEGER;
                                 } else {
                                     options.visibleIndex = targetColumn.visibleIndex;
                                 }
@@ -2076,13 +2279,13 @@ module.exports = {
 
                     iteratorUtils.each(["calculateSortValue", "calculateGroupValue", "calculateDisplayValue"], function(_, calculateCallbackName) {
                         var calculateCallback = column[calculateCallbackName];
-                        if(typeUtils.isFunction(calculateCallback) && !calculateCallback.originalCallback) {
+                        if(isFunction(calculateCallback) && !calculateCallback.originalCallback) {
                             column[calculateCallbackName] = function(data) { return calculateCallback.call(column, data); };
                             column[calculateCallbackName].originalCallback = calculateCallback;
                         }
                     });
 
-                    if(typeUtils.isString(column.calculateDisplayValue)) {
+                    if(isString(column.calculateDisplayValue)) {
                         column.displayField = column.calculateDisplayValue;
                         column.calculateDisplayValue = dataCoreUtils.compileGetter(column.displayField);
                     }
@@ -2100,11 +2303,11 @@ module.exports = {
                     var dataType = lookup ? lookup.dataType : column.dataType;
                     if(dataType) {
                         column.alignment = column.alignment || getAlignmentByDataType(dataType, this.option("rtlEnabled"));
-                        column.format = column.format || gridCoreUtils.getFormatByDataType(dataType);
+                        column.format = column.format || getFormatByDataType(dataType);
                         column.customizeText = column.customizeText || getCustomizeTextByDataType(dataType);
-                        column.defaultFilterOperations = !lookup && DATATYPE_OPERATIONS[dataType] || [];
+                        column.defaultFilterOperations = column.defaultFilterOperations || !lookup && DATATYPE_OPERATIONS[dataType] || [];
                         if(!isDefined(column.filterOperations)) {
-                            column.filterOperations = column.defaultFilterOperations;
+                            setFilterOperationsAsDefaultValues(column);
                         }
                         column.defaultFilterOperation = column.filterOperations && column.filterOperations[0] || "=";
                         column.showEditorAlways = isDefined(column.showEditorAlways) ? column.showEditorAlways : (dataType === "boolean" && !column.cellTemplate);
@@ -2124,10 +2327,10 @@ module.exports = {
                             valueDataType,
                             lookup = column.lookup;
 
-                        if(gridCoreUtils.isDateType(column.dataType) && column.serializationFormat === undefined) {
+                        if(isDateType(column.dataType) && column.serializationFormat === undefined) {
                             column.serializationFormat = dateSerializationFormat;
                         }
-                        if(lookup && gridCoreUtils.isDateType(lookup.dataType) && column.serializationFormat === undefined) {
+                        if(lookup && isDateType(lookup.dataType) && column.serializationFormat === undefined) {
                             lookup.serializationFormat = dateSerializationFormat;
                         }
 
@@ -2145,7 +2348,7 @@ module.exports = {
                                     }
 
                                     if(lookup && !lookup.dataType) {
-                                        valueDataType = getValueDataType(gridCoreUtils.getDisplayValue(column, value, firstItems[i]));
+                                        valueDataType = getValueDataType(getDisplayValue(column, value, firstItems[i]));
                                         lookupDataType = lookupDataType || valueDataType;
                                         if(lookupDataType && valueDataType && lookupDataType !== valueDataType) {
                                             lookupDataType = "string";
@@ -2190,7 +2393,7 @@ module.exports = {
 
                     if(customizeColumns) {
                         hasOwnerBand = columns.some(function(column) {
-                            return typeUtils.isObject(column.ownerBand);
+                            return isObject(column.ownerBand);
                         });
 
                         if(hasOwnerBand) {
@@ -2317,7 +2520,7 @@ module.exports = {
                     }
                 },
 
-                updateFilter: function(filter, remoteFiltering, columnIndex) {
+                updateFilter: function(filter, remoteFiltering, columnIndex, filterValue) {
                     var that = this;
 
                     if(!Array.isArray(filter)) return filter;
@@ -2328,8 +2531,9 @@ module.exports = {
                     filter = extend([], filter);
 
                     columnIndex = filter.columnIndex || columnIndex;
+                    filterValue = filter.filterValue || filterValue;
 
-                    if(typeUtils.isString(filter[0])) {
+                    if(isString(filter[0])) {
                         column = that.columnOption(filter[0]);
 
                         if(remoteFiltering) {
@@ -2342,12 +2546,13 @@ module.exports = {
                                 filter[0].columnIndex = column.index;
                             }
                         }
-                    } else if(typeUtils.isFunction(filter[0])) {
+                    } else if(isFunction(filter[0])) {
                         filter[0].columnIndex = columnIndex;
+                        filter[0].filterValue = filterValue;
                     }
 
                     for(i = 0; i < filter.length; i++) {
-                        filter[i] = that.updateFilter(filter[i], remoteFiltering, columnIndex);
+                        filter[i] = that.updateFilter(filter[i], remoteFiltering, columnIndex, filterValue);
                     }
 
                     return filter;
@@ -2389,8 +2594,8 @@ module.exports = {
                 columnOption: function(identifier, option, value, notFireEvent) {
                     var that = this,
                         i,
-                        identifierOptionName = typeUtils.isString(identifier) && identifier.substr(0, identifier.indexOf(":")),
-                        columns = (identifier < 0 || identifierOptionName === "command") ? that._columns.concat(that._commandColumns) : that._columns,
+                        identifierOptionName = isString(identifier) && identifier.substr(0, identifier.indexOf(":")),
+                        columns = that._columns.concat(that._commandColumns),
                         needUpdateIndexes,
                         column;
 
@@ -2418,14 +2623,14 @@ module.exports = {
                         if(arguments.length === 1) {
                             return extend({}, column);
                         }
-                        if(typeUtils.isString(option)) {
+                        if(isString(option)) {
                             if(arguments.length === 2) {
                                 return columnOptionCore(that, column, option);
                             } else {
                                 needUpdateIndexes = needUpdateIndexes || COLUMN_INDEX_OPTIONS[option];
                                 columnOptionCore(that, column, option, value, notFireEvent);
                             }
-                        } else if(typeUtils.isObject(option)) {
+                        } else if(isObject(option)) {
                             iteratorUtils.each(option, function(optionName, value) {
                                 needUpdateIndexes = needUpdateIndexes || COLUMN_INDEX_OPTIONS[optionName];
                                 columnOptionCore(that, column, optionName, value, notFireEvent);
@@ -2515,25 +2720,28 @@ module.exports = {
                  */
                 deleteColumn: function(id) {
                     var that = this,
-                        columnIndex = that.columnOption(id, "index");
+                        childIndexes,
+                        column = that.columnOption(id);
 
-                    if(columnIndex >= 0) {
-                        that._columns.splice(columnIndex, 1);
+                    if(column && column.index >= 0) {
+                        that._columns.splice(column.index, 1);
+
+                        if(column.isBand) {
+                            childIndexes = that.getChildrenByBandColumn(column.index).map((column) => column.index);
+                            that._columns = that._columns.filter((column) => childIndexes.indexOf(column.index) < 0);
+                        }
+
                         updateIndexes(that);
                         that.updateColumns(that._dataSource);
                     }
                 },
                 addCommandColumn: function(options) {
-                    var commandColumns = this._commandColumns,
-                        i;
+                    var commandColumn = this._commandColumns.filter((column) => column.command === options.command)[0];
 
-                    for(i = 0; i < commandColumns.length; i++) {
-                        if(commandColumns[i].command === options.command) {
-                            return;
-                        }
+                    if(!commandColumn) {
+                        commandColumn = options;
+                        this._commandColumns.push(commandColumn);
                     }
-
-                    commandColumns.push(options);
                 },
                 getUserState: function() {
                     var columns = this._columns,
@@ -2555,6 +2763,7 @@ module.exports = {
                 setUserState: function(state) {
                     var that = this,
                         commonColumnSettings,
+                        dataSource = that._dataSource,
                         ignoreColumnOptionNames = that.option("stateStoring.ignoreColumnOptionNames");
 
                     if(!ignoreColumnOptionNames) {
@@ -2573,6 +2782,12 @@ module.exports = {
                     that._columnsUserState = state;
                     that._ignoreColumnOptionNames = ignoreColumnOptionNames;
                     that._hasUserState = !!state;
+
+                    if(dataSource) {
+                        dataSource.sort(null);
+                        dataSource.group(null);
+                    }
+
                     updateColumnChanges(that, "filtering");
                     that.init();
                 },
@@ -2587,7 +2802,7 @@ module.exports = {
                     }
 
                     if(dataField) {
-                        if(typeUtils.isString(dataField)) {
+                        if(isString(dataField)) {
                             getter = dataCoreUtils.compileGetter(dataField);
                             calculatedColumnOptions = {
                                 caption: inflector.captionize(dataField),
@@ -2602,13 +2817,13 @@ module.exports = {
                                         parsedValue;
 
                                     if(column.dataType === "number") {
-                                        if(typeUtils.isString(text)) {
+                                        if(isString(text) && column.format) {
                                             parsedValue = numberLocalization.parse(text);
 
-                                            if(typeUtils.isNumeric(parsedValue)) {
+                                            if(isNumeric(parsedValue)) {
                                                 result = parsedValue;
                                             }
-                                        } else if(isDefined(text)) {
+                                        } else if(isDefined(text) && isNumeric(text)) {
                                             result = Number(text);
                                         }
                                     } else if(column.dataType === "boolean") {
@@ -2617,7 +2832,7 @@ module.exports = {
                                         } else if(text === column.falseText) {
                                             result = false;
                                         }
-                                    } else if(gridCoreUtils.isDateType(column.dataType)) {
+                                    } else if(isDateType(column.dataType)) {
                                         parsedValue = dateLocalization.parse(text, column.format);
                                         if(parsedValue) {
                                             result = parsedValue;
@@ -2638,20 +2853,21 @@ module.exports = {
                         return filterUtils.defaultCalculateFilterExpression.apply(this, arguments);
                     };
 
-                    calculatedColumnOptions.createFilterExpression = function() {
+                    calculatedColumnOptions.createFilterExpression = function(filterValue) {
                         var result;
                         if(this.calculateFilterExpression) {
                             result = this.calculateFilterExpression.apply(this, arguments);
                         }
-                        if(typeUtils.isFunction(result)) {
+                        if(isFunction(result)) {
                             result = [result, "=", true];
                         } else if(result) {
                             result.columnIndex = this.index;
+                            result.filterValue = filterValue;
                         }
                         return result;
                     };
 
-                    if(!dataField || !typeUtils.isString(dataField)) {
+                    if(!dataField || !isString(dataField)) {
                         extend(true, calculatedColumnOptions, {
                             allowSorting: false,
                             allowGrouping: false,
@@ -2667,7 +2883,7 @@ module.exports = {
                     if(columnOptions.dataType) {
                         calculatedColumnOptions.userDataType = columnOptions.dataType;
                     }
-                    if(columnOptions.selectedFilterOperation) {
+                    if(columnOptions.selectedFilterOperation && !("defaultSelectedFilterOperation" in calculatedColumnOptions)) {
                         calculatedColumnOptions.defaultSelectedFilterOperation = columnOptions.selectedFilterOperation;
                     }
                     if(columnOptions.lookup) {
@@ -2702,14 +2918,14 @@ module.exports = {
                                     dataSourceOptions;
 
                                 if(dataSource) {
-                                    if(typeUtils.isFunction(dataSource) && !isWrapped(dataSource)) {
+                                    if(isFunction(dataSource) && !isWrapped(dataSource)) {
                                         dataSource = dataSource({});
                                     }
-                                    if(typeUtils.isPlainObject(dataSource) || (dataSource instanceof Store) || Array.isArray(dataSource)) {
+                                    if(isPlainObject(dataSource) || (dataSource instanceof Store) || Array.isArray(dataSource)) {
                                         if(that.valueExpr) {
                                             dataSourceOptions = normalizeDataSourceOptions(dataSource);
                                             dataSourceOptions.paginate = false;
-                                            dataSource = new DataSourceModule.DataSource(dataSourceOptions);
+                                            dataSource = new DataSource(dataSourceOptions);
                                             return dataSource.load().done(function(data) {
                                                 that.items = data;
                                                 that.updateValueMap && that.updateValueMap();
@@ -2732,7 +2948,7 @@ module.exports = {
 
                     iteratorUtils.each(calculatedColumnOptions, function(optionName) {
                         var defaultOptionName;
-                        if(typeUtils.isFunction(calculatedColumnOptions[optionName]) && optionName.indexOf("default") !== 0) {
+                        if(isFunction(calculatedColumnOptions[optionName]) && optionName.indexOf("default") !== 0) {
                             defaultOptionName = "default" + optionName.charAt(0).toUpperCase() + optionName.substr(1);
                             calculatedColumnOptions[defaultOptionName] = calculatedColumnOptions[optionName];
                         }
@@ -2794,6 +3010,17 @@ module.exports = {
                     });
 
                     return result;
+                },
+                getColumnId: function(column) {
+                    if(column.command && column.type === GROUP_COMMAND_COLUMN_NAME) {
+                        if(isCustomCommandColumn(this, column)) {
+                            return "type:" + column.type;
+                        }
+
+                        return "command:" + column.command;
+                    }
+
+                    return column.index;
                 }
             };
         })())

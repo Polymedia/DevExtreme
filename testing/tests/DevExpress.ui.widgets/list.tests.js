@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 require("common.css!");
@@ -38,3 +36,4 @@ require("./listParts/commonTests.js");
 require("./listParts/editingTests.js");
 require("./listParts/editingUITests.js");
 require("./listParts/dataSourceFromUrlTests.js");
+require("./listParts/liveUpdateTests.js");

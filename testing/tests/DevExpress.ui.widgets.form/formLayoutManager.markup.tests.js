@@ -1,16 +1,30 @@
-"use strict";
-
 import $ from "jquery";
 import consoleUtils from "core/utils/console";
 import responsiveBoxScreenMock from "../../helpers/responsiveBoxScreenMock.js";
-import {
-    __internals as internals
-} from "ui/form/ui.form.layout_manager";
+import { __internals as internals } from "ui/form/ui.form.layout_manager";
 import config from "core/config";
 import typeUtils from "core/utils/type";
 import windowUtils from "core/utils/window";
+import errors from "ui/widget/ui.errors";
+
+import "ui/switch";
+import "ui/select_box";
+import "ui/tag_box";
+import "ui/lookup";
+import "ui/text_area";
+import "ui/radio_group";
+import "ui/range_slider";
+
+import "common.css!";
 
 const { test } = QUnit;
+
+QUnit.testStart(() => {
+    const markup =
+        '<div id="container"></div>';
+
+    $("#qunit-fixture").html(markup);
+});
 
 const createTestObject = () => {
     return {
@@ -27,23 +41,6 @@ const createTestObject = () => {
         "StateID": 5
     };
 };
-
-import "ui/switch";
-import "ui/select_box";
-import "ui/tag_box";
-import "ui/lookup";
-import "ui/text_area";
-import "ui/radio_group";
-import "ui/range_slider";
-
-import "common.css!";
-
-QUnit.testStart(() => {
-    const markup =
-        '<div id="container"></div>';
-
-    $("#qunit-fixture").html(markup);
-});
 
 QUnit.module("Layout manager", () => {
     test("Default render", (assert) => {
@@ -1514,10 +1511,9 @@ QUnit.module("Layout manager", () => {
 
     test("Render help text", (assert) => {
         // arrange, act
-        let $testContainer = $("#container"),
-            layoutManager;
+        let $testContainer = $("#container");
 
-        layoutManager = $testContainer.dxLayoutManager({
+        $testContainer.dxLayoutManager({
             layoutData: {
                 name: "Alex",
                 lastName: "Johnson",
@@ -1529,7 +1525,7 @@ QUnit.module("Layout manager", () => {
             }, {
                 dataField: "lastName"
             }]
-        }).dxLayoutManager("instance");
+        });
 
         let $fieldItems = $testContainer.find("." + internals.FIELD_ITEM_CLASS);
 
@@ -1549,10 +1545,9 @@ QUnit.module("Layout manager", () => {
                 name: "Alex",
                 age: 40,
                 gender: "male"
-            },
-            layoutManager;
+            };
 
-        layoutManager = $testContainer.dxLayoutManager({
+        $testContainer.dxLayoutManager({
             layoutData: data,
             items: [{
                 visibleIndex: 1,
@@ -1567,7 +1562,7 @@ QUnit.module("Layout manager", () => {
                 dataField: "gender",
                 editorType: "dxTextBox"
             }]
-        }).dxLayoutManager("instance");
+        });
 
         let $labels = $testContainer.find("label"),
             $inputs = $testContainer.find("input");
@@ -1592,27 +1587,26 @@ QUnit.module("Layout manager", () => {
                 age: 40,
                 gender: "male",
                 hasAuto: "Yes"
-            },
-            layoutManager;
+            };
 
-        layoutManager = $testContainer.dxLayoutManager({
+        $testContainer.dxLayoutManager({
             layoutData: data,
             items: [{
                 dataField: "name",
                 editorType: "dxTextBox"
             }, {
-                visibleIndex: 1,
+                visibleIndex: 0,
                 dataField: "age",
                 editorType: "dxTextBox"
             }, {
                 dataField: "gender",
                 editorType: "dxTextBox"
             }, {
-                visibleIndex: 2,
+                visibleIndex: 1,
                 dataField: "hasAuto",
                 editorType: "dxTextBox"
             }]
-        }).dxLayoutManager("instance");
+        });
 
         let $labels = $testContainer.find("label"),
             $inputs = $testContainer.find("input");
@@ -1713,10 +1707,9 @@ QUnit.module("Layout manager", () => {
     test("Set value to the dxSelectBox editor from data option", (assert) => {
         // arrange, act
         let $testContainer = $("#container"),
-            selectBox,
-            layoutManager;
+            selectBox;
 
-        layoutManager = $testContainer.dxLayoutManager({
+        $testContainer.dxLayoutManager({
             layoutData: {
                 simpleProducts: "SuperLCD 70"
             },
@@ -1736,7 +1729,7 @@ QUnit.module("Layout manager", () => {
                     ]
                 };
             }
-        }).dxLayoutManager("instance");
+        });
 
         selectBox = $testContainer.find(".dx-selectbox").first().dxSelectBox("instance");
 
@@ -1856,10 +1849,9 @@ QUnit.module("Layout manager", () => {
     test("Set value to the dxTagBox editor from data option", (assert) => {
         // arrange, act
         let $testContainer = $("#container"),
-            tagBox,
-            layoutManager;
+            tagBox;
 
-        layoutManager = $testContainer.dxLayoutManager({
+        $testContainer.dxLayoutManager({
             layoutData: {
                 simpleProducts: ["HD Video Player", "SuperLCD 70"]
             },
@@ -1879,7 +1871,7 @@ QUnit.module("Layout manager", () => {
                     ]
                 };
             }
-        }).dxLayoutManager("instance");
+        });
 
         tagBox = $testContainer.find(".dx-tagbox").first().dxTagBox("instance");
 
@@ -2036,8 +2028,59 @@ QUnit.module("Layout manager", () => {
         // assert
         assert.equal($testContainer.find("." + internals.FIELD_EMPTY_ITEM_CLASS).length, 1);
     });
-});
 
+    test("Templates of form's items render with deferring_T638831", function(assert) {
+        // arrange, act
+        let spy;
+
+        $("#container").dxLayoutManager({
+            onInitialized: function(e) {
+                spy = sinon.spy(e.component, "_renderTemplates");
+            },
+            items: [{
+                dataField: "StartDate",
+                editorType: "dxDateBox"
+            }]
+        });
+
+        // assert
+        const templatesInfo = spy.args[0][0];
+        assert.ok(templatesInfo[0].container.hasClass("dx-field-item"), "template container of field item");
+        assert.equal(templatesInfo[0].formItem.dataField, "StartDate", "correct a form item for template");
+    });
+
+    test("layoutData with 'null' fields shouldn't reset editor's 'isValid' option", function(assert) {
+        let instance = $("#container").dxLayoutManager({
+            layoutData: {
+                test1: "test1",
+                test2: "test2"
+            },
+            items: [{
+                dataField: "test1",
+                editorOptions: {
+                    isValid: false
+                }
+            }, {
+                dataField: "test2",
+                editorOptions: {
+                    isValid: false
+                }
+            }]
+        }).dxLayoutManager("instance");
+
+        instance.option("layoutData", {
+            test1: "",
+            test2: null
+        });
+
+        const textBox = instance.getEditor("test1");
+        const dateBox = instance.getEditor("test2");
+        assert.notOk(textBox.option("isValid"), "'isValid' is false");
+        assert.equal(textBox.option("value"), "", "Value is empty string");
+        assert.notOk(dateBox.option("isValid"), "'isValid' is false");
+        assert.equal(dateBox.option("value"), null, "Value is null");
+    });
+});
 
 QUnit.module("Render multiple columns", () => {
     test("Render layoutManager with 2 columns", (assert) => {
@@ -2714,7 +2757,6 @@ QUnit.module("Render multiple columns", () => {
     });
 });
 
-
 QUnit.module("Templates", () => {
     test("Render template", (assert) => {
         // arrange
@@ -2789,7 +2831,6 @@ QUnit.module("Templates", () => {
         assert.equal(layoutManager.option("layoutData.test"), "qwerty", "Correct data");
     });
 });
-
 
 QUnit.module("Public methods", () => {
     test("UpdateData, simple case", (assert) => {
@@ -2866,7 +2907,6 @@ QUnit.module("Public methods", () => {
     });
 });
 
-
 QUnit.module("Accessibility", () => {
     test("Check required state", (assert) => {
         // arrange
@@ -2907,7 +2947,6 @@ QUnit.module("Accessibility", () => {
         assert.equal(itemDescribedBy, helpTextID, "Help text id and input's describedby attributes are equal");
     });
 });
-
 
 QUnit.module("Layout manager responsibility", {
     beforeEach: () => {
@@ -2956,7 +2995,6 @@ QUnit.module("Layout manager responsibility", {
         assert.ok($testContainer.hasClass(internals.LAYOUT_MANAGER_ONE_COLUMN), "Layout manager has one column mode");
     });
 });
-
 
 QUnit.module("Button item", () => {
     test("Base rendering", (assert) => {
@@ -3021,7 +3059,39 @@ QUnit.module("Button item", () => {
         assert.ok($buttonItems.last().hasClass("dx-last-col"), "Correct column index");
     });
 
-    test("alignment", (assert) => {
+    test("Check deprecated alignment option", (assert) => {
+        // arrange, act
+        let $testContainer = $("#container");
+        let logStub = sinon.stub(errors, "log");
+
+        $testContainer.dxLayoutManager({
+            items: [{
+                itemType: "button"
+            }, {
+                itemType: "button",
+                alignment: "left"
+            }, {
+                itemType: "button",
+                alignment: "center"
+            }]
+        });
+
+        let $buttonItems = $testContainer.find(".dx-field-button-item");
+
+        // assert
+        assert.equal($buttonItems.first().css("textAlign"), "right", "By default buttons align by the right");
+        assert.equal($buttonItems.eq(1).css("textAlign"), "left", "Left alignment accepted");
+        assert.equal($buttonItems.last().css("textAlign"), "center", "Center alignment accepted");
+        assert.deepEqual(logStub.firstCall.args, [
+            "W0001",
+            "dxForm",
+            "alignment",
+            "18.1",
+            "Use the 'horizontalAlignment' option in button items instead."
+        ], "Check warning parameters");
+    });
+
+    test("Horizontal alignment", (assert) => {
         // arrange, act
         let $testContainer = $("#container");
 
@@ -3030,7 +3100,10 @@ QUnit.module("Button item", () => {
                 itemType: "button"
             }, {
                 itemType: "button",
-                alignment: "left"
+                horizontalAlignment: "left"
+            }, {
+                itemType: "button",
+                horizontalAlignment: "center"
             }]
         });
 
@@ -3038,6 +3111,31 @@ QUnit.module("Button item", () => {
 
         // assert
         assert.equal($buttonItems.first().css("textAlign"), "right", "By default buttons align by the right");
-        assert.equal($buttonItems.last().css("textAlign"), "left", "Custom alignment accepted");
+        assert.equal($buttonItems.eq(1).css("textAlign"), "left", "Left alignment accepted");
+        assert.equal($buttonItems.last().css("textAlign"), "center", "Center alignment accepted");
+    });
+
+    test("Vertical alignment", (assert) => {
+        // arrange, act
+        let $testContainer = $("#container");
+
+        $testContainer.dxLayoutManager({
+            items: [{
+                itemType: "button"
+            }, {
+                itemType: "button",
+                verticalAlignment: "center"
+            }, {
+                itemType: "button",
+                verticalAlignment: "bottom"
+            }]
+        });
+
+        let $buttonItems = $testContainer.find(".dx-field-button-item");
+
+        // assert
+        assert.equal($buttonItems.first().parent().css("justifyContent"), "flex-start", "By default buttons align by the center");
+        assert.equal($buttonItems.eq(1).parent().css("justifyContent"), "center", "Top alignment accepted");
+        assert.equal($buttonItems.last().parent().css("justifyContent"), "flex-end", "Bottom alignment accepted");
     });
 });

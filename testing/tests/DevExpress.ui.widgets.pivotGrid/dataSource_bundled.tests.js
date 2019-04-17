@@ -1,29 +1,24 @@
-"use strict";
+import $ from "jquery";
+import DataSource from "ui/pivot_grid/data_source";
+import ArrayStore from "data/array_store";
+import CustomStore from "data/custom_store";
+import inflector from "core/utils/inflector";
+import summaryDisplayModes from "ui/pivot_grid/ui.pivot_grid.summary_display_modes";
+import xmlaStore, { XmlaStore } from "ui/pivot_grid/xmla_store/xmla_store";
+import { LocalStore } from "ui/pivot_grid/local_store";
+import RemoteStore from "ui/pivot_grid/remote_store";
+import pivotGridUtils, { setFieldProperty } from "ui/pivot_grid/ui.pivot_grid.utils";
+import browser from "core/utils/browser";
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
 
-var $ = require("jquery"),
-    DataSource = require("ui/pivot_grid/data_source"),
-    ArrayStore = require("data/array_store"),
-    CustomStore = require("data/custom_store"),
-    inflector = require("core/utils/inflector"),
-    summaryDisplayModes = require("ui/pivot_grid/ui.pivot_grid.summary_display_modes"),
-    xmlaStore = require("ui/pivot_grid/xmla_store/xmla_store"),
-    XmlaStore = xmlaStore.XmlaStore,
-    LocalStore = require("ui/pivot_grid/local_store").LocalStore,
-    RemoteStore = require("ui/pivot_grid/remote_store"),
-    pivotGridUtils = require("ui/pivot_grid/ui.pivot_grid.utils"),
-    setFieldProperty = pivotGridUtils.setFieldProperty,
-    executeAsyncMock = require("../../helpers/executeAsyncMock.js");
-
-require("../../../testing/content/orders.js");
-require("bundles/dx.web");
+import "../../../testing/content/orders.js";
+import "bundles/dx.web";
 
 function createDataSource(options) {
     var dataSource = new DataSource(options);
     dataSource.load();
     return dataSource;
 }
-
-var executeAsyncMock = DevExpress.testing.executeAsyncMock;
 
 function prepareFields(fields) {
     $.each(fields, function(index, field) {
@@ -360,15 +355,15 @@ QUnit.test("CreateDrillDown dataSource", function(assert) {
 
 QUnit.test("getAreaFields", function(assert) {
     var fields = [
-            { dataField: "[Color]", area: "row", areaIndex: 2 },
-            { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1 },
-            { dataField: "[Date]", groupName: "[Date]", area: "row", areaIndex: 0 },
-            { dataField: "[Date].[Year]", groupName: "[Date]", area: "row", areaIndex: 0, groupIndex: 0 },
-            { dataField: "[Product].[Category]", groupName: "[Product]", groupIndex: 0 },
-            { dataField: "[Product]", groupName: "[Product]", area: "column", areaIndex: 1 },
-            { dataField: "[Customer Count]", groupName: "[Customer Count]", area: "data" },
-            { dataField: "[Customer Count]", groupName: "[Customer Count]", groupIndex: 0, groupInterval: 100 },
-            { dataField: "[Customer Count]", groupName: "[Customer Count]", groupIndex: 1, groupInterval: 10 }
+        { dataField: "[Color]", area: "row", areaIndex: 2 },
+        { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1 },
+        { dataField: "[Date]", groupName: "[Date]", area: "row", areaIndex: 0 },
+        { dataField: "[Date].[Year]", groupName: "[Date]", area: "row", areaIndex: 0, groupIndex: 0 },
+        { dataField: "[Product].[Category]", groupName: "[Product]", groupIndex: 0 },
+        { dataField: "[Product]", groupName: "[Product]", area: "column", areaIndex: 1 },
+        { dataField: "[Customer Count]", groupName: "[Customer Count]", area: "data" },
+        { dataField: "[Customer Count]", groupName: "[Customer Count]", groupIndex: 0, groupInterval: 100 },
+        { dataField: "[Customer Count]", groupName: "[Customer Count]", groupIndex: 1, groupInterval: 10 }
     ];
 
     var dataSource = createDataSource({
@@ -389,18 +384,18 @@ QUnit.test("getAreaFields", function(assert) {
 // T317225
 QUnit.test("getAreaFields for many data fields", function(assert) {
     var fields = [
-            { area: "data", caption: "1" },
-            { area: "data", caption: "2" },
-            { area: "data", caption: "3" },
-            { area: "data", caption: "4" },
-            { area: "data", caption: "5" },
-            { area: "data", caption: "6" },
-            { area: "data", caption: "7" },
-            { area: "data", caption: "8" },
-            { area: "data", caption: "9" },
-            { area: "data", caption: "10" },
-            { area: "data", caption: "11" },
-            { area: "data", caption: "12" }
+        { area: "data", caption: "1" },
+        { area: "data", caption: "2" },
+        { area: "data", caption: "3" },
+        { area: "data", caption: "4" },
+        { area: "data", caption: "5" },
+        { area: "data", caption: "6" },
+        { area: "data", caption: "7" },
+        { area: "data", caption: "8" },
+        { area: "data", caption: "9" },
+        { area: "data", caption: "10" },
+        { area: "data", caption: "11" },
+        { area: "data", caption: "12" }
     ];
 
     var dataSource = createDataSource({
@@ -427,9 +422,9 @@ QUnit.test("Load Field Values", function(assert) {
         },
         dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, customizeText: customizeFunction },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
+                { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+                { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, customizeText: customizeFunction },
+                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
             ],
             store: this.testStore
 
@@ -570,11 +565,11 @@ QUnit.test("Load Field Values for group", function(assert) {
         },
         dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Ship Date].[Calendar]", groupName: "[Ship Date].[Calendar]", area: "row", areaIndex: 0 },
-            { dataField: "[Ship Date].[Calendar].[Year]", groupName: "[Ship Date].[Calendar]", groupIndex: 0, customizeText: customize1 },
-            { dataField: "[Ship Date].[Calendar].[Month]", groupName: "[Ship Date].[Calendar]", groupIndex: 1, customizeText: customize2 },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
+                { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+                { dataField: "[Ship Date].[Calendar]", groupName: "[Ship Date].[Calendar]", area: "row", areaIndex: 0 },
+                { dataField: "[Ship Date].[Calendar].[Year]", groupName: "[Ship Date].[Calendar]", groupIndex: 0, customizeText: customize1 },
+                { dataField: "[Ship Date].[Calendar].[Month]", groupName: "[Ship Date].[Calendar]", groupIndex: 1, customizeText: customize2 },
+                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
             ],
             store: this.testStore
 
@@ -694,13 +689,13 @@ QUnit.test("Fields visibility", function(assert) {
     ], "rows");
 
     assert.deepEqual(prepareFields(this.testStore.load.lastCall.args[0].values), [
-            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 },
-            { dataField: "Field1", caption: "Field1", area: "data", visible: false, areaIndex: 1 }
+        { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 },
+        { dataField: "Field1", caption: "Field1", area: "data", visible: false, areaIndex: 1 }
     ], "data");
 
     assert.deepEqual(prepareFields(this.testStore.load.lastCall.args[0].filters), [
-            { caption: "", dataField: "FilterField1", area: "filter", visible: false },
-            { caption: "", dataField: "FilterField2", area: "filter", visible: true, areaIndex: 0 }
+        { caption: "", dataField: "FilterField1", area: "filter", visible: false },
+        { caption: "", dataField: "FilterField2", area: "filter", visible: true, areaIndex: 0 }
     ], "filter fields in store loadOptions");
 
     assert.strictEqual(dataSource.getAreaFields("filter").length, 2);
@@ -720,10 +715,10 @@ QUnit.test("Load store", function(assert) {
     // act
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", allMember: "[All Products]", area: "column", areaIndex: 0 },
-            { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 },
-            { dataField: "FilterField", area: "filter", areaIndex: 0 }
+                { dataField: "[Product].[Category]", allMember: "[All Products]", area: "column", areaIndex: 0 },
+                { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", area: "row", areaIndex: 0 },
+                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 },
+                { dataField: "FilterField", area: "filter", areaIndex: 0 }
             ],
             store: this.testStore
 
@@ -827,16 +822,16 @@ QUnit.test("retrieve Fields", function(assert) {
         });
 
     retrieveFieldsDef.resolve([
-            { dataField: "[Product].[Category]", allMember: "[All Products]" },
-            { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]" },
-            { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]" },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count' },
+        { dataField: "[Product].[Category]", allMember: "[All Products]" },
+        { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]" },
+        { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]" },
+        { dataField: "[Measures].[Customer Count]", caption: 'Count' },
 
-            { dataField: "date", caption: "date" },
-            { dataField: "date", groupInterval: "year", caption: "date.year" },
+        { dataField: "date", caption: "date" },
+        { dataField: "date", groupInterval: "year", caption: "date.year" },
 
-            { dataField: "date", groupInterval: "month", caption: "date.month" },
-            { dataField: "Measure", summaryType: "avg" }
+        { dataField: "date", groupInterval: "month", caption: "date.month" },
+        { dataField: "Measure", summaryType: "avg" }
     ]);
 
     // assert
@@ -848,18 +843,18 @@ QUnit.test("retrieve Fields", function(assert) {
     });
 
     assert.deepEqual(prepareFields(dataSource.fields()), [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0, allMember: "[All Products]", caption: "" },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1, caption: "" },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, allMember: "[All Periods]", caption: "" },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0, caption: 'Count' },
+        { dataField: "[Product].[Category]", area: "column", areaIndex: 0, allMember: "[All Products]", caption: "" },
+        { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1, caption: "" },
+        { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, allMember: "[All Periods]", caption: "" },
+        { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0, caption: 'Count' },
 
-            { area: "row", areaIndex: 1, caption: "date", dataField: "date" },
-            { area: "column", areaIndex: 2, caption: "date.year", dataField: "date", groupInterval: "year" },
-            { dataField: "Measure", summaryType: "sum", caption: " (Sum)" },
-            { dataField: "Measure", summaryType: "avg", caption: " (Avg)" },
-            { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
+        { area: "row", areaIndex: 1, caption: "date", dataField: "date" },
+        { area: "column", areaIndex: 2, caption: "date.year", dataField: "date", groupInterval: "year" },
+        { dataField: "Measure", summaryType: "sum", caption: " (Sum)" },
+        { dataField: "Measure", summaryType: "avg", caption: " (Avg)" },
+        { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
 
-            { dataField: "date", groupInterval: "month", caption: "date.month" }
+        { dataField: "date", groupInterval: "month", caption: "date.month" }
     ]);
 });
 
@@ -867,14 +862,14 @@ QUnit.test("retrieve Fields. Pass dataType to getFields method", function(assert
     this.testStore.getFields.returns($.Deferred());
 
     var userFields = [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
-            { dataField: "date", area: "row" },
-            { dataField: "date", area: "column", groupInterval: "year", dataType: "date" },
-            { dataField: "Measure", summaryType: "sum" },
-            { dataField: "Measure", dataType: "number" }
+        { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+        { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
+        { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
+        { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
+        { dataField: "date", area: "row" },
+        { dataField: "date", area: "column", groupInterval: "year", dataType: "date" },
+        { dataField: "Measure", summaryType: "sum" },
+        { dataField: "Measure", dataType: "number" }
     ];
 
     // act
@@ -909,33 +904,33 @@ QUnit.test("retrieve Fields by default", function(assert) {
     });
 
     retrieveFieldsDef.resolve([
-            { dataField: "[Product].[Category]", allMember: "[All Products]", caption: "" },
-            { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", caption: "" },
-            { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count' },
+        { dataField: "[Product].[Category]", allMember: "[All Products]", caption: "" },
+        { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", caption: "" },
+        { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
+        { dataField: "[Measures].[Customer Count]", caption: 'Count' },
 
-            { dataField: "date", caption: "date" },
-            { dataField: "date", groupInterval: "year", caption: "date.year" },
+        { dataField: "date", caption: "date" },
+        { dataField: "date", groupInterval: "year", caption: "date.year" },
 
-            { dataField: "date", groupInterval: "month", caption: "date.month" },
-            { dataField: "Measure", summaryType: "avg", caption: "" }
+        { dataField: "date", groupInterval: "month", caption: "date.month" },
+        { dataField: "Measure", summaryType: "avg", caption: "" }
     ]);
 
     // assert
     assert.ok(this.testStore.load.calledOnce, "load count");
     assert.deepEqual(prepareFields(dataSource.fields()), [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0, allMember: "[All Products]", caption: "" },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1, caption: "" },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, allMember: "[All Periods]", caption: "" },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0, caption: 'Count' },
+        { dataField: "[Product].[Category]", area: "column", areaIndex: 0, allMember: "[All Products]", caption: "" },
+        { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1, caption: "" },
+        { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0, allMember: "[All Periods]", caption: "" },
+        { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0, caption: 'Count' },
 
-            { area: "row", areaIndex: 1, caption: "date", dataField: "date" },
-            { area: "column", areaIndex: 2, caption: "date.year", dataField: "date", groupInterval: "year" },
-            { dataField: "Measure", summaryType: "sum", caption: "" },
-            { dataField: "Measure", summaryType: "avg", caption: "" },
-            { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
+        { area: "row", areaIndex: 1, caption: "date", dataField: "date" },
+        { area: "column", areaIndex: 2, caption: "date.year", dataField: "date", groupInterval: "year" },
+        { dataField: "Measure", summaryType: "sum", caption: "" },
+        { dataField: "Measure", summaryType: "avg", caption: "" },
+        { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]", caption: "" },
 
-            { dataField: "date", groupInterval: "month", caption: "date.month" }
+        { dataField: "date", groupInterval: "month", caption: "date.month" }
     ]);
 });
 
@@ -961,13 +956,13 @@ QUnit.test("Retrieve fields. Create custom Group", function(assert) {
     assert.deepEqual(prepareFields(dataSource.fields()), [
         {
             groupName: "Group1", caption: "", levels: [
-                    { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "" },
-                    { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" }
+                { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "" },
+                { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" }
             ]
         },
-            { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "" },
-            { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" },
-            { dataField: "Field3", caption: "" }
+        { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "" },
+        { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" },
+        { dataField: "Field3", caption: "" }
     ]);
 });
 
@@ -992,15 +987,15 @@ QUnit.test("Retrieve fields. Create custom Group with dataField", function(asser
     assert.strictEqual(dataSource.fields().length, 5);
     assert.deepEqual(prepareFields(dataSource.fields()), [
         { dataField: "Field1", groupName: "Group1", caption: "", dataType: "date", levels: [
-                    { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", groupInterval: "interval1", dataType: "date" },
-                    { dataField: "Field1", groupName: "Group1", groupIndex: 1, caption: "", groupInterval: "interval2", dataType: "date" },
-                    { dataField: "Field3", caption: "", groupName: "Group1", groupIndex: 2, dataType: "number" }
-        ]
-        },
             { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", groupInterval: "interval1", dataType: "date" },
             { dataField: "Field1", groupName: "Group1", groupIndex: 1, caption: "", groupInterval: "interval2", dataType: "date" },
-            { dataField: "Field3", caption: "", groupName: "Group1", groupIndex: 2, dataType: "number" },
-            { dataField: "Field2", caption: "" }
+            { dataField: "Field3", caption: "", groupName: "Group1", groupIndex: 2, dataType: "number" }
+        ]
+        },
+        { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", groupInterval: "interval1", dataType: "date" },
+        { dataField: "Field1", groupName: "Group1", groupIndex: 1, caption: "", groupInterval: "interval2", dataType: "date" },
+        { dataField: "Field3", caption: "", groupName: "Group1", groupIndex: 2, dataType: "number" },
+        { dataField: "Field2", caption: "" }
     ]);
 });
 
@@ -1030,20 +1025,20 @@ QUnit.test("Retrieve fields. Create custom Group. Use one field in some groups",
     assert.deepEqual(prepareFields(dataSource.fields()), [
         {
             groupName: "Group1", caption: "", levels: [
-                    { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", dataType: "number" },
-                    { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" }
+                { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", dataType: "number" },
+                { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" }
             ]
         },
-            { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", dataType: "number" },
-            { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" },
+        { dataField: "Field1", groupName: "Group1", groupIndex: 0, caption: "", dataType: "number" },
+        { dataField: "Field2", groupName: "Group1", groupIndex: 1, caption: "" },
 
         { groupName: "Group2", caption: "", levels: [
-                    { dataField: "Field3", groupName: "Group2", groupIndex: 0, caption: "" },
-                    { dataField: "Field1", groupName: "Group2", groupIndex: 1, caption: "", dataType: "number" }
-        ]
-        },
             { dataField: "Field3", groupName: "Group2", groupIndex: 0, caption: "" },
             { dataField: "Field1", groupName: "Group2", groupIndex: 1, caption: "", dataType: "number" }
+        ]
+        },
+        { dataField: "Field3", groupName: "Group2", groupIndex: 0, caption: "" },
+        { dataField: "Field1", groupName: "Group2", groupIndex: 1, caption: "", dataType: "number" }
     ]);
 });
 
@@ -1070,19 +1065,19 @@ QUnit.test("Retrieve fields. Create custom Group. Get field from other store gro
     assert.deepEqual(prepareFields(dataSource.fields()), [
         {
             groupName: "UserGroup", caption: "", levels: [
-                    { dataField: "Field2", groupName: "UserGroup", groupIndex: 0, caption: "" },
-                    { dataField: "Field3", groupName: "UserGroup", groupIndex: 1, caption: "" }
+                { dataField: "Field2", groupName: "UserGroup", groupIndex: 0, caption: "" },
+                { dataField: "Field3", groupName: "UserGroup", groupIndex: 1, caption: "" }
             ]
         },
-            { dataField: "Field2", groupName: "UserGroup", groupIndex: 0, caption: "" },
-            { dataField: "Field3", groupName: "UserGroup", groupIndex: 1, caption: "" },
+        { dataField: "Field2", groupName: "UserGroup", groupIndex: 0, caption: "" },
+        { dataField: "Field3", groupName: "UserGroup", groupIndex: 1, caption: "" },
 
         {
             dataField: "StoreGroup", groupName: "StoreGroup", caption: "", levels: [
-                    { dataField: "Field1", groupName: "StoreGroup", groupIndex: 0, caption: "" }
+                { dataField: "Field1", groupName: "StoreGroup", groupIndex: 0, caption: "" }
             ]
         },
-            { dataField: "Field1", groupName: "StoreGroup", groupIndex: 0, caption: "" }
+        { dataField: "Field1", groupName: "StoreGroup", groupIndex: 0, caption: "" }
     ]);
 });
 
@@ -1110,13 +1105,13 @@ QUnit.test("Retrieve fields. Customize store group", function(assert) {
     assert.deepEqual(prepareFields(dataSource.fields()), [
         {
             dataField: "StoreGroup", groupName: "StoreGroup", userProperty: "value", caption: "", levels: [
-                    { dataField: "Field2", groupName: "StoreGroup", caption: "", groupIndex: 0 },
-                    { dataField: "Field3", groupName: "StoreGroup", caption: "", groupIndex: 1 }
+                { dataField: "Field2", groupName: "StoreGroup", caption: "", groupIndex: 0 },
+                { dataField: "Field3", groupName: "StoreGroup", caption: "", groupIndex: 1 }
             ]
         },
-            { dataField: "Field2", groupName: "StoreGroup", caption: "", groupIndex: 0 },
-            { dataField: "Field3", groupName: "StoreGroup", caption: "", groupIndex: 1 },
-            { dataField: "Field1", groupName: "StoreGroup", caption: "", groupIndex: 2, visible: false }
+        { dataField: "Field2", groupName: "StoreGroup", caption: "", groupIndex: 0 },
+        { dataField: "Field3", groupName: "StoreGroup", caption: "", groupIndex: 1 },
+        { dataField: "Field1", groupName: "StoreGroup", caption: "", groupIndex: 2, visible: false }
     ]);
 });
 
@@ -1272,28 +1267,20 @@ QUnit.test("retrieve Fields. Fail on load store fields", function(assert) {
     // act
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
-            { dataField: "date", area: "row" },
-            { dataField: "date", area: "column", groupInterval: "year" }
+                { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+                { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
+                { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
+                { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
+                { dataField: "date", area: "row" },
+                { dataField: "date", area: "column", groupInterval: "year" }
             ],
             store: this.testStore,
             retrieveFields: true
         }),
         loadResult = {
-            columns: [{
-                value: "column1"
-            }],
-            rows: [
-                {
-                    value: "rowValue"
-                }
-            ],
-            values: [[1]],
-            grandTotalColumnIndex: 0,
-            grandTotalRowIndex: 0
+            columns: [],
+            rows: [],
+            values: []
         };
 
     def.resolve(loadResult);
@@ -1301,55 +1288,7 @@ QUnit.test("retrieve Fields. Fail on load store fields", function(assert) {
 
     // assert
     assert.deepEqual(dataSource.getData(), loadResult);
-    assert.ok(this.testStore.load.calledOnce, "load count");
-    assert.deepEqual(prepareLoadArgs(this.testStore.load.lastCall.args), [{
-        rowExpandedPaths: [],
-        columnExpandedPaths: [],
-        values: [
-            {
-                dataField: "[Measures].[Customer Count]",
-                area: "data",
-                areaIndex: 0,
-                caption: ""
-            }
-        ],
-        columns: [
-            {
-                dataField: "[Product].[Category]",
-                areaIndex: 0,
-                area: "column",
-                caption: ""
-            },
-            {
-                dataField: "[Product].[Subcategory]",
-                area: "column",
-                areaIndex: 1,
-                caption: ""
-            },
-            {
-                dataField: "date",
-                area: "column",
-                groupInterval: "year",
-                areaIndex: 2,
-                caption: ""
-            }
-        ],
-        rows: [
-            {
-                dataField: "[Ship Date].[Calendar Year]",
-                area: "row",
-                areaIndex: 0,
-                caption: ""
-            },
-            {
-                dataField: "date",
-                area: "row",
-                areaIndex: 1,
-                caption: ""
-            }
-        ],
-        filters: []
-    }], "load args");
+    assert.equal(this.testStore.load.callCount, 0, "load count");
 });
 
 QUnit.test("Retrieve Fields. Create data field with summaryType", function(assert) {
@@ -1538,16 +1477,16 @@ QUnit.test("Fields order", function(assert) {
     // act
     var dataSource = createDataSource({
             fields: [
-            { dataField: "ColumnField2", area: "column", areaIndex: 2 },
-            { dataField: "RowField1", area: "row", areaIndex: 1 },
-            { dataField: "ColumnField0", area: "column", areaIndex: 0 },
-            { dataField: "RowField0", area: "row", areaIndex: 0 },
-            { dataField: "CellField1", area: "data", areaIndex: -1 },
-            { dataField: "ColumnField01", area: "column", areaIndex: 0 },
-            { dataField: "UnknownArea", area: "page", areaIndex: 0 },
-            { dataField: "CellUndefinedIndex", area: "data" },
-            { dataField: "FilterField2", area: "filter", areaIndex: 4 },
-            { dataField: "FilterField1", area: "filter", areaIndex: 0 }
+                { dataField: "ColumnField2", area: "column", areaIndex: 2 },
+                { dataField: "RowField1", area: "row", areaIndex: 1 },
+                { dataField: "ColumnField0", area: "column", areaIndex: 0 },
+                { dataField: "RowField0", area: "row", areaIndex: 0 },
+                { dataField: "CellField1", area: "data", areaIndex: -1 },
+                { dataField: "ColumnField01", area: "column", areaIndex: 0 },
+                { dataField: "UnknownArea", area: "page", areaIndex: 0 },
+                { dataField: "CellUndefinedIndex", area: "data" },
+                { dataField: "FilterField2", area: "filter", areaIndex: 4 },
+                { dataField: "FilterField1", area: "filter", areaIndex: 0 }
             ],
             store: this.testStore
         }),
@@ -2000,9 +1939,9 @@ QUnit.test("Change field non exist field", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", allMember: "[All Products]", area: "column", areaIndex: 0 },
-            { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
+                { dataField: "[Product].[Category]", allMember: "[All Products]", area: "column", areaIndex: 0 },
+                { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]", area: "row", areaIndex: 0 },
+                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
             ],
             store: this.testStore
         }),
@@ -2096,13 +2035,13 @@ QUnit.test("Change field after expand", function(assert) {
 
     var dataSource = createDataSource({
         fields: [
-                { dataField: "Year", area: "row", areaIndex: 0 },
-                { dataField: "Month", area: "row", areaIndex: 1 },
+            { dataField: "Year", area: "row", areaIndex: 0 },
+            { dataField: "Month", area: "row", areaIndex: 1 },
 
-                { dataField: "Category", area: "column", areaIndex: 0 },
-                { dataField: "SubCategory", area: "column", areaIndex: 1 },
+            { dataField: "Category", area: "column", areaIndex: 0 },
+            { dataField: "SubCategory", area: "column", areaIndex: 1 },
 
-                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
+            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
         ],
 
         store: this.testStore
@@ -2311,13 +2250,13 @@ QUnit.test("Remove fields when expanded items exist", function(assert) {
 
     var dataSource = createDataSource({
         fields: [
-                { dataField: "Category", area: "column", areaIndex: 0 },
-                { dataField: "SubCategory", area: "column", areaIndex: 1 },
+            { dataField: "Category", area: "column", areaIndex: 0 },
+            { dataField: "SubCategory", area: "column", areaIndex: 1 },
 
-                { dataField: "Year", area: "row", areaIndex: 0 },
-                { dataField: "Month", area: "row", areaIndex: 1 },
+            { dataField: "Year", area: "row", areaIndex: 0 },
+            { dataField: "Month", area: "row", areaIndex: 1 },
 
-                { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
+            { dataField: "[Measures].[Customer Count]", caption: 'Count', area: "data", areaIndex: 0 }
         ],
         store: this.testStore
     });
@@ -2467,12 +2406,12 @@ QUnit.test("Change field when fields not loaded", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
-            { dataField: "date", area: "row" },
-            { dataField: "date", area: "column", groupInterval: "year" }
+                { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+                { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
+                { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
+                { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 },
+                { dataField: "date", area: "row", areaIndex: 1 },
+                { dataField: "date", area: "column", groupInterval: "year", areaIndex: 2 }
             ],
             store: this.testStore,
             retrieveFields: true
@@ -2498,14 +2437,14 @@ QUnit.test("Change field when fields not loaded", function(assert) {
     dataSource.load();
 
     retrieveFieldsDef.resolve([
-            { dataField: "[Product].[Category]", allMember: "[All Products]" },
-            { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]" },
-            { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]" },
-            { dataField: "[Measures].[Customer Count]", caption: 'Count' },
-            { dataField: "date", caption: "date" },
-            { dataField: "date", groupInterval: "year", caption: "date.year" },
+        { dataField: "[Product].[Category]", allMember: "[All Products]" },
+        { dataField: "[Ship Date].[Calendar Year]", allMember: "[All Periods]" },
+        { dataField: "[Ship Date].[Calendar Month]", allMember: "[All Periods]" },
+        { dataField: "[Measures].[Customer Count]", caption: 'Count' },
+        { dataField: "date", caption: "date" },
+        { dataField: "date", groupInterval: "year", caption: "date.year" },
 
-            { dataField: "date", groupInterval: "month", caption: "date.month" }
+        { dataField: "date", groupInterval: "month", caption: "date.month" }
     ]);
 
     // assert
@@ -2684,10 +2623,10 @@ QUnit.test("Change areaIndex to end", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
-            { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
-            { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
-            { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 }
+                { dataField: "[Product].[Category]", area: "column", areaIndex: 0 },
+                { dataField: "[Product].[Subcategory]", area: "column", areaIndex: 1 },
+                { dataField: "[Ship Date].[Calendar Year]", area: "row", areaIndex: 0 },
+                { dataField: "[Measures].[Customer Count]", area: "data", areaIndex: 0 }
             ],
             store: this.testStore
         }),
@@ -2733,11 +2672,11 @@ QUnit.test("Load with group field", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Color]", area: "row", areaIndex: 2 },
-            { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1 },
-            { dataField: "[Date]", area: "row", areaIndex: 0 },
-            { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0 },
-            { dataField: "[Product]", groupName: "[Product]", area: "row", areaIndex: 1 }
+                { dataField: "[Color]", area: "row", areaIndex: 2 },
+                { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1 },
+                { dataField: "[Date]", area: "row", areaIndex: 0 },
+                { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0 },
+                { dataField: "[Product]", groupName: "[Product]", area: "row", areaIndex: 1 }
             ],
             store: this.testStore
         }),
@@ -3013,8 +2952,8 @@ QUnit.test("Load several groups on single axis", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Product]", area: "row", groupName: "[Product]" },
-            { dataField: "[Calendar]", area: "row", groupName: "[Calendar]", dataType: "date" },
+                { dataField: "[Product]", area: "row", groupName: "[Product]" },
+                { dataField: "[Calendar]", area: "row", groupName: "[Calendar]", dataType: "date" },
 
                 { dataField: "[Category]", groupName: "[Product]", groupIndex: 0 },
                 { dataField: "[Subcategory]", groupName: "[Product]", groupIndex: 1 },
@@ -3044,10 +2983,10 @@ QUnit.test("Load several groups on single axis", function(assert) {
         columns: [],
         rows: [
             { dataField: "[Category]", groupName: "[Product]", groupIndex: 0, area: "row", areaIndex: 0, caption: "" },
-                { dataField: "[Subcategory]", groupName: "[Product]", groupIndex: 1, area: "row", areaIndex: 0, caption: "" },
+            { dataField: "[Subcategory]", groupName: "[Product]", groupIndex: 1, area: "row", areaIndex: 0, caption: "" },
 
-                { dataField: "[Year]", groupName: "[Calendar]", groupIndex: 0, area: "row", areaIndex: 1, caption: "", dataType: "date" },
-                { dataField: "[Month]", groupName: "[Calendar]", groupIndex: 1, area: "row", areaIndex: 1, caption: "", dataType: "date" }
+            { dataField: "[Year]", groupName: "[Calendar]", groupIndex: 0, area: "row", areaIndex: 1, caption: "", dataType: "date" },
+            { dataField: "[Month]", groupName: "[Calendar]", groupIndex: 1, area: "row", areaIndex: 1, caption: "", dataType: "date" }
         ],
         filters: []
     }], "load args");
@@ -3059,11 +2998,11 @@ QUnit.test("Change group item", function(assert) {
             { dataField: "[Product]", area: "row", groupName: "[Product]", areaIndex: 0 },
             { dataField: "[Calendar]", area: "column", groupName: "[Calendar]", areaIndex: 0 },
 
-                { dataField: "[Category]", groupName: "[Product]", groupIndex: 0 },
-                { dataField: "[Subcategory]", groupName: "[Product]", groupIndex: 1 },
+            { dataField: "[Category]", groupName: "[Product]", groupIndex: 0 },
+            { dataField: "[Subcategory]", groupName: "[Product]", groupIndex: 1 },
 
-                { dataField: "[Year]", groupName: "[Calendar]", groupIndex: 0 },
-                { dataField: "[Month]", groupName: "[Calendar]", groupIndex: 1 }
+            { dataField: "[Year]", groupName: "[Calendar]", groupIndex: 0 },
+            { dataField: "[Month]", groupName: "[Calendar]", groupIndex: 1 }
         ],
         store: this.testStore
     });
@@ -3097,11 +3036,11 @@ QUnit.test("Load with group fields with filterValues", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Color]", area: "row", areaIndex: 2 },
-            { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"] },
-            { dataField: "[Date]", area: "row", areaIndex: 0 },
-            { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"] },
-            { dataField: "[Product]", groupName: "[Product]", area: "row", areaIndex: 1, filterValues: ["Cat1 SubCat1"] }
+                { dataField: "[Color]", area: "row", areaIndex: 2 },
+                { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"] },
+                { dataField: "[Date]", area: "row", areaIndex: 0 },
+                { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"] },
+                { dataField: "[Product]", groupName: "[Product]", area: "row", areaIndex: 1, filterValues: ["Cat1 SubCat1"] }
             ],
             store: this.testStore
         }),
@@ -3133,8 +3072,8 @@ QUnit.test("Load with group fields with filterValues", function(assert) {
             {
                 dataField: "[Product]", groupName: "[Product]", area: "row", areaIndex: 1, filterValues: ["Cat1 SubCat1"],
                 levels: [
-                        { dataField: "[Product].[Category]", groupName: "[Product]", groupIndex: 0, areaIndex: 1, area: "row", filterValues: ["Cat2"], caption: "" },
-                        { dataField: "[Product].[Subcategory]", groupName: "[Product]", groupIndex: 1, areaIndex: 1, area: "row", filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"], caption: "" }
+                    { dataField: "[Product].[Category]", groupName: "[Product]", groupIndex: 0, areaIndex: 1, area: "row", filterValues: ["Cat2"], caption: "" },
+                    { dataField: "[Product].[Subcategory]", groupName: "[Product]", groupIndex: 1, areaIndex: 1, area: "row", filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"], caption: "" }
                 ],
                 caption: ""
             }
@@ -3150,11 +3089,11 @@ QUnit.test("Load with group fields with filterValues and filter area", function(
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "[Color]", area: "row", areaIndex: 2 },
-            { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"] },
-            { dataField: "[Date]", area: "row", areaIndex: 0 },
-            { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"] },
-            { dataField: "[Product]", groupName: "[Product]", area: "filter", areaIndex: 1, filterValues: ["Cat1 SubCat1"] }
+                { dataField: "[Color]", area: "row", areaIndex: 2 },
+                { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "column", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"] },
+                { dataField: "[Date]", area: "row", areaIndex: 0 },
+                { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"] },
+                { dataField: "[Product]", groupName: "[Product]", area: "filter", areaIndex: 1, filterValues: ["Cat1 SubCat1"] }
             ],
             store: this.testStore
         }),
@@ -3187,8 +3126,8 @@ QUnit.test("Load with group fields with filterValues and filter area", function(
             {
                 dataField: "[Product]", groupName: "[Product]", area: "filter", areaIndex: 0, filterValues: ["Cat1 SubCat1"],
                 levels: [
-                        { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"], areaIndex: 0, caption: "" },
-                        { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "filter", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"], areaIndex: 0, caption: "" }
+                    { dataField: "[Product].[Category]", groupName: "[Product]", area: "filter", groupIndex: 0, filterValues: ["Cat2"], areaIndex: 0, caption: "" },
+                    { dataField: "[Product].[Subcategory]", groupName: "[Product]", area: "filter", groupIndex: 1, filterValues: ["Cat1 SubCat2", "Cat1 SubCat3"], areaIndex: 0, caption: "" }
                 ],
                 caption: ""
             }
@@ -3205,9 +3144,9 @@ QUnit.test("Collapse level", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         });
@@ -3254,6 +3193,61 @@ QUnit.test("Collapse level", function(assert) {
     }
 });
 
+QUnit.test("Collapse group", function(assert) {
+    assert.expect(9);
+
+    this.testStore.load.returns($.Deferred().resolve(this.storeData));
+
+    const dataSource = createDataSource({
+        fields: [
+            { group: "group", area: "column", expanded: true },
+            { dataField: "ShipCity", area: "column", group: "group", groupIndex: 0 },
+            { dataField: "ShipVia", area: "row" },
+            { summaryType: 'count', area: "data" }
+        ],
+        store: this.testStore
+    });
+
+    dataSource.on("changed", assertFunction);
+
+    // act
+    dataSource.collapseAll(0);
+    // assert
+    function assertFunction() {
+        var data = this.getData();
+        assert.strictEqual(data.columns[0].value, "Brazil");
+        assert.ok(!data.columns[0].children);
+        assert.deepEqual(prepareLoadedData(data.columns[0].collapsedChildren), [{
+            index: 7,
+            value: "Campinas"
+        }, {
+            index: 8,
+            value: "Sao Paulo"
+        }]);
+
+        assert.strictEqual(data.columns[1].value, "Canada");
+        assert.ok(!data.columns[1].children);
+        assert.ok(!data.columns[1].collapsedChildren);
+
+        assert.strictEqual(data.columns[2].value, "USA");
+        assert.ok(!data.columns[2].children);
+        assert.deepEqual(prepareLoadedData(data.columns[2].collapsedChildren), [
+            {
+                index: 2,
+                value: "Boise"
+            },
+            {
+                index: 4,
+                value: "Butte"
+            },
+            {
+                index: 3,
+                value: "Elgin"
+            }
+        ]);
+    }
+});
+
 QUnit.test("Collapse level by field id", function(assert) {
     assert.expect(10);
 
@@ -3263,9 +3257,9 @@ QUnit.test("Collapse level by field id", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         });
@@ -3326,13 +3320,13 @@ QUnit.test("Collapse level when group", function(assert) {
     var expandedField = { groupName: "group", groupIndex: 1, expanded: true },
         dataSource = createDataSource({
             fields: [
-            { dataField: "Field", groupName: "group", area: "column" },
-            { groupName: "group", expanded: true, groupIndex: 0 },
+                { dataField: "Field", groupName: "group", area: "column" },
+                { groupName: "group", expanded: true, groupIndex: 0 },
                 expandedField,
-            { groupName: "group", groupIndex: 2 },
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { groupName: "group", groupIndex: 2 },
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         });
@@ -3371,9 +3365,9 @@ QUnit.test("Collapse level when fieldIndex incorrect", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         }),
@@ -3398,8 +3392,8 @@ QUnit.test("Collapse level when there are not expanded items", function(assert) 
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         }),
@@ -3422,9 +3416,9 @@ QUnit.test("Expand level", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         });
@@ -3450,6 +3444,26 @@ QUnit.test("Expand level", function(assert) {
 
 });
 
+QUnit.test("Expand group", function(assert) {
+    this.testStore.load.returns($.Deferred());
+
+    const dataSource = createDataSource({
+        fields: [
+            { groupName: "group", area: "column" },
+            { dataField: "ShipCity", groupName: "group", groupIndex: 0 },
+            { dataField: "ShipVia", groupName: "group", groupIndex: 1 },
+            { dataField: "NotGroup", area: "column", expanded: false }
+        ],
+        store: this.testStore
+    });
+
+    // act
+    dataSource.expandAll(0);
+    // assert
+    var expandedValues = this.testStore.load.lastCall.args[0].columns.map(f => f.expanded);
+    assert.deepEqual(expandedValues, [true, true, false]);
+});
+
 QUnit.test("Expand level by fieldId", function(assert) {
     this.testStore.load.returns($.Deferred().resolve(this.storeData));
 
@@ -3457,9 +3471,9 @@ QUnit.test("Expand level by fieldId", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         });
@@ -3492,9 +3506,9 @@ QUnit.test("expand level when fieldIndex incorrect", function(assert) {
         dataSource = createDataSource({
             fields: [
                 expandedField,
-            { dataField: "ShipCity", area: "column" },
-            { dataField: "ShipVia", area: "row" },
-            { summaryType: 'count', area: "data" }
+                { dataField: "ShipCity", area: "column" },
+                { dataField: "ShipVia", area: "row" },
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         }),
@@ -3514,19 +3528,19 @@ QUnit.test("Fields Caption generation", function(assert) {
     inflector.titleize.restore();
     var dataSource = createDataSource({
             fields: [
-            { dataField: "Field1", caption: "userCaption", summaryType: "sum", groupName: "Group1" },
-            { dataField: "Field2", caption: "" },
-            { dataField: "fieldName_caption" },
-            {},
-            { summaryType: "avg" },
-            { dataField: "Field3", summaryType: "avg" },
-            { dataField: "date", groupInterval: "year" },
-            { dataField: "number", groupInterval: 10 },
-            { dataField: "date", groupInterval: "month", summaryType: "count" },
-            { dataField: "Field4", summaryType: "custom" },
-            { dataField: "Field5" },
-            { dataField: "Field6", groupName: "Group2" },
-            { groupName: "Group3" }
+                { dataField: "Field1", caption: "userCaption", summaryType: "sum", groupName: "Group1" },
+                { dataField: "Field2", caption: "" },
+                { dataField: "fieldName_caption" },
+                {},
+                { summaryType: "avg" },
+                { dataField: "Field3", summaryType: "avg" },
+                { dataField: "date", groupInterval: "year" },
+                { dataField: "number", groupInterval: 10 },
+                { dataField: "date", groupInterval: "month", summaryType: "count" },
+                { dataField: "Field4", summaryType: "custom" },
+                { dataField: "Field5" },
+                { dataField: "Field6", groupName: "Group2" },
+                { groupName: "Group3" }
             ],
             store: this.testStore
         }),
@@ -3553,19 +3567,19 @@ QUnit.test("Fields Caption generation. Change field option", function(assert) {
     inflector.titleize.restore();
     var dataSource = createDataSource({
             fields: [
-            { dataField: "Field1", caption: "userCaption", summaryType: "sum", groupName: "Group1" },
-            { dataField: "Field2", caption: "" },
-            { dataField: "fieldName_caption" },
-            {},
-            { summaryType: "avg" },
-            { dataField: "Field3", summaryType: "avg" },
-            { dataField: "date", groupInterval: "year" },
-            { dataField: "number", groupInterval: 10 },
-            { dataField: "date", groupInterval: "month", summaryType: "count" },
-            { dataField: "Field4", summaryType: "custom" },
-            { dataField: "Field5" },
-            { dataField: "Field6", groupName: "Group2" },
-            { groupName: "Group3" }
+                { dataField: "Field1", caption: "userCaption", summaryType: "sum", groupName: "Group1" },
+                { dataField: "Field2", caption: "" },
+                { dataField: "fieldName_caption" },
+                {},
+                { summaryType: "avg" },
+                { dataField: "Field3", summaryType: "avg" },
+                { dataField: "date", groupInterval: "year" },
+                { dataField: "number", groupInterval: 10 },
+                { dataField: "date", groupInterval: "month", summaryType: "count" },
+                { dataField: "Field4", summaryType: "custom" },
+                { dataField: "Field5" },
+                { dataField: "Field6", groupName: "Group2" },
+                { groupName: "Group3" }
             ],
             store: this.testStore
         }),
@@ -3627,8 +3641,8 @@ QUnit.test("Change fields at runtime", function(assert) {
     ]));
     var dataSource = createDataSource({
             fields: [
-            { dataField: "Field1", caption: "Field1Caption", dataType: "string" },
-            { dataField: "Field2", caption: "Filed2Caption", dataType: "string" }
+                { dataField: "Field1", caption: "Field1Caption", dataType: "string" },
+                { dataField: "Field2", caption: "Filed2Caption", dataType: "string" }
             ],
             store: this.testStore
         }),
@@ -3687,8 +3701,8 @@ QUnit.test("Change fields at runtime when store fields not yet loaded", function
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "Field1", caption: "Field1Caption", dataType: "string" },
-            { dataField: "Field2", caption: "Filed2Caption", dataType: "string" }
+                { dataField: "Field1", caption: "Field1Caption", dataType: "string" },
+                { dataField: "Field2", caption: "Filed2Caption", dataType: "string" }
             ],
             store: this.testStore
         }),
@@ -3818,9 +3832,9 @@ QUnit.test("headers formatting", function(assert) {
         }),
         dataSource = createDataSource({
             fields: [
-            { dataField: "Field1", area: "column" },
-            { dataField: "Field2", area: "column", customizeText: customizeText },
-            { dataField: "Field3", area: "row", format: { type: "currency", precision: 2 } }
+                { dataField: "Field1", area: "column" },
+                { dataField: "Field2", area: "column", customizeText: customizeText },
+                { dataField: "Field3", area: "row", format: { type: "currency", precision: 2 } }
             ],
             store: this.testStore
         });
@@ -3888,7 +3902,7 @@ QUnit.test("header formatting when expanding", function(assert) {
     });
 });
 
-if(window.INTRANET) {
+if(window.INTRANET && (!browser.msie || parseInt(browser.version) < 17)) {
 
     QUnit.test("XMLA store integration", function(assert) {
         var done = assert.async(),
@@ -4360,12 +4374,12 @@ QUnit.test("Sort data after expand item", function(assert) {
 
     var dataSource = createDataSource({
             fields: [
-            { dataField: "ShipCountry", sortOrder: "asc", area: "column" },
-            { dataField: "ShipCity", sortOrder: "desc", area: "column" },
+                { dataField: "ShipCountry", sortOrder: "asc", area: "column" },
+                { dataField: "ShipCity", sortOrder: "desc", area: "column" },
 
-            { dataField: "ShipVia", area: "row", sort: "desc" },
+                { dataField: "ShipVia", area: "row", sort: "desc" },
 
-            { summaryType: 'count', area: "data" }
+                { summaryType: 'count', area: "data" }
             ],
             store: this.testStore
         }),
@@ -4508,10 +4522,10 @@ QUnit.test("Sort by summary with path", function(assert) {
         grandTotalColumnIndex: 0,
         values: [
         //   GT    1    2    3
-            [[0], [0], [0], [0]],      // GT
-            [[0], [0], [0], [0]],      // A
-            [[0], [null], [0], [0]],   // B
-            [[0], [-1], [0], [0]]      // C
+            [[0], [0], [0], [0]], // GT
+            [[0], [0], [0], [0]], // A
+            [[0], [null], [0], [0]], // B
+            [[0], [-1], [0], [0]] // C
         ]
     }));
 
@@ -6017,9 +6031,9 @@ QUnit.test("Set State", function(assert) {
 QUnit.test("T399271: dxPivotGrid - It is impossible to apply the state of a grid saved in v15.2 to a grid in v16.1", function(assert) {
     var dataSource = createDataSource({
         fields: [
-                { dataField: "Field1", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal", area: "row" },
-                { dataField: "Field2", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal" },
-                { dataField: "Field3", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal" }
+            { dataField: "Field1", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal", area: "row" },
+            { dataField: "Field2", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal" },
+            { dataField: "Field3", summaryType: "sum", summaryDisplayMode: "percentOfGrandTotal" }
         ],
         store: this.testStore
     });
@@ -6104,11 +6118,11 @@ QUnit.test("Set State. After new field have added. T389504", function(assert) {
     var state = dataSource.state();
     dataSource.fields([{ dataField: "Field6" }].concat(fields));
 
-        // act
+    // act
     this.testStore.load.reset();
     dataSource.state(state);
 
-        // Assert
+    // Assert
     assert.ok(this.testStore.load.calledOnce);
 
     $.each(dataSource.fields(), function(index, field) {
@@ -6431,8 +6445,8 @@ QUnit.test("set state when store fields not loaded", function(assert) {
 
     assert.ok(dataSource.isLoading(), "dataSource loads fields");
     retrieveFieldsDef.resolve([
-            { dataField: "Category" },
-            { dataField: "Year" }
+        { dataField: "Category" },
+        { dataField: "Year" }
     ]);
 
 

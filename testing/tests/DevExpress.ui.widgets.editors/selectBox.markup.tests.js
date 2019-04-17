@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     SelectBox = require("ui/select_box"),
     DataSource = require("data/data_source/data_source").DataSource,
@@ -192,9 +190,9 @@ QUnit.test("set value using dataSource instead of store", function(assert) {
 
 QUnit.test("placeholder", function(assert) {
     var $element = $("#selectBox")
-            .dxSelectBox({
-                placeholder: "John Doe"
-            });
+        .dxSelectBox({
+            placeholder: "John Doe"
+        });
 
     assert.equal($element.find("." + PLACEHOLDER_CLASS).attr("data-dx_placeholder"), "John Doe");
 });

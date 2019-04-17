@@ -1,8 +1,7 @@
-"use strict";
-
 var $ = require("jquery"),
     pointerMock = require("../../helpers/pointerMock.js"),
-    HORIZONTAL_WIDTH_LARGE = 1500;
+    HORIZONTAL_WIDTH_LARGE = 1500,
+    HORIZONTAL_WIDTH_SMALL = 900;
 
 require("common.css!");
 require("ui/pivot_grid/ui.sortable");
@@ -39,6 +38,17 @@ QUnit.testStart(function() {
                 <div class="test-item">2</div>\
                 <div class="test-item">3</div>\
                 <div class="test-item">4</div>\
+            </div>\
+        </div>\
+        \
+        <div class="dx-swatch-1">\
+            <div id="swatchSortable" style="height: 300px; width: 300px" class="test-items">\
+                <div class="test-container">\
+                    <div class="test-item">1</div>\
+                    <div class="test-item">2</div>\
+                    <div class="test-item">3</div>\
+                    <div class="test-item">4</div>\
+                </div>\
             </div>\
         </div>';
 
@@ -151,15 +161,11 @@ QUnit.test("set onChanged arg's fields", function(assert) {
 QUnit.test("horizontal dragging - right", function(assert) {
     createHorizontalMarkUp(HORIZONTAL_WIDTH_LARGE);
 
-    var changedArgs,
-        $sortable = $("#sortable").dxSortable({
-            itemSelector: ".test-item",
-            direction: "horizontal",
-            itemContainerSelector: ".test-container",
-            onChanged: function(e) {
-                changedArgs = e;
-            }
-        });
+    var $sortable = $("#sortable").dxSortable({
+        itemSelector: ".test-item",
+        direction: "horizontal",
+        itemContainerSelector: ".test-container"
+    });
 
     var $item = $sortable.find(".test-item").eq(0);
     var offset = $item.offset();
@@ -542,6 +548,25 @@ QUnit.test("dragging when no itemContainer", function(assert) {
     assert.ok(!changedArgs, "changed not called");
 });
 
+QUnit.test("dragging with color swatch", function(assert) {
+    var $sortable = $("#swatchSortable").dxSortable({
+        itemSelector: ".test-item",
+        itemContainerSelector: ".test-container"
+    });
+
+    var $item = $sortable.find(".test-item").eq(0);
+    var offset = $item.offset();
+
+    // act
+    pointerMock($item)
+        .start()
+        .down()
+        .move(offset.left + 5, offset.top + 5);
+
+    // assert
+    assert.equal($("body > .dx-swatch-1 > .test-item.dx-drag").length, 1, "Dragging item rendered in container with swatch class");
+});
+
 
 QUnit.module("'useIndicator' option");
 
@@ -761,7 +786,7 @@ QUnit.test("dragging to empty group", function(assert) {
                                         </div>');
 
     $("#sortable").append('<div group="group2" class="group">\
-                                            <div class="test-container" style="height: 30px;">\</div>\
+                                            <div class="test-container" style="height: 30px;"></div>\
                                         </div>');
 
     var indicator,
@@ -784,7 +809,40 @@ QUnit.test("dragging to empty group", function(assert) {
 
     indicator = $(".dx-position-indicator");
     assert.ok(!indicator.length); // TODO: indicator should be shown
+});
 
+QUnit.test("indicator is shown on bottom dragging when items are set in two lines", function(assert) {
+    createHorizontalMarkUp(HORIZONTAL_WIDTH_SMALL, true, true);
+
+    var indicator,
+        $sortable = $("#sortable").dxSortable({
+            itemSelector: ".test-item",
+            direction: "auto",
+            useIndicator: true,
+            itemContainerSelector: ".test-container"
+        });
+
+    var $item = $sortable.find(".test-item").eq(1),
+        $targetItem = $sortable.find(".dx-drag-target");
+    var offset = $item.offset();
+
+    // act
+    pointerMock($item)
+        .start()
+        .down()
+        .move(offset.left - 3, offset.top + 3)
+        .move(offset.left - 103, offset.top + 15);
+
+    indicator = $(".dx-position-indicator");
+
+    assert.ok(indicator.length, "indicator is rendered");
+    assert.notOk($targetItem.is(":visible"));
+
+    assert.ok(indicator.offset().left <= $sortable.find(".test-item").eq(5).offset().left, "indicator was rendered before 5 item");
+    assert.ok(indicator.offset().left > $sortable.find(".test-item").eq(4).offset().left, "indicator was rendered after 4 item");
+    assert.ok(indicator.hasClass("dx-position-indicator-horizontal"));
+    assert.ok(!indicator.hasClass("dx-position-indicator-vertical"));
+    assert.ok(!indicator.hasClass("dx-position-indicator-last"));
 });
 
 QUnit.test("indicator is shown on bottom dragging", function(assert) {
@@ -932,13 +990,13 @@ QUnit.test("drag without source element", function(assert) {
 
 QUnit.test("Indicator should not be shown on dragging to the same item at another sortable", function(assert) {
     $("#sortable").css("display", "none");
-    $("<div id='sortable1'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div><div class='test-item'>3</div>\</div></div>")
+    $("<div id='sortable1'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div><div class='test-item'>3</div></div></div>")
         .insertAfter("#sortable")
         .css({
             width: "3000px",
             height: "200px"
         });
-    $("<div id='sortable2'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div><div class='test-item'>3</div>\</div></div>")
+    $("<div id='sortable2'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div><div class='test-item'>3</div></div></div>")
         .insertAfter("#sortable1")
         .css({
             width: "3000px",
@@ -1327,7 +1385,7 @@ QUnit.test("dragging between different sortables by groupFilter callback to non-
 });
 
 QUnit.test("dragging between different sortables positioned one on another", function(assert) {
-    $("<div id='sortable1'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div>\</div></div>")
+    $("<div id='sortable1'><div id='second-group' group='groupFilter' class='group horizontal' style='height: 150px'><div class='test-container'><div class='test-item'>1</div><div class='test-item'>2</div></div></div>")
         .insertAfter("#sortable")
         .css({
             position: "absolute",

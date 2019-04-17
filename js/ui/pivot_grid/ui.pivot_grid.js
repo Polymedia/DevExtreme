@@ -1,8 +1,7 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     windowUtils = require("../../core/utils/window"),
     window = windowUtils.getWindow(),
+    browser = require("../../core/utils/browser"),
     eventsEngine = require("../../events/core/events_engine"),
     registerComponent = require("../../core/component_registrator"),
     getPublicElement = require("../../core/utils/dom").getPublicElement,
@@ -877,7 +876,7 @@ var PivotGrid = Widget.inherit({
             onExporting: that._createActionByOption("onExporting"),
             onExported: that._createActionByOption("onExported"),
             onFileSaving: that._createActionByOption("onFileSaving"),
-            onCellPrepared: that._createActionByOption("onCellPrepared")
+            onCellPrepared: that._createActionByOption("onCellPrepared"),
         };
     },
 
@@ -990,6 +989,10 @@ var PivotGrid = Widget.inherit({
             scrollLeft,
             scrolled = that._scrollTop || that._scrollLeft;
 
+        if(that._scrollUpdating) return; // T645458
+
+        that._scrollUpdating = true;
+
         if(rowsArea && !rowsArea.hasScroll() && that._hasHeight) {
             that._scrollTop = null;
         }
@@ -1005,6 +1008,8 @@ var PivotGrid = Widget.inherit({
             rowsArea.scrollTo(scrollTop);
             that._dataController.updateWindowScrollPosition(that._scrollTop);
         }
+
+        that._scrollUpdating = false;
     },
 
     _subscribeToEvents: function(columnsArea, rowsArea, dataArea) {
@@ -1075,6 +1080,7 @@ var PivotGrid = Widget.inherit({
                 texts: fieldChooserOptions.texts || {},
                 dataSource: that.getDataSource(),
                 allowSearch: fieldChooserOptions.allowSearch,
+                searchTimeout: fieldChooserOptions.searchTimeout,
                 width: undefined,
                 height: undefined,
                 headerFilter: that.option("headerFilter"),
@@ -1206,7 +1212,7 @@ var PivotGrid = Widget.inherit({
                             text: text,
                             onItemClick: function() {
                                 dataSource.field(field.index, {
-                                    sortBySummaryField: dataField.caption || dataField.dataField,
+                                    sortBySummaryField: dataField.name || dataField.caption || dataField.dataField,
                                     sortBySummaryPath: e.cell.path,
                                     sortOrder: field.sortOrder === "desc" ? "asc" : "desc"
                                 });
@@ -1372,15 +1378,14 @@ var PivotGrid = Widget.inherit({
     },
 
     _renderDescriptionArea: function() {
-        var that = this,
-            $element = that.$element(),
+        let $element = this.$element(),
             $descriptionCell = $element.find("." + DESCRIPTION_AREA_CELL_CLASS),
             $toolbarContainer = $(DIV).addClass("dx-pivotgrid-toolbar"),
-            fieldPanel = that.option("fieldPanel"),
+            fieldPanel = this.option("fieldPanel"),
             $filterHeader = $element.find(".dx-filter-header"),
             $columnHeader = $element.find(".dx-column-header");
 
-        var $targetContainer;
+        let $targetContainer;
 
         if(fieldPanel.visible && fieldPanel.showFilterFields) {
             $targetContainer = $filterHeader;
@@ -1395,34 +1400,38 @@ var PivotGrid = Widget.inherit({
 
         $descriptionCell.toggleClass("dx-pivotgrid-background", fieldPanel.visible && (fieldPanel.showDataFields || fieldPanel.showColumnFields || fieldPanel.showRowFields));
 
-        that.$element().find(".dx-pivotgrid-toolbar").remove();
+        this.$element().find(".dx-pivotgrid-toolbar").remove();
 
         $toolbarContainer.prependTo($targetContainer);
 
-        if(that.option("fieldChooser.enabled")) {
-            that._createComponent($(DIV)
+        if(this.option("fieldChooser.enabled")) {
+            let $buttonElement = $(DIV)
                 .appendTo($toolbarContainer)
-                .addClass("dx-pivotgrid-field-chooser-button"),
-                "dxButton", {
-                    icon: "columnchooser",
-                    hint: that.option("texts.showFieldChooser"),
-                    onClick: function() {
-                        that.getFieldChooserPopup().show();
-                    }
-                });
+                .addClass("dx-pivotgrid-field-chooser-button");
+            let buttonOptions = {
+                icon: "columnchooser",
+                hint: this.option("texts.showFieldChooser"),
+                onClick: () => {
+                    this.getFieldChooserPopup().show();
+                }
+            };
+
+            this._createComponent($buttonElement, "dxButton", buttonOptions);
         }
 
-        if(that.option("export.enabled")) {
-            that._createComponent($(DIV)
+        if(this.option("export.enabled")) {
+            let $buttonElement = $(DIV)
                 .appendTo($toolbarContainer)
-                .addClass("dx-pivotgrid-export-button"),
-                "dxButton", {
-                    icon: "exportxlsx",
-                    hint: that.option("texts.exportToExcel"),
-                    onClick: function() {
-                        that.exportToExcel();
-                    }
-                });
+                .addClass("dx-pivotgrid-export-button");
+            let buttonOptions = {
+                icon: "exportxlsx",
+                hint: this.option("texts.exportToExcel"),
+                onClick: () => {
+                    this.exportToExcel();
+                }
+            };
+
+            this._createComponent($buttonElement, "dxButton", buttonOptions);
         }
     },
 
@@ -1554,8 +1563,8 @@ var PivotGrid = Widget.inherit({
                 .append(columnHeaderContainer)
                 .appendTo(tableElement);
 
-
             $(TR)
+                .toggleClass("dx-ie", browser.msie === true)
                 .append(rowHeaderContainer)
                 .append(columnsAreaElement)
                 .appendTo(tableElement);
@@ -1727,6 +1736,7 @@ var PivotGrid = Widget.inherit({
             columnAreaCell = tableElement.find("." + COLUMN_AREA_CELL_CLASS),
             descriptionCell = tableElement.find("." + DESCRIPTION_AREA_CELL_CLASS),
             filterHeaderCell = tableElement.find(".dx-filter-header"),
+            columnHeaderCell = tableElement.find(".dx-column-header"),
             elementWidth,
             columnsAreaHeight,
             descriptionCellHeight,
@@ -1785,13 +1795,18 @@ var PivotGrid = Widget.inherit({
             rowsAreaColumnWidths = rowsArea.getColumnsWidth();
 
             if(that._hasHeight) {
-                bordersWidth = getCommonBorderWidth([columnAreaCell, dataAreaCell, tableElement, tableElement.find(".dx-column-header"), filterHeaderCell], "height");
+                bordersWidth = getCommonBorderWidth([columnAreaCell, dataAreaCell, tableElement, columnHeaderCell, filterHeaderCell], "height");
                 groupHeight = that.$element().height() - filterHeaderCell.height() - tableElement.find(".dx-data-header").height() - (Math.max(dataArea.headElement().height(), columnAreaCell.height(), descriptionCellHeight) + bordersWidth);
             }
 
             totalWidth = dataArea.tableElement().width();
 
             totalHeight = getArraySum(resultHeights);
+
+            if(!totalWidth || !totalHeight) {
+                d.resolve();
+                return;
+            }
 
             rowsAreaWidth = getArraySum(rowsAreaColumnWidths);
 
@@ -1809,7 +1824,6 @@ var PivotGrid = Widget.inherit({
             }
 
             commonUtils.deferRender(function() {
-
                 columnsArea.tableElement().append(dataArea.headElement());
 
                 rowFieldsHeader.tableElement().append(rowsArea.headElement());
@@ -1825,7 +1839,7 @@ var PivotGrid = Widget.inherit({
                 }
 
                 tableElement.removeClass(INCOMPRESSIBLE_FIELDS_CLASS);
-
+                columnHeaderCell.children().css("maxWidth", groupWidth);
                 columnsArea.groupWidth(groupWidth);
                 columnsArea.processScrollBarSpacing(hasRowsScroll ? scrollBarWidth : 0);
                 columnsArea.setColumnsWidth(resultWidths);
@@ -1893,14 +1907,13 @@ var PivotGrid = Widget.inherit({
 
                 var updateScrollableResults = [];
 
-                dataArea.processScroll(scrollBarInfo.scrollBarUseNative);
+                dataArea.processScroll(scrollBarInfo.scrollBarUseNative, hasColumnsScroll, hasRowsScroll);
                 each([columnsArea, rowsArea, dataArea], function(_, area) {
                     updateScrollableResults.push(area && area.updateScrollable());
                 });
 
                 that._updateLoading();
                 that._renderNoDataText(dataAreaCell);
-
 
                 ///#DEBUG
                 that._testResultWidths = resultWidths;

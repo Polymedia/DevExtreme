@@ -1,21 +1,20 @@
-"use strict";
-
-var $ = require("jquery");
-var dataUtils = require("core/element_data");
+import $ from "jquery";
+import dataUtils from "core/element_data";
 
 QUnit.testStart(function() {
     var markup = '<div><div id="container" class="dx-datagrid"></div></div>';
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("ui/data_grid/ui.data_grid");
+import "common.css!";
+import "ui/data_grid/ui.data_grid";
 
-var devices = require("core/devices"),
-    columnsView = require("ui/grid_core/ui.grid_core.columns_view"),
-    fx = require("animation/fx"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    MockColumnsController = dataGridMocks.MockColumnsController,
+import devices from "core/devices";
+import columnsView from "ui/grid_core/ui.grid_core.columns_view";
+import fx from "animation/fx";
+import dataGridMocks from "../../helpers/dataGridMocks.js";
+
+var MockColumnsController = dataGridMocks.MockColumnsController,
     setupDataGridModules = dataGridMocks.setupDataGridModules;
 
 
@@ -25,10 +24,10 @@ QUnit.module('API methods', {
         that.widths = [100, 200, 50, 50, 200];
 
         that.columns = [{ caption: 'Column 1', width: that.widths[0] },
-                        { caption: 'Column 2', width: that.widths[1] },
-                        { caption: 'Column 3', width: that.widths[2] },
-                        { caption: 'Column 4', width: that.widths[3] },
-                        { caption: 'Column 5', width: that.widths[4] }];
+            { caption: 'Column 2', width: that.widths[1] },
+            { caption: 'Column 3', width: that.widths[2] },
+            { caption: 'Column 4', width: that.widths[3] },
+            { caption: 'Column 5', width: that.widths[4] }];
 
         setupDataGridModules(that, [], {
             initViews: true,

@@ -1,5 +1,3 @@
-"use strict";
-
 var themeModule = require("../../themes"),
     registerTheme = themeModule.registerTheme,
     ACCENT_COLOR = "#3debd3",
@@ -79,6 +77,21 @@ registerTheme({
             breakStyle: { color: "#73869e" }
         }
     },
+    gauge: {
+        valueIndicators: {
+            "rangebar": {
+                color: ACCENT_COLOR
+            },
+            "textcloud": {
+                color: ACCENT_COLOR,
+                text: {
+                    font: {
+                        color: BACKGROUND_COLOR
+                    }
+                }
+            }
+        }
+    },
     barGauge: {
         backgroundColor: "#526280"
     },
@@ -111,15 +124,6 @@ registerTheme({
         "layer:area": {
             color: "#97a3b6",
             borderColor: BACKGROUND_COLOR
-        },
-        "layer:marker:dot": {
-            color: ACCENT_COLOR
-        },
-        "layer:marker:bubble": {
-            color: ACCENT_COLOR
-        },
-        legend: {
-            markerColor: ACCENT_COLOR
         }
     },
     rangeSelector: {
@@ -146,5 +150,17 @@ registerTheme({
     },
     bullet: {
         color: ACCENT_COLOR
+    },
+    sankey: {
+        link: {
+            border: {
+                color: BACKGROUND_COLOR
+            }
+        },
+        node: {
+            border: {
+                color: BACKGROUND_COLOR
+            }
+        }
     }
 }, "generic.dark");

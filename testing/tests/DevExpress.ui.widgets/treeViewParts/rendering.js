@@ -1,5 +1,3 @@
-"use strict";
-
 /* global DATA, internals, initTree */
 
 var $ = require("jquery"),
@@ -301,6 +299,17 @@ QUnit.test("Render checkbox before itemRendered is fired", function(assert) {
     assert.ok($treeView);
     assert.equal(i, 4, "itemRendered event is fired 3 times");
 
+});
+
+QUnit.test("onItemRendered should have correct node if key is string", function(assert) {
+    var itemRenderedHandler = sinon.spy();
+
+    initTree({
+        items: [{ id: "1_0", text: "String id" }],
+        onItemRendered: itemRenderedHandler
+    });
+
+    assert.equal(itemRenderedHandler.getCall(0).args[0].node.id, "1_0", "node is correct");
 });
 
 QUnit.test("Items change correct on option change", function(assert) {
@@ -618,4 +627,14 @@ QUnit.test("Remove nodata message after clear searchValue", function(assert) {
     noData = treeViewInstance.$element().find(".dx-empty-message");
 
     assert.notOk(noData.length, "no data is removed");
+});
+
+QUnit.test("searchMode equals", function(assert) {
+    var $treeView = initTree({
+        searchValue: "1",
+        searchMode: "equals",
+        items: [{ id: 1, text: "1" }, { id: 2, text: "11" }, { id: 3, text: "111" }]
+    });
+
+    assert.equal($treeView.find(".dx-item").length, 1, "one item is rendered");
 });

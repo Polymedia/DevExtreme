@@ -1,5 +1,3 @@
-"use strict";
-
 var proto = require("./tree_map.base").prototype;
 
 proto._optionChangesMap.idField = proto._optionChangesMap.parentField = "NODES_CREATE";
@@ -22,7 +20,7 @@ proto._processDataSourceItems = function(items) {
     for(i = 0; i < items.length; i++) {
         currentItem = items[i];
         parentId = currentItem[parentField];
-        if(!!parentId) {
+        if(parentId) {
             struct[parentId] = struct[parentId] || { items: [] };
             tmpItems = struct[parentId].items;
         } else {

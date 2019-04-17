@@ -1,7 +1,3 @@
-// jshint node:true
-
-"use strict";
-
 var gulp = require('gulp');
 var replace = require('gulp-replace');
 var concat = require('gulp-concat');
@@ -35,7 +31,7 @@ gulp.task('bundler-config', function() {
         .pipe(gulp.dest('js/bundles'))
         .pipe(rename('dx.custom.config.js'))
         .pipe(replace(/require *\( *["']..\//g, 'require("devextreme/'))
-        .pipe(gulp.dest(context.RESULT_NPM_PATH + '/bundles'));
+        .pipe(gulp.dest(context.RESULT_NPM_PATH + '/devextreme/bundles'));
 });
 
 gulp.task('bundler-config-dev', function() {

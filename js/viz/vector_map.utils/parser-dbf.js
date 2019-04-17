@@ -1,4 +1,4 @@
-// jshint strict:implied, -W098, -W117
+/* eslint-disable no-unused-vars*/
 function parseDBF(stream, errors) {
     var timeStart,
         timeEnd,
@@ -13,9 +13,8 @@ function parseDBF(stream, errors) {
         timeEnd = new Date();
     } catch(e) {
         errors.push("dbf: parsing error: " + e.message + " / " + e.description);
-    } finally {
-        return { records: records, errors: errors, time: timeEnd - timeStart };
     }
+    return { records: records, errors: errors, time: timeEnd - timeStart };
 }
 
 function parseDataBaseFileHeader(stream, errors) {

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     DropDownAppointments = require("ui/scheduler/ui.scheduler.appointments.drop_down"),
@@ -36,6 +34,9 @@ QUnit.module("Common", {
             showEditAppointmentPopup: function(args) {
                 this.showAppointmentPopup(args);
             },
+            appendSingleAppointmentData: function(args) {
+                return args.appointmentData;
+            }
         };
 
         this.widgetMock = new (Widget.inherit({
@@ -48,6 +49,9 @@ QUnit.module("Common", {
                 }
                 if(options === "dropDownAppointmentTemplate") {
                     return "dropDownAppointment";
+                }
+                if(options === "appointmentCollectorTemplate") {
+                    return "appointmentCollector";
                 }
                 return this.callBase(options);
             },
@@ -113,7 +117,7 @@ QUnit.test("DropDown menu should not be painted if items have different colors",
 
 QUnit.test("DropDown menu should have a correct markup", function(assert) {
     var $button = this.renderDropDownAppointmentsContainer(),
-        $dropDownAppointmentsContent = $button.dxButton("instance").option("template");
+        $dropDownAppointmentsContent = $button.find(".dx-scheduler-dropdown-appointments-content");
 
     assert.equal($dropDownAppointmentsContent.length, 1, "Content is OK");
     assert.equal($dropDownAppointmentsContent.html().toLowerCase(), "<span>1 more</span>", "Markup is OK");
@@ -140,20 +144,6 @@ QUnit.test("DropDown menu should have correct popup size", function(assert) {
     assert.equal(menu.option("popupHeight"), "auto", "Popup has correct height");
     assert.equal(menu.option("popupMaxHeight"), 200, "Popup has correct maxHeight");
 });
-
-QUnit.test("DropDown menu should have a correct button template", function(assert) {
-    var $dropDownMenu = this.renderDropDownAppointmentsContainer(),
-        menu,
-        $buttonTemplate;
-
-    $($dropDownMenu).trigger("dxclick");
-    menu = $dropDownMenu.dxDropDownMenu("instance"),
-    $buttonTemplate = menu.option("buttonTemplate");
-
-    assert.ok($buttonTemplate.hasClass("dx-scheduler-dropdown-appointments-content"), "Template is OK");
-    assert.equal($buttonTemplate.html().toLowerCase(), "<span>1 more</span>", "Button template is OK");
-});
-
 
 QUnit.test("DropDown menu button should have a correct width", function(assert) {
     var $dropDownMenu = this.renderDropDownAppointmentsContainer(),

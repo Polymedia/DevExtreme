@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     TextBox = require("ui/text_box"),
     devices = require("core/devices"),
@@ -60,13 +58,13 @@ QUnit.test("'maxLength' option on android 2.3 and 4.1", function(assert) {
     try {
         var $element = $("#textbox").dxTextBox({ maxLength: 1 }),
             $input = $element.find("." + INPUT_CLASS),
-            event = $.Event("keydown", { keyCode: 49 });
+            event = $.Event("keydown", { key: "1" });
 
         $input.trigger(event);
         $input.val("1");
         assert.ok(!event.isDefaultPrevented());
 
-        event = $.Event("keydown", { keyCode: 50 });
+        event = $.Event("keydown", { key: "2" });
         $input.trigger(event);
         assert.ok(event.isDefaultPrevented());
     } finally {
@@ -105,6 +103,21 @@ QUnit.test("T218573 - clearButton should be hidden if mode is 'search' and the '
 
     assert.ok(!instance.option("showClearButton"), "the 'showClearButton' options is correct");
     assert.equal($(".dx-clear-button-area").length, 0, "clear button is not rendered");
+});
+
+QUnit.test("clear button should save valueChangeEvent", function(assert) {
+    var valueChangedHandler = sinon.spy(),
+        $element = $("#textbox").dxTextBox({
+            showClearButton: true,
+            value: "123",
+            onValueChanged: valueChangedHandler
+        });
+
+    var $clearButton = $element.find(".dx-clear-button-area");
+    $clearButton.trigger("dxclick");
+
+    assert.equal(valueChangedHandler.callCount, 1, "valueChangedHandler has been called");
+    assert.equal(valueChangedHandler.getCall(0).args[0].event.type, "dxclick", "event is correct");
 });
 
 
@@ -187,18 +200,18 @@ QUnit.test("'maxLength' on android 2.3 and 4.1 ", function(assert) {
     try {
         this.instance.option("maxLength", 2);
 
-        var event = $.Event("keydown", { keyCode: 49 });
+        var event = $.Event("keydown", { key: "1" });
 
         this.input.trigger(event);
         this.input.val("1");
         assert.ok(!event.isDefaultPrevented());
 
-        event = $.Event("keydown", { keyCode: 50 });
+        event = $.Event("keydown", { key: "2" });
         this.input.trigger(event);
         this.input.val("12");
         assert.ok(!event.isDefaultPrevented());
 
-        event = $.Event("keydown", { keyCode: 51 });
+        event = $.Event("keydown", { key: "3" });
         this.input.trigger(event);
         assert.ok(event.isDefaultPrevented());
     } finally {

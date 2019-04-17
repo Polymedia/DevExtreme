@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     iconUtils = require("../../core/utils/icon"),
     hasWindow = require("../../core/utils/window").hasWindow(),
@@ -13,7 +11,6 @@ var $ = require("../../core/renderer"),
     TreeView = require("../tree_view"),
     ContextMenu = require("../context_menu"),
     BaseFieldChooser = require("./ui.pivot_grid.field_chooser_base"),
-    inArray = inArray,
     each = iteratorUtils.each,
     DIV = "<div>";
 
@@ -182,7 +179,7 @@ var FieldChooser = BaseFieldChooser.inherit({
             * @type Enums.ApplyChangesMode
             * @default "instantly"
             */
-           /**
+            /**
             * @name dxPivotGridFieldChooserOptions.state
             * @type object
             * @default null
@@ -307,13 +304,68 @@ var FieldChooser = BaseFieldChooser.inherit({
         this.$element().children("." + FIELDCHOOSER_CONTAINER_CLASS).remove();
     },
 
+    _renderLayout0: function($container) {
+        var that = this,
+            $col1, $col2, $col3, $col4,
+            $row1, $row2;
+
+        $container.addClass("dx-layout-0");
+
+        $row1 = $(DIV).addClass("dx-row").appendTo($container);
+        $row2 = $(DIV).addClass("dx-row").appendTo($container);
+
+        $col1 = $(DIV).addClass("dx-col").appendTo($row1);
+        $col2 = $(DIV).addClass("dx-col").appendTo($row1);
+
+        $col3 = $(DIV).addClass("dx-col").appendTo($row2);
+        $col4 = $(DIV).addClass("dx-col").appendTo($row2);
+
+        that._renderArea($col1, "all");
+        that._renderArea($col2, "row");
+        that._renderArea($col2, "column");
+        that._renderArea($col3, "filter");
+        that._renderArea($col4, "data");
+    },
+
+    _renderLayout1: function($container) {
+        var that = this,
+            $col1, $col2;
+
+        $col1 = $(DIV).addClass("dx-col").appendTo($container);
+        $col2 = $(DIV).addClass("dx-col").appendTo($container);
+
+        that._renderArea($col1, "all");
+        that._renderArea($col2, "filter");
+        that._renderArea($col2, "row");
+        that._renderArea($col2, "column");
+        that._renderArea($col2, "data");
+    },
+
+    _renderLayout2: function($container) {
+        var that = this,
+            $col1, $col2,
+            $row1, $row2;
+
+        $container.addClass("dx-layout-2");
+
+        $row1 = $(DIV).addClass("dx-row").appendTo($container);
+        that._renderArea($row1, "all");
+
+        $row2 = $(DIV).addClass("dx-row").appendTo($container);
+        $col1 = $(DIV).addClass("dx-col").appendTo($row2);
+        $col2 = $(DIV).addClass("dx-col").appendTo($row2);
+
+        that._renderArea($col1, "filter");
+        that._renderArea($col1, "row");
+        that._renderArea($col2, "column");
+        that._renderArea($col2, "data");
+    },
+
     _initMarkup: function() {
         var that = this,
             $element = this.$element(),
             $container = $(DIV).addClass(FIELDCHOOSER_CONTAINER_CLASS).appendTo($element),
-            layout = that.option("layout"),
-            $col1,
-            $col2;
+            layout = that.option("layout");
 
         that.callBase();
 
@@ -323,37 +375,20 @@ var FieldChooser = BaseFieldChooser.inherit({
 
         that._dataChangedHandlers = [];
 
+        var dataSource = this._dataSource;
+        var currentState = that.option("applyChangesMode") !== "instantly" && dataSource && dataSource.state();
+
+        currentState && dataSource.state(that.option("state"), true);
+
         if(layout === 0) {
-            $col1 = $(DIV).addClass("dx-col").appendTo($container);
-            $col2 = $(DIV).addClass("dx-col").appendTo($container);
-
-            that._renderArea($col1, "all");
-            that._renderArea($col1, "filter");
-            that._renderArea($col2, "row");
-            that._renderArea($col2, "column");
-            that._renderArea($col2, "data");
+            that._renderLayout0($container);
         } else if(layout === 1) {
-            $col1 = $(DIV).addClass("dx-col").appendTo($container);
-            $col2 = $(DIV).addClass("dx-col").appendTo($container);
-
-            that._renderArea($col1, "all");
-            that._renderArea($col2, "filter");
-            that._renderArea($col2, "row");
-            that._renderArea($col2, "column");
-            that._renderArea($col2, "data");
+            that._renderLayout1($container);
         } else {
-            $container.addClass("dx-layout-2");
-            this._renderArea($container, "all");
-            var $layout2Container = $(DIV).addClass("dx-fields-container").appendTo($container);
-
-            $col1 = $(DIV).addClass("dx-col").appendTo($layout2Container);
-            $col2 = $(DIV).addClass("dx-col").appendTo($layout2Container);
-
-            that._renderArea($col1, "filter");
-            that._renderArea($col1, "row");
-            that._renderArea($col2, "column");
-            that._renderArea($col2, "data");
+            that._renderLayout2($container);
         }
+
+        currentState && dataSource.state(currentState, true);
     },
 
     _renderContentImpl: function() {
@@ -498,8 +533,8 @@ var FieldChooser = BaseFieldChooser.inherit({
         var fields = dataSource && dataSource.fields() || [],
             treeItems;
 
-        fields = iteratorUtils.map(fields, function(field) {
-            return field.visible === false || isDefined(field.groupIndex) ? null : field;
+        fields = fields.filter(field => {
+            return field.visible !== false && !isDefined(field.groupIndex);
         });
 
         treeItems = this._createTreeItems(fields, ["dimension", "displayFolder"]);
@@ -554,14 +589,17 @@ var FieldChooser = BaseFieldChooser.inherit({
                             treeView.unselectItem(data);
                             return;
                         }
-                        fields = getDimensionFields(data, dataSource.fields());
 
-                        for(var i = 0; i < fields.length; i++) {
-                            if(fields[i].area) {
-                                needSelectDefaultItem = false;
-                                break;
+                        that._processDemandState(() => {
+                            fields = getDimensionFields(data, dataSource.fields());
+
+                            for(var i = 0; i < fields.length; i++) {
+                                if(fields[i].area) {
+                                    needSelectDefaultItem = false;
+                                    break;
+                                }
                             }
-                        }
+                        });
 
                         if(needSelectDefaultItem) {
                             var item = getFirstItem(data, function(item) { return item.isDefault; }) || getFirstItem(data, function(item) { return isDefined(item.index); });

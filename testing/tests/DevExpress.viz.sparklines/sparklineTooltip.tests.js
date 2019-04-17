@@ -1,5 +1,3 @@
-"use strict";
-
 /* global currentTest, createTestContainer */
 
 var $ = require("jquery"),
@@ -294,6 +292,21 @@ QUnit.test('dxSparkline get TooltipFormatObject', function(assert) {
         x: 250 / 2 + 3,
         y: 30 / 2 + 5
     }, {}]);
+});
+
+// T714171
+QUnit.test("sparkline tooltip format object. min/max values when all values are equal", function(assert) {
+    var sparkline = this.createSparkline({
+        dataSource: [0, 0, 0],
+        tooltip: {
+            enabled: true
+        }
+    });
+
+    sparkline._showTooltipCallback();
+
+    assert.strictEqual(sparkline._tooltip.show.lastCall.args[0].originalMinValue, 0);
+    assert.strictEqual(sparkline._tooltip.show.lastCall.args[0].originalMaxValue, 0);
 });
 
 QUnit.test('Default Tooltip text', function(assert) {

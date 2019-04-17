@@ -1,12 +1,12 @@
-"use strict";
-
 var $ = require("jquery"),
     eventsEngine = require("events/core/events_engine"),
     domUtils = require("core/utils/dom"),
     devices = require("core/devices"),
     pointerMock = require("../../../helpers/pointerMock.js"),
     keyboardMock = require("../../../helpers/keyboardMock.js"),
-    caretWorkaround = require("./caretWorkaround.js");
+    caretWorkaround = require("./caretWorkaround.js"),
+    themes = require("ui/themes"),
+    config = require("core/config");
 
 require("ui/text_box/ui.text_editor");
 
@@ -37,6 +37,17 @@ var moduleConfig = {
         this.clock.restore();
     }
 };
+
+function prepareEvent(eventName) {
+    var params = {},
+        name = eventName.toLowerCase();
+
+    if(name.indexOf("key") !== -1) {
+        params.key = "";
+    }
+
+    return $.Event(name, params);
+}
 
 
 QUnit.module("general");
@@ -288,6 +299,17 @@ QUnit.test("T220209 - the 'valueFormat' option when value is changed using keybo
     assert.equal($textEditor.find(".dx-texteditor-input").val(), "First format2 format", "input value is correct");
 });
 
+QUnit.test("default valueFormat of null should return an empty string", function(assert) {
+    var textEditor = $("#texteditor").dxTextEditor({}).dxTextEditor("instance"),
+        valueFormat = textEditor.option("valueFormat");
+
+    assert.strictEqual(valueFormat(null), "", "null value formatted correctly");
+    assert.strictEqual(valueFormat(0), 0, "0 value formatted correctly");
+    assert.strictEqual(valueFormat(), "", "undefined value formatted correctly");
+    assert.strictEqual(valueFormat(false), "", "false value formatted correctly");
+    assert.strictEqual(valueFormat(""), "", "empty value formatted correctly");
+});
+
 QUnit.test("dxTextEditor with height option should have min-height auto style on input", function(assert) {
     var $textEditor = $("#texteditor").dxTextEditor({
             height: 50,
@@ -298,6 +320,26 @@ QUnit.test("dxTextEditor with height option should have min-height auto style on
     assert.equal($input.get(0).style.minHeight, "0px", "min-height inline style is defined");
 });
 
+QUnit.test("dxTextEditor with wrong stylingMode option should set the class according to default option value", function(assert) {
+    let $textEditor = $("#texteditor").dxTextEditor({
+        stylingMode: "someWrongOptionValue"
+    });
+
+    assert.ok($textEditor.hasClass("dx-editor-outlined"));
+});
+
+QUnit.test("dxTextEditor with wrong stylingMode option should set the class according to default option value (platform specific)", function(assert) {
+    const realIsMaterial = themes.isMaterial;
+    themes.isMaterial = function() { return true; };
+
+    const $textEditor = $("#texteditor").dxTextEditor({
+        stylingMode: "someWrongOptionValue"
+    });
+
+    assert.ok($textEditor.hasClass("dx-editor-underlined"));
+
+    themes.isMaterial = realIsMaterial;
+});
 
 QUnit.module("text option", moduleConfig);
 
@@ -542,9 +584,9 @@ QUnit.test("event handler callbacks", function(assert) {
 
     assert.equal(called, 0, "when start, testID = 0");
 
-    $.each(EVENTS, function(index, event) {
-        input.trigger(event.toLowerCase());
-        assert.equal(called, event.toLowerCase(), event + " event handler callback trigger");
+    $.each(EVENTS, function(index, eventName) {
+        input.trigger(prepareEvent(eventName));
+        assert.equal(called, eventName.toLowerCase(), eventName + " event handler callback trigger");
     });
 });
 
@@ -563,9 +605,9 @@ QUnit.test("events should be fired in readOnly state", function(assert) {
 
     this.element.dxTextEditor(options);
 
-    $.each(EVENTS, function(index, event) {
-        input.trigger(event.toLowerCase());
-        assert.equal(called, event.toLowerCase(), event + " event handler callback trigger");
+    $.each(EVENTS, function(index, eventName) {
+        input.trigger(prepareEvent(eventName));
+        assert.equal(called, eventName.toLowerCase(), eventName + " event handler callback trigger");
     });
 });
 
@@ -592,7 +634,8 @@ QUnit.test("editor should have actual value in the event handler when this event
 
     $.each(EVENTS, function(index, eventName) {
         input.val(index + 1);
-        input.trigger(eventName.toLowerCase());
+
+        input.trigger(prepareEvent(eventName));
     });
 });
 
@@ -632,6 +675,22 @@ QUnit.test("'Clear' button visibility depends on value", function(assert) {
     assert.ok($clearButton.is(":hidden"), "TextEditor has NO clear button");
     instance.option("value", "bar");
     assert.ok($clearButton.is(":visible"), "TextEditor has clear button again");
+});
+
+QUnit.test("clear button should disappear when text changed without value change", function(assert) {
+    var $element = $("#texteditor").dxTextEditor({ showClearButton: true, value: "" }),
+        instance = $element.dxTextEditor("instance"),
+        $input = $element.find("." + INPUT_CLASS),
+        kb = keyboardMock($input);
+
+    kb.type("123");
+    var $clearButton = $element.find(CLEAR_BUTTON_SELECTOR).eq(0);
+    $clearButton.trigger("dxclick");
+
+    assert.strictEqual($input.val(), "", "input value is correct");
+    assert.strictEqual(instance.option("text"), "", "text option is correct");
+    assert.strictEqual(instance.option("value"), "", "value is correct");
+    assert.notOk($clearButton.is(":visible"), "clear button was hidden");
 });
 
 QUnit.test("click on clear button should not reset active focus (T241583)", function(assert) {
@@ -721,6 +780,25 @@ QUnit.testInActiveWindow("Remove .dx-state-focused class after disabled of the e
     assert.ok(!$textEditor.hasClass("dx-state-focused"), "dx-state-focused was removed");
 });
 
+QUnit.test("texteditor get 'stylingMode' option from global config", function(assert) {
+    config({ editorStylingMode: "underlined" });
+    const container = $("<div>");
+    const instance = container.dxTextEditor().dxTextEditor("instance");
+
+    const stylingMode = instance.option("stylingMode");
+    assert.equal(stylingMode, "underlined", "default changed by global config");
+    container.remove();
+    config({ editorStylingMode: null });
+});
+
+QUnit.test("texteditor 'stylingMode' option: runtime change", function(assert) {
+    this.element = $("#texteditor");
+    assert.equal(this.element.hasClass("dx-editor-outlined"), true, "initial value is right");
+
+    this.instance.option("stylingMode", "underlined");
+    assert.equal(this.element.hasClass("dx-editor-underlined"), true, "right class after option change present");
+    assert.equal(this.element.hasClass("dx-editor-outlined"), false, "old class after option change was removed");
+});
 
 QUnit.module("api", moduleConfig);
 
@@ -752,7 +830,6 @@ QUnit.test("blur method", function(assert) {
 QUnit.test("onValueChanged fired only when value is changed", function(assert) {
     var textBox = this.instance;
     var $input = this.input;
-    var TAB_KEY = 9;
 
     var valueChangeCounter = 0;
     textBox.option({
@@ -762,7 +839,7 @@ QUnit.test("onValueChanged fired only when value is changed", function(assert) {
         }
     });
 
-    $input.trigger($.Event('keydown', { which: TAB_KEY }));
+    $input.trigger($.Event('keydown', { key: "Tab" }));
 
     assert.equal(valueChangeCounter, 0, "onValueChanged not fired");
 });
@@ -893,8 +970,8 @@ QUnit.test("event handlers are not set", function(assert) {
 
     this.element.dxTextEditor({});
 
-    $.each(EVENTS, function(index, event) {
-        input.trigger(event.toLowerCase());
+    $.each(EVENTS, function(index, eventName) {
+        input.trigger(prepareEvent(eventName));
     });
 });
 
@@ -922,20 +999,17 @@ QUnit.test("B233277 dxNumberbox/dxTextbox - cursor jump over the right digit, im
     assert.equal(this.instance.option("value"), "123");
 });
 
-QUnit.test("T200828. TextEditor, nested in another widget", function(assert) {
-    var propagationStopped = 0;
-    this.element.on("keydown", function(e) {
-        if(e.isPropagationStopped()) {
-            propagationStopped++;
-        }
-    });
+QUnit.test("Text editor should propagate keyboard events to the document", function(assert) {
+    var keydownHandler = sinon.spy();
+    eventsEngine.on(document, "keydown", keydownHandler);
 
     keyboardMock(this.input)
         .keyDown("enter")
         .keyDown("space")
         .keyDown("left")
         .keyDown("right");
-    assert.equal(propagationStopped, 4, "propagation is stopped");
+
+    assert.equal(keydownHandler.callCount, 4, "keydown was handled 4 times");
 });
 
 QUnit.test("Enter key event raising (B238135)", function(assert) {
@@ -945,7 +1019,7 @@ QUnit.test("Enter key event raising (B238135)", function(assert) {
         onEnterKey: handler
     }).dxTextEditor("instance");
 
-    $("#texteditor input").trigger($.Event("keyup", { which: 13 }));
+    $("#texteditor input").trigger($.Event("keyup", { key: "Enter" }));
 
     assert.ok(handler.calledOnce, "event raised");
     assert.ok(handler.getCall(0).args[0].event, "event args have Event prop");
@@ -964,7 +1038,7 @@ QUnit.test("Enter key event changing handler (B238135)", function(assert) {
         }
     });
 
-    var keyUpEvent = $.Event("keyup", { which: 13 });
+    var keyUpEvent = $.Event("keyup", { key: "Enter" });
 
     $("#texteditor input").trigger(keyUpEvent);
 
@@ -992,7 +1066,7 @@ QUnit.test("Enter key action is not fired is widget is disposed", function(asser
     instance._disposed = true;
 
     try {
-        $input.trigger($.Event("keyup", { which: 13 }));
+        $input.trigger($.Event("keyup", { key: "Enter" }));
         assert.ok(!enterKeyStub.called, "enter key action should not be called");
         assert.ok(!keyUpStub.called, "key up action should not be called");
         assert.ok(!keyDownStub.called, "key down action should not be called");

@@ -1,10 +1,7 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     Editor = require("../editor/editor"),
     NumberBox = require("../number_box"),
     SelectBox = require("../select_box"),
-    ensureDefined = require("../../core/utils/common").ensureDefined,
     Box = require("../box"),
     extend = require("../../core/utils/extend").extend,
     registerComponent = require("../../core/component_registrator"),
@@ -20,6 +17,8 @@ var TIMEVIEW_CLASS = "dx-timeview",
     TIMEVIEW_FORMAT12_AM = -1,
     TIMEVIEW_FORMAT12_PM = 1,
     TIMEVIEW_MINUTEARROW_CLASS = "dx-timeview-minutearrow";
+
+var MAX_HOURS_VALUE = 24;
 
 var rotateArrow = function($arrow, angle, offset) {
     cssRotate($arrow, angle, offset);
@@ -37,7 +36,8 @@ var TimeView = Editor.inherit({
             value: new Date(Date.now()),
             use24HourFormat: true,
             _showClock: true,
-            _arrowOffset: 0
+            _arrowOffset: 0,
+            stylingMode: undefined
         });
     },
 
@@ -178,18 +178,20 @@ var TimeView = Editor.inherit({
             max: 24,
             value: this._getValue().getHours(),
             onValueChanged: (function(args) {
-                var newHours = this._normalizeHours((24 + args.value) % 24);
+                var hours = this._convertMaxHourToMin(args.value),
+                    time = new Date(this._getValue());
 
-                this._hourBox.option("value", newHours);
-
-                var time = new Date(this._getValue());
-                time.setHours(this._denormalizeHours(newHours, args.value > args.previousValue));
+                time.setHours(hours);
                 uiDateUtils.normalizeTime(time);
                 this.option("value", time);
             }).bind(this)
         }, this._getNumberBoxConfig()));
 
         this._hourBox.setAria("label", "hours");
+    },
+
+    _convertMaxHourToMin: function(hours) {
+        return (MAX_HOURS_VALUE + hours) % MAX_HOURS_VALUE;
     },
 
     _createMinuteBox: function() {
@@ -212,8 +214,12 @@ var TimeView = Editor.inherit({
     },
 
     _createFormat12Box: function() {
+        var periodNames = dateLocalization.getPeriodNames();
         this._format12 = this._createComponent($("<div>").addClass(TIMEVIEW_FORMAT12_CLASS), SelectBox, extend({
-            items: [{ value: TIMEVIEW_FORMAT12_AM, text: "AM" }, { value: TIMEVIEW_FORMAT12_PM, text: "PM" }],
+            items: [
+                { value: TIMEVIEW_FORMAT12_AM, text: periodNames[0] },
+                { value: TIMEVIEW_FORMAT12_PM, text: periodNames[1] }
+            ],
             valueExpr: "value",
             displayExpr: "text",
             onValueChanged: (function(args) {
@@ -225,6 +231,8 @@ var TimeView = Editor.inherit({
                 this.option("value", time);
             }).bind(this),
             value: this._getValue().getHours() >= 12 ? TIMEVIEW_FORMAT12_PM : TIMEVIEW_FORMAT12_AM
+        }, {
+            stylingMode: this.option("stylingMode")
         }));
 
         this._format12.setAria("label", "type");
@@ -243,32 +251,19 @@ var TimeView = Editor.inherit({
     },
 
     _getNumberBoxConfig: function() {
-        return {
+        return extend({
             showSpinButtons: true,
             disabled: this.option("disabled"),
             valueFormat: function(value) {
                 return (value < 10 ? "0" : "") + value;
             }
-        };
+        }, {
+            stylingMode: this.option("stylingMode")
+        });
     },
 
     _normalizeHours: function(hours) {
-        if(this.option("use24HourFormat")) return hours;
-
-        return hours % 12 || 12;
-    },
-
-    _denormalizeHours: function(hours, moveForward) {
-        hours = ensureDefined(hours, this._getValue().getHours());
-        if(this.option("use24HourFormat")) return hours;
-
-        var isPM = this._format12.option("value") === TIMEVIEW_FORMAT12_PM;
-
-        if(hours === 11 && !moveForward) {
-            isPM = !isPM;
-        }
-
-        return (isPM ? (hours + 12) : hours) % 24;
+        return this.option("use24HourFormat") ? hours : hours % 12 || 12;
     },
 
     _updateField: function() {
@@ -313,6 +308,7 @@ var TimeView = Editor.inherit({
                 break;
             case "use24HourFormat":
             case "_showClock":
+            case "stylingMode":
                 this._invalidate();
                 break;
             default:

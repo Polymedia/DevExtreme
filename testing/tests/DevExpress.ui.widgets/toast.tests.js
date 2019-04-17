@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     pointerMock = require("../../helpers/pointerMock.js"),
     hideTopOverlayCallback = require("mobile/hide_top_overlay").hideCallback,
@@ -260,6 +258,20 @@ QUnit.test("it should be possible to select a message in the toast by the mouse"
     });
 
     $($shader).trigger(event);
+});
+
+QUnit.test("toast should stay opened after change content template", function(assert) {
+    var toast = $("#toast").dxToast({
+            visible: true
+        }).dxToast("instance"),
+        hideSpy = sinon.spy(toast, "hide");
+
+    toast.option("contentTemplate", function() {
+        return $("<div>");
+    });
+
+    this.clock.tick();
+    assert.equal(hideSpy.callCount, 0, "Toast didn't hide");
 });
 
 

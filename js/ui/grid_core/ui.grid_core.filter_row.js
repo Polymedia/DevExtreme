@@ -1,16 +1,15 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    eventsEngine = require("../../events/core/events_engine"),
-    isDefined = require("../../core/utils/type").isDefined,
-    extend = require("../../core/utils/extend").extend,
-    iteratorUtils = require("../../core/utils/iterator"),
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    messageLocalization = require("../../localization/message"),
-    Editor = require("../editor/editor"),
-    Overlay = require("../overlay"),
-    Menu = require("../menu");
+import $ from "../../core/renderer";
+import eventsEngine from "../../events/core/events_engine";
+import { isDefined } from "../../core/utils/type";
+import { extend } from "../../core/utils/extend";
+import { normalizeKeyName } from "../../events/utils";
+import iteratorUtils from "../../core/utils/iterator";
+import modules from "./ui.grid_core.modules";
+import gridCoreUtils from "./ui.grid_core.utils";
+import messageLocalization from "../../localization/message";
+import Editor from "../editor/editor";
+import Overlay from "../overlay";
+import Menu from "../menu";
 
 var OPERATION_ICONS = {
     "=": "filter-operation-equals",
@@ -266,7 +265,7 @@ var ColumnHeadersViewFilterRowExtender = (function() {
                     eventsEngine.on($editor.find(EDITORS_INPUT_SELECTOR), "keydown", function(e) {
                         var $prevElement = $cell.find("[tabindex]").not(e.target).first();
 
-                        if(e.which === 9 && e.shiftKey) {
+                        if(normalizeKeyName(e) === "tab" && e.shiftKey) {
                             e.preventDefault();
                             that._hideFilterRange();
 
@@ -283,7 +282,7 @@ var ColumnHeadersViewFilterRowExtender = (function() {
                     editorOptions.sharedData = sharedData;
                     that._renderEditor($editor, editorOptions);
                     eventsEngine.on($editor.find(EDITORS_INPUT_SELECTOR), "keydown", function(e) {
-                        if(e.which === 9 && !e.shiftKey) {
+                        if(normalizeKeyName(e) === "tab" && !e.shiftKey) {
                             e.preventDefault();
                             that._hideFilterRange();
                             eventsEngine.trigger($cell.next().find("[tabindex]").first(), "focus");
@@ -363,36 +362,45 @@ var ColumnHeadersViewFilterRowExtender = (function() {
             return result;
         },
 
-        _renderCellContent: function($cell, options) {
+        _renderFilterCell: function(cell, options) {
             var that = this,
                 column = options.column,
+                $cell = $(cell),
                 $container,
                 $editorContainer;
+
+            that.setAria("label",
+                messageLocalization.format("dxDataGrid-ariaColumn") + " " + column.caption + ", " + messageLocalization.format("dxDataGrid-ariaFilterCell"),
+                $cell);
+            $cell.addClass(EDITOR_CELL_CLASS);
+            $container = $("<div>").appendTo($cell);
+            $editorContainer = $("<div>").addClass(EDITOR_CONTAINER_CLASS).appendTo($container);
+
+            if(getColumnSelectedFilterOperation(that, column) === "between") {
+                that._renderFilterRangeContent($cell, column);
+            } else {
+                that._renderEditor($editorContainer, that._getEditorOptions($editorContainer, column));
+            }
+
+            if(column.alignment) {
+                $cell.find(EDITORS_INPUT_SELECTOR).first().css("textAlign", column.alignment);
+            }
+
+            if(column.filterOperations && column.filterOperations.length) {
+                that._renderFilterOperationChooser($container, column, $editorContainer);
+            }
+        },
+
+        _renderCellContent: function($cell, options) { // TODO _getCellTemplate
+            var that = this,
+                column = options.column;
 
             if(options.rowType === "filter") {
                 if(column.command) {
                     $cell.html("&nbsp;");
                 } else if(column.allowFiltering) {
-                    that.setAria("label",
-                        messageLocalization.format("dxDataGrid-ariaColumn") + " " + column.caption + ", " + messageLocalization.format("dxDataGrid-ariaFilterCell"),
-                        $cell);
-                    $cell.addClass(EDITOR_CELL_CLASS);
-                    $container = $("<div>").appendTo($cell);
-                    $editorContainer = $("<div>").addClass(EDITOR_CONTAINER_CLASS).appendTo($container);
-
-                    if(getColumnSelectedFilterOperation(that, column) === "between") {
-                        that._renderFilterRangeContent($cell, column);
-                    } else {
-                        that._renderEditor($editorContainer, that._getEditorOptions($editorContainer, column));
-                    }
-
-                    if(column.alignment) {
-                        $cell.find(EDITORS_INPUT_SELECTOR).first().css("textAlign", column.alignment);
-                    }
-
-                    if(column.filterOperations && column.filterOperations.length) {
-                        that._renderFilterOperationChooser($container, column, $editorContainer);
-                    }
+                    that.renderTemplate($cell, that._renderFilterCell.bind(that), options);
+                    return;
                 }
             }
 
@@ -499,8 +507,8 @@ var ColumnHeadersViewFilterRowExtender = (function() {
                             options[isOnClickMode ? "bufferedFilterValue" : "filterValue"] = null;
                         }
                     } else {
-                        options[isOnClickMode ? "bufferedSelectedFilterOperation" : "selectedFilterOperation"] = column.defaultSelectedFilterOperation || null;
                         options[isOnClickMode ? "bufferedFilterValue" : "filterValue"] = null;
+                        options[isOnClickMode ? "bufferedSelectedFilterOperation" : "selectedFilterOperation"] = column.defaultSelectedFilterOperation || null;
                     }
 
                     that._columnsController.columnOption(column.index, options);

@@ -1,8 +1,5 @@
-"use strict";
-
 var themeModule = require("../../themes"),
     registerTheme = themeModule.registerTheme,
-    registerThemeAlias = themeModule.registerThemeAlias,
 
     WHITE = "#ffffff",
     BLACK = "#000000",
@@ -88,6 +85,11 @@ registerTheme({
         commonAxisSettings: {
             breakStyle: {
                 color: "#818181"
+            }
+        },
+        zoomAndPan: {
+            dragBoxStyle: {
+                color: WHITE
             }
         }
     },
@@ -218,8 +220,30 @@ registerTheme({
                 color: "#2a2a2a"
             }
         }
+    },
+    sankey: {
+        label: {
+            font: {
+                color: WHITE
+            },
+            shadow: {
+                opacity: 0
+            }
+        },
+        node: {
+            border: {
+                color: "#2a2a2a"
+            }
+        },
+        link: {
+            color: "#888888",
+            border: {
+                color: "#2a2a2a"
+            },
+            hoverStyle: {
+                color: "#bbbbbb"
+            }
+        }
     }
 }, "generic.light");
 
-// DEPRECATED_15_1 / "desktop" name
-registerThemeAlias("desktop.dark", "generic.dark");

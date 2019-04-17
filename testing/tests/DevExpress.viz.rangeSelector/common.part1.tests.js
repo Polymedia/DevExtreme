@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     trackerModule = require("viz/range_selector/tracker"),
     dataSourceModule = require("data/data_source/data_source"),
@@ -41,20 +39,6 @@ QUnit.test("one category", function(assert) {
     assert.strictEqual(options.endValue, "q1", "end value");
 });
 
-QUnit.test("deprecated options", function(assert) {
-    this.createWidget({
-        scale: {
-            tickInterval: "tick-interval",
-            minorTick: { visible: true },
-            showMinorTicks: "show-minor-ticks"
-        }
-    });
-
-    var options = this.axis.updateOptions.lastCall.args[0];
-    assert.deepEqual(options.tickInterval, "tick-interval", "tickInterval");
-    assert.strictEqual(options.minorTick.visible, "show-minor-ticks", "minorTick.visible");
-});
-
 QUnit.test("Pass containerBackgroundColor to scale", function(assert) {
     this.createWidget({
         containerBackgroundColor: "red"
@@ -68,23 +52,21 @@ QUnit.test("default selected range", function(assert) {
     this.createWidget({
         scale: {
             startValue: 2,
-            endValue: 50,
-            majorTickInterval: 2
+            endValue: 50
         }
     });
 
     var options = this.axis.updateOptions.lastCall.args[0];
     assert.strictEqual(options.startValue, 2);
     assert.strictEqual(options.endValue, 50);
-    assert.strictEqual(options.majorTickInterval, 2);
 });
 
-QUnit.test("format when majorTickInterval is not defined", function(assert) {
+QUnit.test("format when tickInterval is not defined", function(assert) {
     this.createWidget({
         scale: {
             startValue: new Date(2010, 2, 23),
             endValue: new Date(2010, 5, 10),
-            majorTickInterval: null,
+            tickInterval: null,
             marker: {
                 visible: true
             }
@@ -105,7 +87,7 @@ QUnit.test("no format value with empty data", function(assert) {
                 }
             },
             minorTickInterval: "month",
-            majorTickInterval: "month",
+            tickInterval: "month",
         },
         sliderMarker: {
             format: {
@@ -115,9 +97,7 @@ QUnit.test("no format value with empty data", function(assert) {
         }
     });
 
-    var range = this.axis.setBusinessRange.lastCall.args[0];
-    assert.strictEqual(range.min, 0, "min");
-    assert.strictEqual(range.max, 10, "max");
+    assert.equal(this.axis.setBusinessRange.lastCall.args[0].isEmpty(), true);
 });
 
 QUnit.test("rangeSelector info callback on small tick interval", function(assert) {
@@ -125,7 +105,7 @@ QUnit.test("rangeSelector info callback on small tick interval", function(assert
         scale: {
             startValue: 0,
             endValue: 10000,
-            majorTickInterval: 1
+            tickInterval: 1
         }
     });
 
@@ -137,7 +117,7 @@ QUnit.test("initialize with numeric inverted scale", function(assert) {
         scale: {
             startValue: 50,
             endValue: 2,
-            majorTickInterval: 2
+            tickInterval: 2
         }
     });
 
@@ -212,24 +192,6 @@ QUnit.test("correct sliders place holder size by values", function(assert) {
     assert.deepEqual(this.rangeView.update.lastCall.args[2], { left: 0, top: 0, width: 299, height: 24, right: 0, bottom: 0 });
 });
 
-// T153827
-QUnit.test("correct sliders place holder size by values (with set placeholderSize)", function(assert) {
-    this.createWidget({
-        sliderMarker: {
-            placeholderSize: {
-                width: 10
-            }
-        },
-        scale: {
-            startValue: 0,
-            endValue: 500000,
-            minorTickInterval: 2000
-        }
-    });
-
-    assert.deepEqual(this.rangeView.update.lastCall.args[2], { left: 10, top: 0, width: 290, height: 24, right: 0, bottom: 0 });
-});
-
 QUnit.test("Tracker creation", function(assert) {
     var spy = sinon.spy(trackerModule, "Tracker");
     this.createWidget();
@@ -238,7 +200,6 @@ QUnit.test("Tracker creation", function(assert) {
 });
 
 QUnit.test("Tracker options", function(assert) {
-    this.translator.stub("isEmptyValueRange").returns(false);
     this.createWidget({
         behavior: {
             moveSelectedRangeByClick: "value-1",
@@ -251,60 +212,6 @@ QUnit.test("Tracker options", function(assert) {
         manualRangeSelectionEnabled: "value-2"
     }]);
 });
-
-QUnit.module("Disabled", commons.environment);
-
-QUnit.test("Create without disabled state", function(assert) {
-    this.createWidget();
-
-    assert.deepEqual(this.renderer.root.stub("attr").lastCall.args, [{
-        "pointer-events": null,
-        filter: null
-    }]);
-});
-
-QUnit.test("Create with disabled state", function(assert) {
-    sinon.stub(this.renderer, "getGrayScaleFilter").returns({ id: "grayScaleFilterRef" });
-    this.createWidget({
-        disabled: true
-    });
-
-    assert.deepEqual(this.renderer.root.stub("attr").lastCall.args, [{
-        "pointer-events": "none",
-        filter: "grayScaleFilterRef"
-    }]);
-});
-
-QUnit.test("Set disabled state, initially not disabled", function(assert) {
-    sinon.stub(this.renderer, "getGrayScaleFilter").returns({ id: "grayScaleFilterRef" });
-    var rs = this.createWidget();
-
-    rs.option({
-        disabled: true
-    });
-
-    assert.deepEqual(this.renderer.root.stub("attr").lastCall.args, [{
-        "pointer-events": "none",
-        filter: "grayScaleFilterRef"
-    }]);
-});
-
-QUnit.test("Reset disabled state, initially disabled", function(assert) {
-    sinon.stub(this.renderer, "getGrayScaleFilter").returns({ id: "grayScaleFilterRef" });
-    var rs = this.createWidget({
-        disabled: true
-    });
-
-    rs.option({
-        disabled: false
-    });
-
-    assert.deepEqual(this.renderer.root.stub("attr").lastCall.args, [{
-        "pointer-events": null,
-        filter: null
-    }]);
-});
-
 
 QUnit.module("DataSource", commons.environment);
 
@@ -365,12 +272,14 @@ QUnit.test("Update axis canvas before create series dataSorce", function(assert)
 
     var argumentAxis = spy.lastCall.args[0].argumentAxis;
 
-    assert.deepEqual(argumentAxis.getTranslator().update.firstCall.args, [{ stubData: true }, {
+    assert.deepEqual(argumentAxis.getTranslator().update.firstCall.args[0].isEmpty(), true);
+    assert.deepEqual(argumentAxis.getTranslator().update.firstCall.args[1], {
         height: 150,
         left: 0,
         top: 0,
         width: 300
-    }, { isHorizontal: true }]);
+    });
+    assert.deepEqual(argumentAxis.getTranslator().update.firstCall.args[2], { isHorizontal: true });
     assert.ok(argumentAxis.getTranslator().update.firstCall.calledBefore(spy.firstCall));
 });
 

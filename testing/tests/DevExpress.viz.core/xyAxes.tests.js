@@ -1,27 +1,17 @@
-"use strict";
+import $ from "jquery";
+import vizMocks from "../../helpers/vizMocks.js";
+import tickGeneratorModule from "viz/axes/tick_generator";
+import translator2DModule from "viz/translators/translator2d";
+import rangeModule from "viz/translators/range";
+import { Axis } from "viz/axes/base_axis";
+import { MockSeries } from "../../helpers/chartMocks.js";
+import { patchFontOptions } from "viz/core/utils";
 
-var $ = require("jquery"),
-    vizMocks = require("../../helpers/vizMocks.js"),
-    tickGeneratorModule = require("viz/axes/tick_generator"),
-    translator2DModule = require("viz/translators/translator2d"),
-    rangeModule = require("viz/translators/range"),
-    Axis = require("viz/axes/base_axis").Axis;
-
-var Translator2D = translator2DModule.Translator2D,
-    TranslatorStubCtor = vizMocks.stubClass(Translator2D),
-    RangeStubCtor = vizMocks.stubClass(rangeModule.Range);
-
-function create2DTranslator(options) {
-    var translator = new TranslatorStubCtor();
-    translator.stub("translateSpecialCase");
-
-    translator.stub("getBusinessRange").returns({});
-
-    return translator;
-}
+var Translator2D = translator2DModule.Translator2D;
 
 function getStub2DTranslatorWithSettings() {
-    var translator = sinon.createStubInstance(Translator2D); translator.getBusinessRange.returns({ arg: { minVisible: 0, maxVisible: 10 }, val: { minVisible: 0, maxVisible: 10 } });
+    var translator = sinon.createStubInstance(Translator2D);
+    translator.getBusinessRange.returns(new rangeModule.Range({ min: 0, max: 10 }));
     return translator;
 }
 
@@ -98,9 +88,7 @@ var environment = {
                     font: { size: 12, color: "black" },
                     opacity: 1,
                     style: {},
-                    overlappingBehavior: {
-                        mode: "ignore"
-                    }
+                    overlappingBehavior: "ignore"
                 },
                 axisDivisionFactor: 30,
                 stripStyle: {},
@@ -119,12 +107,14 @@ var environment = {
                 renderer: this.renderer,
                 axisType: "xyAxes",
                 drawingType: "linear",
-                incidentOccurred: this.incidentOccurred
+                incidentOccurred: this.incidentOccurred,
+                eventTrigger: () => { }
             };
-            this.range = new RangeStubCtor();
+            this.range = new rangeModule.Range();
             this.range.min = 0;
             this.range.max = 100;
-            this.css = require("viz/core/utils").patchFontOptions(this.options.marker.label.font);
+
+            this.css = patchFontOptions(this.options.marker.label.font);
         },
         afterEach: function() {
             this.tickGenerator.restore();
@@ -146,14 +136,13 @@ var environment = {
 
             axis = this.createAxis(this.renderSettings, options);
 
-            this.translator.getBusinessRange.returns(this.range);// TODO - move
+            axis.validate();
             axis.setBusinessRange(this.range);
 
             return axis;
         },
         createDrawnAxis: function(opt) {
             var axis = this.createSimpleAxis(opt);
-            axis.validate();
             axis.draw(this.canvas);
             return axis;
         }
@@ -161,14 +150,12 @@ var environment = {
     environment2DTranslator = $.extend({}, environment, {
         beforeEach: function() {
             environment.beforeEach.apply(this, arguments);
-            this.translator = create2DTranslator();
-            this.translator.stub("getCanvasVisibleArea").returns({ min: 0, max: 1000 });
+            this.translator = getStub2DTranslatorWithSettings();
+            this.translator.getCanvasVisibleArea.returns({ min: 0, max: 1000 });
 
             this.options.position = "bottom";
             this.options.label = {
-                overlappingBehavior: {
-                    mode: "ignore"
-                },
+                overlappingBehavior: "ignore",
                 alignment: "center",
                 indentFromAxis: 10
             };
@@ -343,9 +330,7 @@ QUnit.test("set business range and canvas", function(assert) {
 
     axis.updateOptions({
         isHorizontal: true,
-        label: {
-            overlappingBehavior: {}
-        }
+        label: {}
     });
 
     axis.updateCanvas({
@@ -361,6 +346,36 @@ QUnit.test("set business range and canvas", function(assert) {
 
     assert.strictEqual(axis.getTranslator().translate(0), 10);
     assert.strictEqual(axis.getTranslator().translate(100), 920);
+});
+
+QUnit.test("set business range with constant lines", function(assert) {
+    var axis = new Axis({
+        renderer: this.renderer,
+        axisType: "xyAxes",
+        drawingType: "linear"
+    });
+
+    axis.updateOptions({
+        isHorizontal: true,
+        label: {},
+        constantLines: [{ value: -5, extendAxis: true }, { value: 110, extendAxis: true }]
+    });
+
+    axis.updateCanvas({
+        left: 10,
+        right: 50,
+        width: 1000
+    });
+
+    axis.validate();
+
+    axis.setBusinessRange(new rangeModule.Range({
+        min: 0,
+        max: 100
+    }));
+
+    assert.strictEqual(axis.getTranslator().translate(-5), 10);
+    assert.strictEqual(axis.getTranslator().translate(110), 950);
 });
 
 QUnit.module("Ticks skipping. Normal axis", $.extend({}, environment, {
@@ -542,7 +557,7 @@ QUnit.test("getLabelsPosition. shifted axis in right position", function(assert)
 });
 
 QUnit.test("getLabelsPosition. With outer constantline label", function(assert) {
-    this.translator.stub("translate").withArgs(10).returns(50);
+    this.translator.translate.withArgs(10).returns(50);
     var axis = this.createDrawnAxis({
         position: "left",
         constantLines: [{
@@ -562,7 +577,7 @@ QUnit.test("getLabelsPosition. With outer constantline label", function(assert) 
 
 QUnit.test("measure labels, one label", function(assert) {
     var that = this;
-    that.translator.stub("translate").withArgs(0).returns({ y: 4 });
+    that.translator.translate.withArgs(0).returns({ y: 4 });
     var axis = this.createSimpleAxis({ label: { visible: true } });
 
     assert.deepEqual(axis.measureLabels(this.canvas), {
@@ -612,15 +627,22 @@ QUnit.test("measure labels, several labels", function(assert) {
     assert.equal(this.renderer.text.args[0][0], "300", "text of the label");
 });
 
-QUnit.test("measure empty labels", function(assert) {
-    var axis = this.createSimpleAxis({ label: { customizeText: function(e) { return ""; } } });
+QUnit.test("measuring label on axis with empty range - do not render texts", function(assert) {
+    this.generatedTicks = [0, 1, 2];
+    this.range = {};
+    var axis = this.createSimpleAxis({ label: { visible: true }, valueType: "datetime" });
 
-    assert.deepEqual(axis.measureLabels(this.canvas), {
+    var measurements = axis.measureLabels(this.canvas);
+
+    // assert
+    assert.deepEqual(measurements, {
         width: 0,
         height: 0,
         x: 0,
         y: 0
-    }, "measurements");
+    });
+
+    assert.equal(this.renderer.stub("text").callCount, 0);
 });
 
 QUnit.test("IncidentOccured on measure labels", function(assert) {
@@ -631,40 +653,6 @@ QUnit.test("IncidentOccured on measure labels", function(assert) {
     axis.measureLabels(this.canvas);
 
     assert.ok(this.tickGenerator.lastCall.args[0].incidentOccurred !== this.incidentOccurred);
-});
-
-QUnit.test("range data with synchronizedValue. synchronizedValue above max ", function(assert) {
-    var axis = this.createSimpleAxis({
-            min: 0,
-            max: 100,
-            synchronizedValue: 1000
-        }),
-        rangeData = axis.getRangeData();
-
-    assert.strictEqual(rangeData.min, 0);
-    assert.strictEqual(rangeData.max, 1000);
-});
-
-QUnit.test("range data with synchronizedValue. synchronizedValue less min", function(assert) {
-    var axis = this.createSimpleAxis({
-            synchronizedValue: -10,
-            min: 0,
-            max: 100
-        }),
-        rangeData = axis.getRangeData();
-
-    assert.strictEqual(rangeData.min, -10);
-    assert.strictEqual(rangeData.max, 100);
-});
-
-QUnit.test("range data with synchronizedValue and min/max were not set", function(assert) {
-    var axis = this.createSimpleAxis({
-            synchronizedValue: 10
-        }),
-        rangeData = axis.getRangeData();
-
-    assert.strictEqual(rangeData.min, 10);
-    assert.strictEqual(rangeData.max, 10);
 });
 
 QUnit.test("call measure labels after axis draw - use ticks generated on draw", function(assert) {
@@ -689,9 +677,10 @@ QUnit.test("Datetime, no custom format - use auto format based on estimated tick
         valueType: "datetime",
         label: {
             visible: true
-        }
+        },
+        min: new Date(2010, 7, 1),
+        max: new Date(2010, 9, 1)
     });
-    axis.validate();
 
     axis.measureLabels(this.canvas);
 
@@ -713,15 +702,15 @@ QUnit.test("Datetime, custom format - use provided format", function(assert) {
             format: {
                 type: "day"
             }
-        }
+        },
+        min: new Date(2010, 7, 1),
+        max: new Date(2010, 9, 25)
     });
-    axis.validate();
 
     axis.measureLabels(this.canvas);
 
     assert.strictEqual(this.renderer.text.getCall(0).args[0], "10");
 });
-
 
 QUnit.module("Label overlapping, 'hide' mode", overlappingEnvironment);
 
@@ -734,7 +723,7 @@ QUnit.test("horizontal axis", function(assert) {
         { x: 60, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"]);
@@ -749,7 +738,7 @@ QUnit.test("labels are not overlapping", function(assert) {
         { x: 60, y: 0, width: 5, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
@@ -764,7 +753,7 @@ QUnit.test("one very long label", function(assert) {
         { x: 60, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "7", "9"]);
@@ -785,7 +774,7 @@ QUnit.test("vertical axis", function(assert) {
     ];
     this.options.isHorizontal = false;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"]);
@@ -797,7 +786,7 @@ QUnit.test("Overlapping shouldn't apply if there is only one tick", function(ass
     this.generatedTicks = [5];
 
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
     assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
 });
 
@@ -810,7 +799,7 @@ QUnit.test("Not valid mode, default is hide", function(assert) {
         { x: 60, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "mode" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "mode" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"]);
@@ -828,7 +817,7 @@ QUnit.test("Labels are empty", function(assert) {
     this.drawAxisWithOptions({
         min: 1, max: 10, label: {
             customizeText: function() { return ""; },
-            overlappingBehavior: { mode: "hide" }
+            overlappingBehavior: "hide"
         }
     });
 
@@ -866,7 +855,7 @@ QUnit.test("frequent ticks", function(assert) {
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
     this.drawAxisWithOptions({
         label: {
-            overlappingBehavior: { mode: "hide" }
+            overlappingBehavior: "hide"
         }
     });
 
@@ -882,7 +871,7 @@ QUnit.test("There is no real overlap of the labels", function(assert) {
         { x: 60, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
@@ -897,7 +886,7 @@ QUnit.test("There is no real overlap of the labels. Alignment value is left", fu
         { x: 80, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" }, alignment: "left" } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide", alignment: "left" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
@@ -912,7 +901,7 @@ QUnit.test("There is real overlap of the labels. Alignment value is left", funct
         { x: 32, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" }, alignment: "left" } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide", alignment: "left" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"]);
@@ -927,7 +916,7 @@ QUnit.test("There is real overlap of the labels. Alignment value is center", fun
         { x: 40, y: 0, width: 30, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" }, alignment: "center" } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide", alignment: "center" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "7"]);
@@ -942,7 +931,7 @@ QUnit.test("There is real overlap of the labels. Alignment value is right", func
         { x: 40, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" }, alignment: "right" } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide", alignment: "right" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"]);
@@ -957,7 +946,7 @@ QUnit.test("There is not real overlap of the labels. Alignment value is right", 
         { x: 70, y: 0, width: 10, height: 5 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "hide" }, alignment: "right" } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "hide", alignment: "right" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
@@ -967,15 +956,15 @@ QUnit.module("Label overlapping, 'rotate' mode", overlappingEnvironment);
 
 QUnit.test("horizontal axis, labels overlap, rotationAngle is 90", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts, i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 90, overlappingBehavior: { mode: "rotate" }, indentFromAxis: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 90, overlappingBehavior: "rotate", indentFromAxis: 0 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
@@ -991,15 +980,15 @@ QUnit.test("alignment of labels after rotate", function(assert) {
     this.translator.translate.withArgs(7).returns(45);
     this.translator.translate.withArgs(9).returns(60);
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 90, overlappingBehavior: { mode: "rotate" }, indentFromAxis: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 90, overlappingBehavior: "rotate", indentFromAxis: 0 } });
 
     texts = this.renderer.text;
 
@@ -1015,15 +1004,15 @@ QUnit.test("alignment of labels after rotate, angle less than 0", function(asser
     this.translator.translate.withArgs(9).returns(60);
 
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: -40, overlappingBehavior: { mode: "rotate" }, indentFromAxis: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: -40, overlappingBehavior: "rotate", indentFromAxis: 0 } });
 
     texts = this.renderer.text;
     assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateX, 374);
@@ -1037,15 +1026,15 @@ QUnit.test("custom alignment for labels", function(assert) { // TODO: remove use
     this.translator.translate.withArgs(7).returns(45);
     this.translator.translate.withArgs(9).returns(60);
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { alignment: "right", userAlignment: true, overlappingBehavior: { mode: "rotate" }, indentFromAxis: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { alignment: "right", userAlignment: true, overlappingBehavior: "rotate", indentFromAxis: 0 } });
 
     texts = this.renderer.text;
 
@@ -1069,7 +1058,7 @@ QUnit.test("vertical labels overlap but shouldn't rotate", function(assert) {
         texts, i;
     this.options.isHorizontal = false;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, indentFromAxis: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", indentFromAxis: 0 } });
 
     texts = this.renderer.text;
     for(i = 0; i < texts.callCount; i++) {
@@ -1080,7 +1069,6 @@ QUnit.test("vertical labels overlap but shouldn't rotate", function(assert) {
     assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, -5);
 });
 
-
 QUnit.test("Check title offset after olerlap resolving", function(assert) {
     this.translator.translate.withArgs(1).returns(0);
     this.translator.translate.withArgs(3).returns(15);
@@ -1088,11 +1076,11 @@ QUnit.test("Check title offset after olerlap resolving", function(assert) {
     this.translator.translate.withArgs(7).returns(45);
     this.translator.translate.withArgs(9).returns(60);
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1105,7 +1093,7 @@ QUnit.test("Check title offset after olerlap resolving", function(assert) {
             margin: 0
         },
         label: {
-            overlappingBehavior: { mode: "rotate" },
+            overlappingBehavior: "rotate",
             rotationAngle: 30,
             indentFromAxis: 0
         }
@@ -1117,15 +1105,15 @@ QUnit.test("Check title offset after olerlap resolving", function(assert) {
 
 QUnit.test("labels overlap after rotation", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 20 },
-        { x: 15, y: 0, width: 10, height: 20 },
-        { x: 20, y: 0, width: 20, height: 20 },
-        { x: 45, y: 0, width: 10, height: 20 },
-        { x: 60, y: 0, width: 10, height: 20 }
+            { x: 0, y: 0, width: 10, height: 20 },
+            { x: 15, y: 0, width: 10, height: 20 },
+            { x: 20, y: 0, width: 20, height: 20 },
+            { x: 45, y: 0, width: 10, height: 20 },
+            { x: 60, y: 0, width: 10, height: 20 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 90 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 90 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels decimated");
@@ -1139,15 +1127,15 @@ QUnit.test("labels overlap after rotation", function(assert) {
 
 QUnit.test("labels overlap, rotationAngle is zero", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 0 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 0 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"], "labels decimated");
@@ -1161,15 +1149,15 @@ QUnit.test("labels overlap, rotationAngle is zero", function(assert) {
 
 QUnit.test("labels overlap, rotationAngle less then zero", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 8 },
-        { x: 15, y: 0, width: 10, height: 8 },
-        { x: 20, y: 0, width: 20, height: 8 },
-        { x: 45, y: 0, width: 10, height: 8 },
-        { x: 60, y: 0, width: 10, height: 8 }
+            { x: 0, y: 0, width: 10, height: 8 },
+            { x: 15, y: 0, width: 10, height: 8 },
+            { x: 20, y: 0, width: 20, height: 8 },
+            { x: 45, y: 0, width: 10, height: 8 },
+            { x: 60, y: 0, width: 10, height: 8 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: -30 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: -30 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels decimated");
@@ -1183,15 +1171,15 @@ QUnit.test("labels overlap, rotationAngle less then zero", function(assert) {
 
 QUnit.test("labels overlap, rotationAngle is 180", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 180 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 180 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"], "labels decimated");
@@ -1205,15 +1193,15 @@ QUnit.test("labels overlap, rotationAngle is 180", function(assert) {
 
 QUnit.test("labels overlap, rotationAngle less then 90", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 20 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 20 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels decimated");
@@ -1227,15 +1215,15 @@ QUnit.test("labels overlap, rotationAngle less then 90", function(assert) {
 
 QUnit.test("labels overlap, rotationAngle more then 90", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 160 } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 160 } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels decimated");
@@ -1249,17 +1237,16 @@ QUnit.test("labels overlap, rotationAngle more then 90", function(assert) {
 
 QUnit.test("Alignment of labels after their rotation and updating width of canvas", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts, i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    var axis = this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "rotate" }, rotationAngle: 40 } });
+    var axis = this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "rotate", rotationAngle: 40 } });
 
-    this.renderer.text.reset();
     // updating
     this.translator.translate.withArgs(1).returns(10);
     this.translator.translate.withArgs(3).returns(40);
@@ -1274,59 +1261,15 @@ QUnit.test("Alignment of labels after their rotation and updating width of canva
     }
 });
 
-// DEPRECATED 17_1 start
-QUnit.test("User rotationAngle in overlappingBehavior options, rotationAngle = 45", function(assert) {
-    var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
-        ],
-        texts, i;
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 20, overlappingBehavior: { mode: "rotate", rotationAngle: 45 } } });
-
-    texts = this.renderer.text;
-    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
-    for(i = 0; i < texts.callCount; i++) {
-        assert.equal(texts.getCall(i).returnValue.rotate.args[0][0], 45, i + " text is rotated at an angle");
-    }
-});
-
-QUnit.test("User rotationAngle in overlappingBehavior options, rotationAngle = 0", function(assert) {
-    var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
-        ],
-        texts, i;
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: 20, overlappingBehavior: { mode: "rotate", rotationAngle: 0 } } });
-
-    texts = this.renderer.text;
-    assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"], "labels shouldn't decimated");
-    for(i = 0; i < texts.callCount; i += 3) {
-        if(i % 3 === 0) {
-            assert.equal(texts.getCall(i).returnValue.rotate.args[0][0], 0, i + " text is rotated at an angle");
-        } else {
-            assert.ok(!texts.getCall(i).returnValue.rotate.called, i + " text is not rotated at an angle");
-        }
-    }
-});
-// DEPRECATED 17_1 end
-
 QUnit.module("Label overlapping, 'stagger' mode", overlappingEnvironment);
 
 QUnit.test("Labels overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1334,7 +1277,7 @@ QUnit.test("Labels overlap", function(assert) {
         min: 1,
         max: 10,
         label: {
-            overlappingBehavior: { mode: "stagger" },
+            overlappingBehavior: "stagger",
             staggeringSpacing: 0,
             indentFromAxis: 0
         }
@@ -1350,15 +1293,14 @@ QUnit.test("Labels overlap", function(assert) {
     assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
 });
 
-
 QUnit.test("Check title offset after olerlap resolving", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1371,7 +1313,7 @@ QUnit.test("Check title offset after olerlap resolving", function(assert) {
             margin: 0
         },
         label: {
-            overlappingBehavior: { mode: "stagger" },
+            overlappingBehavior: "stagger",
             staggeringSpacing: 0,
             indentFromAxis: 0
         }
@@ -1385,14 +1327,14 @@ QUnit.test("Check title offset after olerlap resolving", function(assert) {
 
 QUnit.test("Labels overlap, some of them hide", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 20, height: 5 },
-        { x: 15, y: 0, width: 20, height: 6 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 15, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 },
-        { x: 85, y: 0, width: 10, height: 5 },
-        { x: 100, y: 0, width: 10, height: 5 },
-        { x: 115, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 20, height: 5 },
+            { x: 15, y: 0, width: 20, height: 6 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 15, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 },
+            { x: 85, y: 0, width: 10, height: 5 },
+            { x: 100, y: 0, width: 10, height: 5 },
+            { x: 115, y: 0, width: 10, height: 5 }
         ],
         texts;
 
@@ -1407,7 +1349,7 @@ QUnit.test("Labels overlap, some of them hide", function(assert) {
         min: 1,
         max: 10,
         label: {
-            overlappingBehavior: { mode: "stagger" },
+            overlappingBehavior: "stagger",
             staggeringSpacing: 0,
             indentFromAxis: 0
         }
@@ -1417,22 +1359,58 @@ QUnit.test("Labels overlap, some of them hide", function(assert) {
     assert.deepEqual(this.arrayRemovedElements, ["3", "7", "11", "15"], "decimated labels");
 
     assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 600, "0 text not moved");
-    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 600, "1 text not moved");
     assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 607, "2 text moved");
-    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 600, "3 text not moved");
     assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
-    assert.equal(texts.getCall(5).returnValue.attr.lastCall.args[0].translateY, 600, "5 text not moved");
     assert.equal(texts.getCall(6).returnValue.attr.lastCall.args[0].translateY, 607, "6 text moved");
-    assert.equal(texts.getCall(7).returnValue.attr.lastCall.args[0].translateY, 600, "7 text not moved");
+});
+
+QUnit.test("Do not update removed label position on update size", function(assert) {
+    var markersBBoxes = [
+        { x: 0, y: 0, width: 20, height: 5 },
+        { x: 15, y: 0, width: 20, height: 6 },
+        { x: 20, y: 0, width: 20, height: 5 },
+        { x: 45, y: 0, width: 15, height: 7 },
+        { x: 60, y: 0, width: 10, height: 5 },
+        { x: 85, y: 0, width: 10, height: 5 },
+        { x: 100, y: 0, width: 10, height: 5 },
+        { x: 115, y: 0, width: 10, height: 5 }
+    ];
+
+    this.generatedTicks = [1, 3, 5, 7, 9, 11, 13, 15];
+
+    this.translator.translate.withArgs(11).returns(60);
+    this.translator.translate.withArgs(13).returns(70);
+    this.translator.translate.withArgs(15).returns(80);
+
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+
+    const axis = this.drawAxisWithOptions({
+        min: 1,
+        max: 10,
+        label: {
+            overlappingBehavior: "stagger",
+            staggeringSpacing: 0,
+            indentFromAxis: 0
+        }
+    });
+
+    const removedLabel = this.renderer.text.getCall(1).returnValue;
+
+    removedLabel.attr.reset();
+
+    // act
+    axis.updateSize(this.canvas);
+
+    assert.equal(removedLabel.attr.callCount, 0);
 });
 
 QUnit.test("Axis position is top", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1441,7 +1419,7 @@ QUnit.test("Axis position is top", function(assert) {
         max: 10,
         position: "top",
         label: {
-            overlappingBehavior: { mode: "stagger" },
+            overlappingBehavior: "stagger",
             staggeringSpacing: 0,
             indentFromAxis: 0
         }
@@ -1459,11 +1437,11 @@ QUnit.test("Axis position is top", function(assert) {
 
 QUnit.test("staggeringSpacing more than zero", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1471,7 +1449,7 @@ QUnit.test("staggeringSpacing more than zero", function(assert) {
         min: 1,
         max: 10,
         label: {
-            overlappingBehavior: { mode: "stagger" },
+            overlappingBehavior: "stagger",
             staggeringSpacing: 5,
             indentFromAxis: 0
         }
@@ -1487,77 +1465,15 @@ QUnit.test("staggeringSpacing more than zero", function(assert) {
     assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
 });
 
-// DEPRECATED 17_1 start
-QUnit.test("User staggeringSpacing in overlappingBehavior options, staggeringSpacing = 3", function(assert) {
-    var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
-        ],
-        texts;
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({
-        min: 1,
-        max: 10,
-        label: {
-            overlappingBehavior: { mode: "stagger", staggeringSpacing: 3 },
-            staggeringSpacing: 2,
-            indentFromAxis: 0
-        }
-    });
-
-    texts = this.renderer.text;
-    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
-
-    assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 600, "0 text not moved");
-    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 610, "1 text moved");
-    assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 600, "2 text not moved");
-    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 610, "3 text moved");
-    assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
-});
-
-QUnit.test("User staggeringSpacing in overlappingBehavior options, staggeringSpacing = 0", function(assert) {
-    var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
-        ],
-        texts;
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({
-        min: 1,
-        max: 10,
-        label: {
-            overlappingBehavior: { mode: "stagger", staggeringSpacing: 0 },
-            staggeringSpacing: 3,
-            indentFromAxis: 0
-        }
-    });
-
-    texts = this.renderer.text;
-    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
-
-    assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 600, "0 text not moved");
-    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 607, "1 text moved");
-    assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 600, "2 text not moved");
-    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 607, "3 text moved");
-    assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
-});
-// DEPRECATED 17_1 end
-
 QUnit.module("Label overlapping, 'auto' mode", overlappingEnvironment);
 
 QUnit.test("Labels overlap and apply stagger mode", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 30, y: 0, width: 15, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 30, y: 0, width: 15, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1565,7 +1481,7 @@ QUnit.test("Labels overlap and apply stagger mode", function(assert) {
         min: 1,
         max: 10,
         label: {
-            overlappingBehavior: { mode: "auto" },
+            overlappingBehavior: "auto",
             staggeringSpacing: 0,
             indentFromAxis: 0
         }
@@ -1583,15 +1499,15 @@ QUnit.test("Labels overlap and apply stagger mode", function(assert) {
 
 QUnit.test("Labels overlap and rotate -45 degrees", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 30, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 5 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 30, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts, i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "auto" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "auto" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
@@ -1602,15 +1518,15 @@ QUnit.test("Labels overlap and rotate -45 degrees", function(assert) {
 
 QUnit.test("Labels overlap and rotate -90 degrees", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 5 }
         ],
         texts, i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "auto" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "auto" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
@@ -1621,15 +1537,15 @@ QUnit.test("Labels overlap and rotate -90 degrees", function(assert) {
 
 QUnit.test("Labels overlap, rotate -90 degrees and hide", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 10 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 20 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 10 }
+            { x: 0, y: 0, width: 10, height: 10 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 20 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 10 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "auto" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "auto" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels decimated");
@@ -1641,20 +1557,239 @@ QUnit.test("Labels overlap, rotate -90 degrees and hide", function(assert) {
     assert.equal(texts.getCall(4).returnValue.rotate.args[0][0], -90, "4 text is rotated at an angle");
 });
 
-QUnit.module("Display mode for label", overlappingEnvironment);
+QUnit.module("Label overlapping, 'none' mode", overlappingEnvironment);
 
-QUnit.test("Custom rotation angle, overlapping mode is none", function(assert) {
+QUnit.test("horizontal axis", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 10 },
+        { x: 0, y: 0, width: 10, height: 4 },
+        { x: 15, y: 0, width: 10, height: 4 },
+        { x: 20, y: 0, width: 20, height: 4 },
+        { x: 45, y: 0, width: 10, height: 4 },
+        { x: 60, y: 0, width: 10, height: 4 }
+    ];
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "none" } });
+
+    assert.equal(this.renderer.text.callCount, 5);
+    assert.deepEqual(this.arrayRemovedElements, []);
+});
+
+QUnit.test("vertical axis", function(assert) {
+    this.translator.translate.withArgs(1).returns(50);
+    this.translator.translate.withArgs(3).returns(40);
+    this.translator.translate.withArgs(5).returns(30);
+    this.translator.translate.withArgs(7).returns(20);
+    this.translator.translate.withArgs(9).returns(10);
+    var markersBBoxes = [
+        { x: 0, y: 60, height: 10, width: 4 },
+        { x: 0, y: 45, height: 10, width: 4 },
+        { x: 0, y: 20, height: 30, width: 4 },
+        { x: 0, y: 15, height: 10, width: 4 },
+        { x: 0, y: 0, height: 10, width: 4 }
+    ];
+    this.options.isHorizontal = false;
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "none" } });
+
+    assert.equal(this.renderer.text.callCount, 5);
+    assert.deepEqual(this.arrayRemovedElements, []);
+});
+
+QUnit.module("Label overlapping, change mode on axis redrawing", overlappingEnvironment);
+
+QUnit.test("Auto mode. After first draw - rotate, after second - stagger. Reset all rotation artifacts", function(assert) {
+    var that = this,
+        markersBBoxes = [
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 5 }
+        ],
+        texts, i;
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+
+    // first draw
+    var axis = this.drawAxisWithOptions({
+        min: 1,
+        max: 10,
+        label: {
+            overlappingBehavior: "auto",
+            staggeringSpacing: 0,
+            indentFromAxis: 0
+        }
+    });
+
+    texts = this.renderer.text;
+    for(i = 0; i < texts.callCount; i++) {
+        texts.getCall(i).returnValue.rotate.reset();
+    }
+    markersBBoxes = [
+        { x: 0, y: 0, width: 10, height: 5 },
+        { x: 15, y: 0, width: 10, height: 6 },
+        { x: 30, y: 0, width: 15, height: 5 },
+        { x: 45, y: 0, width: 10, height: 7 },
+        { x: 60, y: 0, width: 10, height: 5 }
+    ];
+    that.bBoxCount = 0;
+    for(i = 0; i < texts.callCount; i++) {
+        texts.getCall(i).returnValue.getBBox = function() {
+            if(that.bBoxCount >= markersBBoxes.length) {
+                that.bBoxCount = 0;
+            }
+            return markersBBoxes[that.bBoxCount++];
+        };
+    }
+
+    // act. second draw
+    axis.draw(this.canvas);
+
+    texts = this.renderer.text;
+    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
+
+    assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 600, "0 text not moved");
+    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 607, "1 text moved");
+    assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 600, "2 text not moved");
+    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 607, "3 text moved");
+    assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
+
+    for(i = 0; i < texts.callCount; i++) {
+        assert.equal(texts.getCall(i).returnValue._stored_settings.rotate, 0);
+        assert.equal(texts.getCall(i).returnValue.rotate.callCount, 0);
+    }
+});
+
+QUnit.test("Auto mode. After first draw - stagger, after second - rotate. Reset all stagger artifacts", function(assert) {
+    var that = this,
+        markersBBoxes = [
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 30, y: 0, width: 15, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
+        ],
+        texts, i;
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+
+    // first draw
+    var axis = this.drawAxisWithOptions({
+        min: 1,
+        max: 10,
+        label: {
+            overlappingBehavior: "auto",
+            staggeringSpacing: 0,
+            indentFromAxis: 0
+        }
+    });
+
+    texts = this.renderer.text;
+    markersBBoxes = [
+        { x: 0, y: 0, width: 10, height: 5 },
         { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 20 },
+        { x: 20, y: 0, width: 20, height: 5 },
         { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 10 }
+        { x: 40, y: 0, width: 10, height: 5 }
+    ];
+    that.bBoxCount = 0;
+    for(i = 0; i < texts.callCount; i++) {
+        texts.getCall(i).returnValue.getBBox = function() {
+            if(that.bBoxCount >= markersBBoxes.length) {
+                that.bBoxCount = 0;
+            }
+            return markersBBoxes[that.bBoxCount++];
+        };
+    }
+
+    // act. second draw
+    axis.draw(this.canvas);
+
+    texts = this.renderer.text;
+    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
+
+    assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 0, "0 text not moved");
+    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 0, "1 text not moved");
+    assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 10, "2 text not moved");
+    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 0, "3 text not moved");
+    assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 0, "4 text not moved");
+
+    for(i = 0; i < texts.callCount; i++) {
+        assert.equal(texts.getCall(i).returnValue.rotate.args[0][0], -90, i + " text is rotated at an angle");
+    }
+});
+
+QUnit.test("Rotated mode with positive angle. No overlapping after second draw. Reset all rotation artifacts", function(assert) {
+    this.translator.translate.withArgs(1).returns(0);
+    this.translator.translate.withArgs(3).returns(15);
+    this.translator.translate.withArgs(5).returns(20);
+    this.translator.translate.withArgs(7).returns(45);
+    this.translator.translate.withArgs(9).returns(60);
+    var that = this,
+        markersBBoxes = [
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 5 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "none" } } });
+    var axis = this.drawAxisWithOptions({ min: 1, max: 10, label: { rotationAngle: -89, overlappingBehavior: "rotate", indentFromAxis: 0 } });
+
+    texts = this.renderer.text;
+    for(i = 0; i < texts.callCount; i++) {
+        texts.getCall(i).returnValue.rotate.reset();
+    }
+    markersBBoxes = [
+        { x: 0, y: 0, width: 10, height: 5 },
+        { x: 15, y: 0, width: 10, height: 5 },
+        { x: 30, y: 0, width: 10, height: 5 },
+        { x: 45, y: 0, width: 10, height: 5 },
+        { x: 60, y: 0, width: 10, height: 5 }
+    ];
+    that.bBoxCount = 0;
+    for(i = 0; i < texts.callCount; i++) {
+        texts.getCall(i).returnValue.getBBox = function() {
+            if(that.bBoxCount >= markersBBoxes.length) {
+                that.bBoxCount = 0;
+            }
+            return markersBBoxes[that.bBoxCount++];
+        };
+    }
+    this.translator.translate.withArgs(5).returns(30);
+
+    // act. second draw
+    axis.draw(this.canvas);
+
+    texts = this.renderer.text;
+    assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
+
+    assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateX, -5, "0 text not moved");
+    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateX, -5, "1 text not moved");
+    assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateX, -5, "2 text not moved");
+    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateX, -5, "3 text not moved");
+    assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateX, -5, "4 text not moved");
+
+    for(i = 0; i < texts.callCount; i++) {
+        assert.equal(texts.getCall(i).returnValue._stored_settings.rotate, 0);
+        assert.equal(texts.getCall(i).returnValue.rotate.callCount, 0);
+    }
+});
+
+QUnit.module("Display mode for label", overlappingEnvironment);
+
+QUnit.test("Custom rotation angle, overlapping mode is none", function(assert) {
+    var markersBBoxes = [
+            { x: 0, y: 0, width: 10, height: 10 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 20 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 10 }
+        ],
+        texts,
+        i;
+    this.renderer.text = spyRendererText.call(this, markersBBoxes);
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "none" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels is not decimated");
@@ -1666,16 +1801,16 @@ QUnit.test("Custom rotation angle, overlapping mode is none", function(assert) {
 
 QUnit.test("Custom rotation angle, overlapping mode is ignore", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 10 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 20 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 10 }
+            { x: 0, y: 0, width: 10, height: 10 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 20 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 10 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "ignore" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "ignore" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels is not decimated");
@@ -1687,16 +1822,16 @@ QUnit.test("Custom rotation angle, overlapping mode is ignore", function(assert)
 
 QUnit.test("Custom rotation angle, overlapping mode is hide, labels are not overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 5 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "hide" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, [], "labels is not decimated");
@@ -1708,16 +1843,16 @@ QUnit.test("Custom rotation angle, overlapping mode is hide, labels are not over
 
 QUnit.test("Custom rotation angle, overlapping mode is hide, labels are overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 10 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 10 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 10 }
+            { x: 0, y: 0, width: 10, height: 10 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 10 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 10 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "hide" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels is not decimated");
@@ -1733,23 +1868,23 @@ QUnit.test("Custom rotation angle, overlapping mode is hide, one tick", function
     this.generatedTicks = [5];
 
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "hide" } });
     assert.deepEqual(this.arrayRemovedElements, [], "labels shouldn't decimated");
     assert.equal(this.renderer.text.getCall(0).returnValue.rotate.args[0][0], 40, "0 text is rotated at an angle");
 });
 
 QUnit.test("Custom rotation angle, overlapping mode besides hide, none or ignor shouldn't apply", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 10 },
-        { x: 10, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 10 },
-        { x: 30, y: 0, width: 10, height: 5 },
-        { x: 40, y: 0, width: 10, height: 10 }
+            { x: 0, y: 0, width: 10, height: 10 },
+            { x: 10, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 10 },
+            { x: 30, y: 0, width: 10, height: 5 },
+            { x: 40, y: 0, width: 10, height: 10 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: { mode: "stagger" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "rotate", rotationAngle: 40, overlappingBehavior: "stagger" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels should decimated");
@@ -1763,11 +1898,11 @@ QUnit.test("Custom rotation angle, overlapping mode besides hide, none or ignor 
 
 QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are not overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1777,7 +1912,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are not 
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "hide" },
+            overlappingBehavior: "hide",
             indentFromAxis: 0
         }
     });
@@ -1794,11 +1929,11 @@ QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are not 
 
 QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 20, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 20, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 20, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 20, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1808,7 +1943,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are over
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "hide" },
+            overlappingBehavior: "hide",
             indentFromAxis: 0
         }
     });
@@ -1817,19 +1952,17 @@ QUnit.test("Custom staggering spacing, overlapping mode is hide, labels are over
     assert.deepEqual(this.arrayRemovedElements, ["3", "7"], "labels should decimated");
 
     assert.equal(texts.getCall(0).returnValue.attr.lastCall.args[0].translateY, 600, "0 text not moved");
-    assert.equal(texts.getCall(1).returnValue.attr.lastCall.args[0].translateY, 600, "1 text not moved");
     assert.equal(texts.getCall(2).returnValue.attr.lastCall.args[0].translateY, 607, "2 text moved");
-    assert.equal(texts.getCall(3).returnValue.attr.lastCall.args[0].translateY, 600, "3 text not moved");
     assert.equal(texts.getCall(4).returnValue.attr.lastCall.args[0].translateY, 600, "4 text not moved");
 });
 
 QUnit.test("Custom staggering spacing, overlapping mode is none, labels are not overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1839,7 +1972,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is none, labels are not 
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "none" },
+            overlappingBehavior: "none",
             indentFromAxis: 0
         }
     });
@@ -1856,11 +1989,11 @@ QUnit.test("Custom staggering spacing, overlapping mode is none, labels are not 
 
 QUnit.test("Custom staggering spacing, overlapping mode is ignore, labels are not overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 10, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 10, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1870,7 +2003,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is ignore, labels are no
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "ignore" },
+            overlappingBehavior: "ignore",
             indentFromAxis: 0
         }
     });
@@ -1887,11 +2020,11 @@ QUnit.test("Custom staggering spacing, overlapping mode is ignore, labels are no
 
 QUnit.test("Custom staggering spacing, overlapping mode is none, labels are overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 20, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 20, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1901,7 +2034,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is none, labels are over
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "none" },
+            overlappingBehavior: "none",
             indentFromAxis: 0
         }
     });
@@ -1918,11 +2051,11 @@ QUnit.test("Custom staggering spacing, overlapping mode is none, labels are over
 
 QUnit.test("Custom staggering spacing, overlapping mode is ignore, labels are overlap", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 20, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 20, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -1932,7 +2065,7 @@ QUnit.test("Custom staggering spacing, overlapping mode is ignore, labels are ov
         label: {
             displayMode: "stagger",
             staggeringSpacing: 0,
-            overlappingBehavior: { mode: "ignore" },
+            overlappingBehavior: "ignore",
             indentFromAxis: 0
         }
     });
@@ -1954,11 +2087,11 @@ QUnit.test("For value axis shouldn't apply display mode", function(assert) {
     this.translator.translate.withArgs(7).returns(20);
     this.translator.translate.withArgs(9).returns(10);
     var markersBBoxes = [
-        { x: 0, y: 60, height: 10, width: 4 },
-        { x: 0, y: 45, height: 10, width: 4 },
-        { x: 0, y: 20, height: 30, width: 4 },
-        { x: 0, y: 15, height: 10, width: 4 },
-        { x: 0, y: 0, height: 10, width: 4 }
+            { x: 0, y: 60, height: 10, width: 4 },
+            { x: 0, y: 45, height: 10, width: 4 },
+            { x: 0, y: 20, height: 30, width: 4 },
+            { x: 0, y: 15, height: 10, width: 4 },
+            { x: 0, y: 0, height: 10, width: 4 }
         ],
         i,
         texts;
@@ -1977,16 +2110,16 @@ QUnit.test("For value axis shouldn't apply display mode", function(assert) {
 
 QUnit.test("Invalid display mode", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 20, height: 5 },
-        { x: 15, y: 0, width: 10, height: 5 },
-        { x: 20, y: 0, width: 20, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 20, height: 5 },
+            { x: 15, y: 0, width: 10, height: 5 },
+            { x: 20, y: 0, width: 20, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts,
         i;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "invalid", overlappingBehavior: { mode: "hide" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { displayMode: "invalid", overlappingBehavior: "hide" } });
 
     texts = this.renderer.text;
     assert.deepEqual(this.arrayRemovedElements, ["3", "5", "9"], "labels should decimated");
@@ -2010,7 +2143,7 @@ QUnit.test("Labels are empty", function(assert) {
         min: 1, max: 10, label: {
             customizeText: function() { return ""; },
             displayMode: "rotate",
-            overlappingBehavior: { mode: "hide" }
+            overlappingBehavior: "hide"
         }
     });
 
@@ -2020,11 +2153,11 @@ QUnit.test("Labels are empty", function(assert) {
 
 QUnit.test("Temporary _auto mode support", function(assert) {
     var markersBBoxes = [
-        { x: 0, y: 0, width: 10, height: 5 },
-        { x: 15, y: 0, width: 10, height: 6 },
-        { x: 30, y: 0, width: 15, height: 5 },
-        { x: 45, y: 0, width: 10, height: 7 },
-        { x: 60, y: 0, width: 10, height: 5 }
+            { x: 0, y: 0, width: 10, height: 5 },
+            { x: 15, y: 0, width: 10, height: 6 },
+            { x: 30, y: 0, width: 15, height: 5 },
+            { x: 45, y: 0, width: 10, height: 7 },
+            { x: 60, y: 0, width: 10, height: 5 }
         ],
         texts;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
@@ -2032,7 +2165,7 @@ QUnit.test("Temporary _auto mode support", function(assert) {
         min: 1,
         max: 10,
         label: {
-            overlappingBehavior: { mode: "_auto" }, staggeringSpacing: 0,
+            overlappingBehavior: "_auto", staggeringSpacing: 0,
             indentFromAxis: 0
         }
     });
@@ -2051,33 +2184,19 @@ QUnit.module("Label overlapping, 'none' mode", overlappingEnvironment);
 
 QUnit.test("horizontal axis", function(assert) {
     var markersBBoxes = [
-            { x: 0, y: 0, width: 10, height: 4 },
-            { x: 15, y: 0, width: 10, height: 4 },
-            { x: 20, y: 0, width: 20, height: 4 },
-            { x: 45, y: 0, width: 10, height: 4 },
-            { x: 60, y: 0, width: 10, height: 4 }
+        { x: 0, y: 0, width: 10, height: 4 },
+        { x: 15, y: 0, width: 10, height: 4 },
+        { x: 20, y: 0, width: 20, height: 4 },
+        { x: 45, y: 0, width: 10, height: 4 },
+        { x: 60, y: 0, width: 10, height: 4 }
     ];
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "none" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "none" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
 });
 
-QUnit.test("horizontal axis. deprecated ignore mode", function(assert) {
-    var markersBBoxes = [
-            { x: 0, y: 0, width: 10, height: 4 },
-            { x: 15, y: 0, width: 10, height: 4 },
-            { x: 20, y: 0, width: 20, height: 4 },
-            { x: 45, y: 0, width: 10, height: 4 },
-            { x: 60, y: 0, width: 10, height: 4 }
-    ];
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "ignore" } } });
-
-    assert.equal(this.renderer.text.callCount, 5);
-    assert.deepEqual(this.arrayRemovedElements, []);
-});
 
 QUnit.test("vertical axis", function(assert) {
     this.translator.translate.withArgs(1).returns(50);
@@ -2086,36 +2205,15 @@ QUnit.test("vertical axis", function(assert) {
     this.translator.translate.withArgs(7).returns(20);
     this.translator.translate.withArgs(9).returns(10);
     var markersBBoxes = [
-            { x: 0, y: 60, height: 10, width: 4 },
-            { x: 0, y: 45, height: 10, width: 4 },
-            { x: 0, y: 20, height: 30, width: 4 },
-            { x: 0, y: 15, height: 10, width: 4 },
-            { x: 0, y: 0, height: 10, width: 4 }
+        { x: 0, y: 60, height: 10, width: 4 },
+        { x: 0, y: 45, height: 10, width: 4 },
+        { x: 0, y: 20, height: 30, width: 4 },
+        { x: 0, y: 15, height: 10, width: 4 },
+        { x: 0, y: 0, height: 10, width: 4 }
     ];
     this.options.isHorizontal = false;
     this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "none" } } });
-
-    assert.equal(this.renderer.text.callCount, 5);
-    assert.deepEqual(this.arrayRemovedElements, []);
-});
-
-QUnit.test("vertical axis. deprecated ignore mode", function(assert) {
-    this.translator.translate.withArgs(1).returns(50);
-    this.translator.translate.withArgs(3).returns(40);
-    this.translator.translate.withArgs(5).returns(30);
-    this.translator.translate.withArgs(7).returns(20);
-    this.translator.translate.withArgs(9).returns(10);
-    var markersBBoxes = [
-            { x: 0, y: 60, height: 10, width: 4 },
-            { x: 0, y: 45, height: 10, width: 4 },
-            { x: 0, y: 20, height: 30, width: 4 },
-            { x: 0, y: 15, height: 10, width: 4 },
-            { x: 0, y: 0, height: 10, width: 4 }
-    ];
-    this.options.isHorizontal = false;
-    this.renderer.text = spyRendererText.call(this, markersBBoxes);
-    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: { mode: "ignore" } } });
+    this.drawAxisWithOptions({ min: 1, max: 10, label: { overlappingBehavior: "none" } });
 
     assert.equal(this.renderer.text.callCount, 5);
     assert.deepEqual(this.arrayRemovedElements, []);
@@ -2358,25 +2456,6 @@ QUnit.test("Estimate margin. Overlapping mode is rotate", function(assert) {
 
     assert.equal(margins.bottom, 35, "bottom margin");
 });
-
-QUnit.test("Estimate margin. Overlapping mode is rotate, drawing type is stagger", function(assert) {
-    this.generatedTicks = ["c1", "c2", "c3", "c4"];
-    var axis = this.createSimpleAxis({
-        isHorizontal: true,
-        label: {
-            visible: true,
-            indentFromAxis: 3,
-            overlappingBehavior: "rotate",
-            drawingType: "stagger",
-            staggeringSpacing: 10
-        }
-    });
-
-    var margins = axis.estimateMargins(this.canvas);
-
-    assert.strictEqual(margins.bottom, 3 + 14 * 2 + 10, "bottom margin");
-});
-
 
 QUnit.test("Estimate margin. Overlapping mode is stagger, drawing type is rotate", function(assert) {
     this.generatedTicks = ["c1", "c2", "c3", "c4"];
@@ -2629,8 +2708,6 @@ QUnit.test("Constant line label is wider than label - get constant line label as
 });
 
 QUnit.test("Estimate margins does not include labels if stub data", function(assert) {
-    this.range.stubData = true;
-
     var customizeText = sinon.stub(),
         axis = this.createSimpleAxis({
             isHorizontal: true,
@@ -2665,14 +2742,13 @@ QUnit.test("no custom format - use auto format based on estimated tickInterval",
         min: new Date(2009, 11, 1),
         max: new Date(2010, 1, 1)
     });
-    axis.validate();
 
     axis.estimateMargins(this.canvas);
 
     assert.strictEqual(this.renderer.text.getCall(0).args[0], "February");
 });
 
-QUnit.module("Coors In", $.extend({}, environment2DTranslator, {
+QUnit.module("Coords In", $.extend({}, environment2DTranslator, {
     beforeEach: function() {
         environment2DTranslator.beforeEach.call(this);
         this.axis = this.createSimpleAxis();
@@ -2693,8 +2769,10 @@ QUnit.test("Horizontal axis. bottom position", function(assert) {
         position: "bottom"
     });
 
-    assert.strictEqual(this.axis.coordsIn(0, 100), false);
-    assert.strictEqual(this.axis.coordsIn(0, 601), true);
+    assert.strictEqual(this.axis.coordsIn(500, 601), true);
+    assert.strictEqual(this.axis.coordsIn(10, 100), false);
+    assert.strictEqual(this.axis.coordsIn(950, 100), false);
+    assert.strictEqual(this.axis.coordsIn(500, 100), false);
 });
 
 QUnit.test("Horizontal axis. top position", function(assert) {
@@ -2703,9 +2781,11 @@ QUnit.test("Horizontal axis. top position", function(assert) {
         position: "top"
     });
 
-    assert.strictEqual(this.axis.coordsIn(0, 100), false);
-    assert.strictEqual(this.axis.coordsIn(0, 601), false);
-    assert.strictEqual(this.axis.coordsIn(0, 9), true);
+    assert.strictEqual(this.axis.coordsIn(500, 9), true);
+    assert.strictEqual(this.axis.coordsIn(10, 9), false);
+    assert.strictEqual(this.axis.coordsIn(950, 9), false);
+    assert.strictEqual(this.axis.coordsIn(500, 100), false);
+    assert.strictEqual(this.axis.coordsIn(500, 601), false);
 });
 
 QUnit.test("Vertica axis. left position", function(assert) {
@@ -2716,6 +2796,8 @@ QUnit.test("Vertica axis. left position", function(assert) {
 
     assert.strictEqual(this.axis.coordsIn(10, 100), true);
     assert.strictEqual(this.axis.coordsIn(31, 100), false);
+    assert.strictEqual(this.axis.coordsIn(10, 5), false);
+    assert.strictEqual(this.axis.coordsIn(10, 700), false);
 });
 
 QUnit.test("Vertical axis. right position", function(assert) {
@@ -2724,8 +2806,10 @@ QUnit.test("Vertical axis. right position", function(assert) {
         position: "right"
     });
 
-    assert.strictEqual(this.axis.coordsIn(800, 100), false);
     assert.strictEqual(this.axis.coordsIn(920, 100), true);
+    assert.strictEqual(this.axis.coordsIn(800, 100), false);
+    assert.strictEqual(this.axis.coordsIn(920, 5), false);
+    assert.strictEqual(this.axis.coordsIn(920, 700), false);
 });
 
 QUnit.module("API: Shift", environment2DTranslator);
@@ -2875,7 +2959,8 @@ QUnit.test("Get scale breaks in the viewport", function(assert) {
             { startValue: 500, endValue: 600 }
         ]
     });
-    this.axis.zoom(250, 540);
+
+    this.axis.visualRange(250, 540);
     this.axis.createTicks(this.canvas);
 
     var breaks = this.tickGeneratorSpy.lastCall.args[7];
@@ -2892,7 +2977,7 @@ QUnit.test("Do not get scale break if viewport inside it", function(assert) {
         breaks: [{ startValue: 200, endValue: 500 }]
     });
 
-    this.axis.zoom(250, 340);
+    this.axis.visualRange(250, 340);
     this.axis.createTicks(this.canvas);
 
     var breaks = this.tickGeneratorSpy.lastCall.args[7];
@@ -3044,12 +3129,12 @@ QUnit.test("Remove groups on disposing", function(assert) {
         max: 140
     }));
 
-    this.translator.getBusinessRange.returns({
+    this.translator.getBusinessRange.returns(new rangeModule.Range({
         breaks: [
             { startValue: 50, endValue: 100 },
             { startValue: 70, endValue: 150 }
         ]
-    });
+    }));
 
     axis.createTicks(this.canvas);
 
@@ -3076,7 +3161,6 @@ QUnit.module("Datetime scale breaks. Weekends and holidays", $.extend({}, enviro
         that.axis = that.createSimpleAxis({
             dataType: "datetime"
         });
-        that.axis.validate();
     },
     updateOptions: function(opt) {
 
@@ -3467,7 +3551,7 @@ QUnit.test("Recalculate the breaks on zoom", function(assert) {
     this.axis.createTicks(this.canvas);
 
     // act
-    this.axis.zoom(new Date(2017, 8, 8, 8, 0, 0), new Date(2017, 8, 11));
+    this.axis.visualRange(new Date(2017, 8, 8, 8, 0, 0), new Date(2017, 8, 11));
     this.axis.createTicks(this.canvas);
 
     // assert
@@ -3697,13 +3781,12 @@ QUnit.test("Argument axis. Without breaks", function(assert) {
         maxAutoBreakCount: 2,
         isHorizontal: true,
         label: {
-            visible: true,
-            overlappingBehavior: {}
+            visible: true
         }
     });
 
     axis.setGroupSeries(this.series);
-    axis.setBusinessRange({ min: 2, max: 100, addRange: function() { return this; } });
+    axis.setBusinessRange({ min: 2, max: 100 });
     axis.createTicks(this.canvas);
 
     assert.deepEqual(this.tickGeneratorSpy.lastCall.args[7], []);
@@ -3724,8 +3807,8 @@ QUnit.test("Discrete. Without breaks", function(assert) {
 QUnit.test("Datetime. Without breaks", function(assert) {
     this.updateOptions({
         dataType: "datetime",
-        min: 2,
-        max: 100
+        min: new Date(2),
+        max: new Date(100)
     });
     this.axis.createTicks(this.canvas);
 
@@ -3896,7 +3979,7 @@ QUnit.test("Filter scalebreaks on zoom", function(assert) {
     this.axis.setGroupSeries(this.series);
     this.axis.createTicks(this.canvas);
 
-    this.axis.zoom(50, 100);
+    this.axis.visualRange(50, 100);
     this.axis.createTicks(this.canvas);
 
     assert.deepEqual(this.tickGeneratorSpy.lastCall.args[7], [{ from: 50, to: 80, cumulativeWidth: 0 }]);
@@ -3920,7 +4003,7 @@ QUnit.test("Recalculate scale breaks on zoom", function(assert) {
         this.stubSeries([[80, 120, 40], []])
     ]);
 
-    this.axis.zoom(50, 100);
+    this.axis.visualRange(50, 100);
     this.axis.createTicks(this.canvas);
 
     assert.deepEqual(this.tickGeneratorSpy.lastCall.args[7], [{ from: 80, to: 100, cumulativeWidth: 0 }]);
@@ -3938,10 +4021,10 @@ QUnit.test("Reset zoom", function(assert) {
         max: 120
     });
 
-    this.axis.zoom(50, 100);
+    this.axis.visualRange(50, 100);
     this.axis.createTicks(this.canvas);
 
-    this.axis.zoom(2, 120);
+    this.axis.visualRange(2, 120);
     this.axis.createTicks(this.canvas);
 
     assert.deepEqual(this.tickGeneratorSpy.lastCall.args[7], [{ from: 10, to: 40, cumulativeWidth: 0 }, { from: 40, to: 80, cumulativeWidth: 0 }]);
@@ -4059,4 +4142,421 @@ QUnit.test("Apply margins taking into account breaks range size", function(asser
         max: 204,
         min: 98
     });
+});
+
+QUnit.module("Adjust value axis", {
+    beforeEach: function() {
+        environment2DTranslator.beforeEach.call(this);
+        this.axis = new Axis({
+            renderer: this.renderer,
+            axisType: "xyAxes",
+            drawingType: "linear",
+            isArgumentAxis: false,
+            eventTrigger() {}
+        });
+
+        this.series = [new MockSeries({}), new MockSeries({})];
+
+        this.axis.setGroupSeries(this.series);
+
+        this.updateOptions({});
+    },
+    afterEach: function() {
+        environment2DTranslator.afterEach.call(this);
+    },
+    updateOptions: function(options) {
+        var defaultOptions = {
+            isHorizontal: true,
+            label: {
+                visible: true,
+            }
+        };
+        this.axis.updateOptions($.extend(true, defaultOptions, options));
+    }
+});
+
+QUnit.test("Calculate common range from series on adjust", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+    });
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.series[1].getViewport.returns({
+        min: 5,
+        max: 12
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, 5);
+    assert.strictEqual(maxVisible, 15);
+});
+
+QUnit.test("Calculate common range from series on adjust. series with show zero", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+    });
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.series[0].showZero = true;
+
+    this.series[1].getViewport.returns({
+        min: 5,
+        max: 12
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, 0);
+    assert.strictEqual(maxVisible, 15);
+});
+
+QUnit.test("Recalculate scale breaks", function(assert) {
+    this.updateOptions({
+        breakStyle: { width: 10 },
+        breaks: [
+            { startValue: 10, endValue: 100 },
+            { startValue: 200, endValue: 300 },
+            { startValue: 310, endValue: 360 },
+            { startValue: 500, endValue: 600 }
+        ]
+    });
+
+    this.axis.parser = function(value) {
+        return value;
+    };
+
+    this.axis.setBusinessRange({
+        min: 0,
+        max: 1000
+    });
+
+    this.series[0].getViewport.returns({
+        min: 250,
+        max: 540
+    });
+
+    this.series[1].getViewport.returns({
+        min: 250,
+        max: 540
+    });
+
+    this.axis.adjust(false);
+
+    this.axis.createTicks(this.canvas);
+
+    var breaks = this.tickGeneratorSpy.lastCall.args[7];
+
+    assert.deepEqual(breaks, [
+        { from: 250, to: 300, cumulativeWidth: 10 },
+        { from: 310, to: 360, cumulativeWidth: 20 },
+        { from: 500, to: 540, cumulativeWidth: 30 }
+    ]);
+});
+
+QUnit.test("Calculate common range from series on adjust when one series is not visible", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+    });
+
+    this.series[0] = new MockSeries({ visible: false });
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.series[1].getViewport.returns({
+        min: 5,
+        max: 12
+    });
+
+    this.axis.setGroupSeries(this.series);
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, 5);
+    assert.strictEqual(maxVisible, 12);
+});
+
+QUnit.test("min and are undefined in common range", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, -100);
+    assert.strictEqual(maxVisible, 100);
+});
+
+QUnit.test("Apply margin to series range", function(assert) {
+    this.updateOptions({
+        valueMarginsEnabled: true,
+        minValueMargin: 0.1,
+        maxValueMargin: 0.2
+    });
+
+    this.series[0].getViewport.returns({
+        min: 120,
+        max: 180
+    });
+
+    this.axis.setBusinessRange({ min: 100, max: 200 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, 100);
+    assert.strictEqual(max, 200);
+    assert.strictEqual(minVisible, 114);
+    assert.strictEqual(maxVisible, 192);
+});
+
+QUnit.test("Extend range to boundery ticks on adjust", function(assert) {
+    this.updateOptions({
+        valueMarginsEnabled: false,
+        endOnTick: false
+    });
+
+    this.series[0].getViewport.returns({
+        min: 120,
+        max: 180
+    });
+
+    this.generatedTicks = [110, 190];
+
+    this.axis.setBusinessRange({ min: 100, max: 200 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, 100);
+    assert.strictEqual(max, 200);
+    assert.strictEqual(minVisible, 110);
+    assert.strictEqual(maxVisible, 190);
+});
+
+QUnit.test("Do not adjust axis if it has min/max", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+        min: -20,
+        max: 60
+    });
+
+    this.axis.validate();
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 }, true);
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, -20);
+    assert.strictEqual(maxVisible, 60);
+});
+
+QUnit.test("Do not adjust axis if it was zoomed", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+    });
+
+    this.axis.validate();
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.visualRange(-20, 60);
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, -20);
+    assert.strictEqual(maxVisible, 60);
+});
+
+QUnit.test("Adjust axis after reset zoom", function(assert) {
+    this.updateOptions({
+        endOnTick: false,
+        valueMarginsEnabled: false,
+        min: -20,
+        max: 60
+    });
+
+    this.axis.validate();
+
+    this.series[0].getViewport.returns({
+        min: 10,
+        max: 15
+    });
+
+    this.axis.setBusinessRange({ min: -100, max: 100 });
+    this.axis.setMarginOptions({});
+
+    this.axis.resetVisualRange();
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, -100);
+    assert.strictEqual(max, 100);
+    assert.strictEqual(minVisible, 10);
+    assert.strictEqual(maxVisible, 15);
+});
+
+QUnit.test("Adjusting with constant lines", function(assert) {
+    this.updateOptions({
+        constantLines: [{ value: 90, extendAxis: true }, { value: 210 }]
+    });
+
+    this.series[0].getViewport.returns({
+        min: 120,
+        max: 180
+    });
+
+    this.axis.validate();
+    this.axis.setBusinessRange({ min: 100, max: 200 });
+    this.axis.setMarginOptions({});
+
+    this.axis.adjust();
+    this.translator.updateBusinessRange.reset();
+
+    this.axis.createTicks(this.canvas);
+
+    const { minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(minVisible, 90);
+    assert.strictEqual(maxVisible, 180);
+});
+
+QUnit.test("Update translator business range after adjust axis", function(assert) {
+    this.series[0].getViewport.returns({
+        min: 120,
+        max: 180
+    });
+
+    this.axis.setBusinessRange({ min: 100, max: 200 });
+
+    this.translator.updateBusinessRange.reset();
+    this.axis.adjust();
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, 100);
+    assert.strictEqual(max, 200);
+    assert.strictEqual(minVisible, 120);
+    assert.strictEqual(maxVisible, 180);
+});
+
+QUnit.test("Update discrete translator business range after adjust axis", function(assert) {
+    this.updateOptions({
+        type: "discrete"
+    });
+
+    this.series[0].getViewport.returns({
+        min: "120",
+        max: "180"
+    });
+
+    this.axis.setBusinessRange({ min: "100", max: "200" });
+
+    this.translator.updateBusinessRange.reset();
+    this.axis.adjust();
+
+    const { min, max, minVisible, maxVisible } = this.translator.updateBusinessRange.lastCall.args[0];
+
+    assert.strictEqual(min, "100");
+    assert.strictEqual(max, "200");
+    assert.strictEqual(minVisible, "120");
+    assert.strictEqual(maxVisible, "180");
 });

@@ -1,5 +1,3 @@
-"use strict";
-
 var WHITE = "#ffffff",
     BLACK = "#000000",
     LIGHT_GREY = "#d3d3d3",
@@ -20,15 +18,14 @@ var WHITE = "#ffffff",
     OUTSIDE = "outside",
 
     themeModule = require("../../themes"),
-    registerTheme = themeModule.registerTheme,
-    registerThemeAlias = themeModule.registerThemeAlias;
+    registerTheme = themeModule.registerTheme;
 
 registerTheme({
     name: "generic.light",
     isDefault: true,
     font: {
         color: SECONDARY_TITLE_COLOR,
-        family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+        family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
         weight: 400,
         size: 12,
         cursor: "default"
@@ -43,7 +40,7 @@ registerTheme({
         backgroundColor: WHITE,
         font: {
             size: 28,
-            family: "'Segoe UI Light', 'Helvetica Neue Light', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
+            family: "'Segoe UI Light', 'Helvetica Neue Light', 'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana, sans-serif",
             weight: 200
         },
         subtitle: {
@@ -710,7 +707,16 @@ registerTheme({
         equalBarWidth: true,
         barGroupPadding: 0.3,
         minBubbleSize: 12,
-        maxBubbleSize: 0.2
+        maxBubbleSize: 0.2,
+        zoomAndPan: {
+            dragBoxStyle: {
+                color: "#2a2a2a",
+                opacity: 0.2
+            },
+            panKey: "shift",
+            allowMouseWheel: true,
+            allowTouchGestures: true
+        }
     },
     pie: {
         innerRadius: 0.5,
@@ -1014,7 +1020,6 @@ registerTheme({
             color: BLACK,
             opacity: 0.1,
             showCustomBoundaryTicks: true,
-            showMinorTicks: true, // DEPRECATED IN 15_2
             label: {
                 overlappingBehavior: "hide",
                 alignment: "center",
@@ -1087,7 +1092,7 @@ registerTheme({
             moveSelectedRangeByClick: true,
             manualRangeSelectionEnabled: true,
             allowSlidersSwap: true,
-            callSelectedRangeChanged: "onMovingComplete"
+            callValueChanged: "onMovingComplete"
         },
         redrawOnResize: true,
         chart: {
@@ -1176,7 +1181,6 @@ registerTheme({
         "layer:marker:dot": {
             borderWidth: 2,
             borderColor: WHITE,
-            color: "#ba4d51",
             size: 8,
             selectedStep: 2,
             backStep: 18,
@@ -1187,7 +1191,6 @@ registerTheme({
         "layer:marker:bubble": {
             minSize: 20,
             maxSize: 50,
-            color: "#ba4d51",
             hoveredBorderWidth: 1,
             hoveredBorderColor: GREY_GREEN,
             selectedBorderWidth: 2,
@@ -1212,8 +1215,7 @@ registerTheme({
                 visible: true
             },
             paddingLeftRight: 16,
-            paddingTopBottom: 12,
-            markerColor: "#ba4d51"
+            paddingTopBottom: 12
         },
         controlBar: {
             borderColor: "#5d5d5d",
@@ -1557,8 +1559,98 @@ registerTheme({
                 opacity: 0.5
             }
         }
+    },
+    sankey: {
+        sourceField: 'source',
+        targetField: 'target',
+        weightField: 'weight',
+        hoverEnabled: true,
+        alignment: "center",
+        adaptiveLayout: {
+            width: 80,
+            height: 80,
+            keepLabels: true
+        },
+        label: {
+            visible: true,
+            horizontalOffset: 8,
+            verticalOffset: 0,
+            overlappingBehavior: "ellipsis",
+            useNodeColors: false,
+            font: {
+                color: BLACK,
+                weight: 500
+            },
+            border: {
+                visible: false,
+                width: 2,
+                color: WHITE
+            },
+            customizeText: function(info) {
+                return info.title;
+            },
+            shadow: {
+                opacity: 0.2,
+                offsetX: 0,
+                offsetY: 1,
+                blur: 1,
+                color: WHITE
+            }
+        },
+        title: {
+            margin: 10,
+            font: {
+                size: 28,
+                weight: 200
+            },
+            subtitle: {
+                font: {
+                    size: 16
+                }
+            }
+        },
+        tooltip: {
+            enabled: true
+        },
+        node: {
+            padding: 30,
+            width: 8,
+            opacity: 1,
+            border: {
+                color: WHITE,
+                width: 1,
+                visible: false
+            },
+            hoverStyle: {
+                hatching: {
+                    opacity: 0.75,
+                    step: 6,
+                    width: 2,
+                    direction: RIGHT
+                },
+                border: { }
+            },
+        },
+        link: {
+            color: "#888888",
+            colorMode: "none",
+            opacity: 0.3,
+            border: {
+                color: WHITE,
+                width: 1,
+                visible: false
+            },
+            hoverStyle: {
+                opacity: 0.5,
+                hatching: {
+                    opacity: 0.75,
+                    step: 6,
+                    width: 2,
+                    direction: RIGHT
+                },
+                border: {}
+            },
+        }
     }
 });
 
-// DEPRECATED_15_1 / "desktop" name
-registerThemeAlias("desktop.light", "generic.light");

@@ -39,12 +39,12 @@
 @MATERIAL_LIST_ITEM_BORDER: @MATERIAL_LIST_ITEM_BORDER_WIDTH solid @list-border-color;
 
 .dx-list-item-chevron {
-    .rotate(0);
+    transform: rotate(0);
     border: none;
     opacity: 1;
 
     .dx-rtl & {
-        .rotate(0);
+        transform: rotate(0);
     }
 
     .dx-icon-chevronnext;
@@ -53,22 +53,22 @@
     color: @list-item-chevron-icon-color;
 }
 
+.dx-list-item-icon-container {
+    width: @MATERIAL_BASE_ICON_SIZE + @MATERIAL_LIST_ITEM_HORIZONTAL_PADDING;
+}
+
+.dx-list-item-icon {
+    .dx-icon-sizing(@MATERIAL_BASE_ICON_SIZE);
+}
+
 .dx-list-search {
     padding-top: @MATERIAL_LIST_SEARCHBOX_VERTICAL_PADDING - 2px;
-    margin: 0 @MATERIAL_LIST_ITEM_HORIZONTAL_PADDING;
 
     &.dx-searchbox {
         .dx-placeholder:before {
             font-size: @MATERIAL_LIST_MAIN_FONT_SIZE;
         }
 
-        .dx-texteditor-container {
-            padding-bottom: @MATERIAL_LIST_SEARCHBOX_VERTICAL_PADDING;
-
-            .dx-texteditor-input {
-                margin-top: @MATERIAL_LIST_SEARCHBOX_VERTICAL_PADDING;
-            }
-        }
 
         .dx-clear-button-area {
             width: @MATERIAL_BASE_ICON_SIZE - 1px;
@@ -148,20 +148,16 @@
                 }
 
                 &.dx-state-focused {
-                    .dx-radiobutton {
-                        .box-shadow(none);
-                    }
-
                     .dx-checkbox {
                         .dx-checkbox-icon:after {
                             background-color: fade(@checkbox-border-color, 10%);
-                            .scale(1);
+                            transform: scale(1);
                         }
                         &.dx-checkbox-checked,
                         &.dx-checkbox-indeterminate {
                             .dx-checkbox-icon:after {
                                 background-color: fade(@checkbox-bg, 10%);
-                                .scale(1);
+                                transform: scale(1);
                             }
                         }
                     }
@@ -183,7 +179,7 @@
 
     .dx-list-group {
         &:not(.dx-list-group-collapsed) {
-            &:not(:last-child) { 
+            &:not(:last-child) {
                 padding-bottom: @MATERIAL_LIST_VERTICAL_PADDING;
                 border-bottom: @MATERIAL_LIST_ITEM_BORDER;
             }
@@ -202,6 +198,10 @@
                     font-size: @MATERIAL_BASE_ICON_SIZE;
                 }
             }
+
+            .dx-list-group-header {
+                color: @list-group-color;
+            }
         }
 
         .dx-list-item {
@@ -219,11 +219,13 @@
         font-weight: normal;
         padding: @MATERIAL_LIST_GROUP_HEADER_VERTICAL_PADDING @item_horizontal_padding;
         background: @list-group-header-bg;
-        color: @list-group-color;
+        color: @list-expanded-group-color;
         border-top: @MATERIAL_LIST_ITEM_BORDER;
         border-top-color: transparent;
+        font-size: @MATERIAL_LIST_MAIN_FONT_SIZE;
 
         .dx-list-group-header-indicator {
+            color: @list-header-indicator-color;
             .dx-list-collapsible-groups & {
                 .dx-icon-chevronup;
                 font-size: @MATERIAL_BASE_ICON_SIZE;
@@ -265,7 +267,7 @@
 
         .dx-icon-toggle-delete {
             background-image: @list-item-icon-toggle-delete-bg;
-            .background-size-prop(100%);
+            background-size: 100%;
         }
 
         &.dx-list-item-ghost-reordering {
@@ -275,7 +277,7 @@
                     background: @list-item-ghost-bg;
                     border-top: 1px solid fade(@list-item-ghost-border-color, 50%);
                     border-bottom: 1px solid fade(@list-item-ghost-border-color, 50%);
-                    .box-shadow(0px 0px 1px fade(@list-item-ghost-shadow-color, 10%), 0px 1px 3px fade(@list-item-ghost-shadow-color, 20%));
+                    box-shadow: 0px 0px 1px fade(@list-item-ghost-shadow-color, 10%), 0px 1px 3px fade(@list-item-ghost-shadow-color, 20%);
                 }
             }
         }
@@ -343,7 +345,7 @@
             width:  24px;
             margin-left: @item_horizontal_padding - 1px;
 
-            .box-shadow(none);
+            box-shadow: none;
 
             .dx-button-content {
                 padding: 0;
@@ -429,8 +431,8 @@
         vertical-align: middle;
         padding: 0 @item_horizontal_padding;
         width: @item_horizontal_padding * 2 + @MATERIAL_BASE_ICON_SIZE;
-        box-shadow: inset 3px 0px 5px -3px @list-button-delete-shadow-color, 
-            inset 0px 3px 5px -3px @list-button-delete-shadow-color, 
+        box-shadow: inset 3px 0px 5px -3px @list-button-delete-shadow-color,
+        inset 0px 3px 5px -3px @list-button-delete-shadow-color,
             inset 0px -3px 5px -3px @list-button-delete-shadow-color;
     }
 
@@ -444,7 +446,7 @@
         margin-right: @item_horizontal_padding;
         padding: 0;
         border-radius: 50%;
-        height: @MATERIAL_BASE_ICON_SIZE + @MATERIAL_BUTTON_ICON_HORIZONTAL_PADDING * 2 - 2px;
+        height: @MATERIAL_BASE_ICON_SIZE + @MATERIAL_BUTTON_VERTICAL_PADDING * 2 - 2px;
         margin-top: -2px;
 
         &.dx-button {
@@ -463,14 +465,14 @@
     }
 
     .dx-button.dx-list-switchable-delete-button {
-        .dx-button-flat-styling(@button-danger-bg);
+        .dx-button-flat-color-styling(@button-danger-bg);
     }
 
     .dx-list-context-menucontent {
         background-color: @list-holdmenu-bg;
         border: 1px solid @list-holdmenu-border-color;
-        .border-radius(0);
-        .box-shadow(0px 3px 10px @list-holdmenu-shadow-color);
+        border-radius: 0;
+        box-shadow: 0px 3px 10px @list-holdmenu-shadow-color;
     }
 
     .dx-state-disabled {

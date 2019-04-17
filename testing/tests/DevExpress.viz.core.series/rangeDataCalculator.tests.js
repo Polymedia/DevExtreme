@@ -1,8 +1,7 @@
-"use strict";
-
 import $ from "jquery";
 import vizMocks from "../../helpers/vizMocks.js";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 
 function getOriginalData(data) {
     return $.map(data, function(item) {
@@ -19,7 +18,8 @@ var createSeries = function(options, renderSettings, widgetType) {
     renderSettings = renderSettings || {};
     renderSettings.renderer = renderSettings.renderer || new vizMocks.Renderer();
     renderSettings.argumentAxis = renderSettings.argumentAxis || {
-        getViewport: function() {},
+        getViewport: function() { return {}; },
+        visualRange: function() { },
         calculateInterval: function(a, b) { return Math.abs(a - b); },
         getAggregationInfo: function() {
             return {
@@ -133,7 +133,7 @@ QUnit.test("Numeric. Date with same arguments", function(assert) {
 
 QUnit.test("Data with valueErrorBar (lowError < highError)", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 27, lowError: 20 }, { arg: 5, val: 22, highError: 25, lowError: 20 },
-        { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 1, lowError: 8 }]),
+            { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 1, lowError: 8 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "auto", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -150,7 +150,7 @@ QUnit.test("Data with valueErrorBar (lowError < highError)", function(assert) {
 
 QUnit.test("Data with valueErrorBar (lowError > highError)", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 20, lowError: 27 }, { arg: 5, val: 22, highError: 25, lowError: 20 },
-        { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 10, lowError: 8 }]),
+            { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 10, lowError: 8 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "auto", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -167,7 +167,7 @@ QUnit.test("Data with valueErrorBar (lowError > highError)", function(assert) {
 
 QUnit.test("Data with valueErrorBar. low mode", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 3, lowError: 2 }, { arg: 5, val: 22, highError: 40, lowError: 1 },
-                { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
+            { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "low", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -184,7 +184,7 @@ QUnit.test("Data with valueErrorBar. low mode", function(assert) {
 
 QUnit.test("Data with valueErrorBar. high mode", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 3, lowError: 2 }, { arg: 5, val: 22, highError: 40, lowError: 1 },
-                { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
+            { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "high", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -201,7 +201,7 @@ QUnit.test("Data with valueErrorBar. high mode", function(assert) {
 
 QUnit.test("Data with valueErrorBar. none mode", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 3, lowError: 2 }, { arg: 5, val: 22, highError: 40, lowError: 1 },
-                { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
+            { arg: 13, val: 3, highError: 5, lowError: 4 }, { arg: 20, val: 15, highError: 6, lowError: 6 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "none", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -218,7 +218,7 @@ QUnit.test("Data with valueErrorBar. none mode", function(assert) {
 
 QUnit.test("Data with valueErrorBar. invalid mode", function(assert) {
     var data = getOriginalData([{ arg: 2, val: 11, highError: 27, lowError: 20 }, { arg: 5, val: 22, highError: 25, lowError: 20 },
-        { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 1, lowError: 8 }]),
+            { arg: 13, val: 10, highError: 3, lowError: 5 }, { arg: 20, val: 15, highError: 1, lowError: 8 }]),
         rangeData,
         series = createSeries({ type: "line", argumentAxisType: "continuous", valueErrorBar: { displayMode: "invalidMode", highValueField: "highError", lowValueField: "lowError" } });
 
@@ -2232,13 +2232,13 @@ QUnit.test("Doughnut", function(assert) {
 
 QUnit.module("Zooming range data", {
     beforeEach: function() {
-        var viewPort;
+        var viewPort = [];
         this.zoom = function(min, max) {
-            viewPort = { min: min, max: max };
+            viewPort = [min, max];
         };
         this.argumentAxis = {
-            getViewport: function() {
-                return viewPort;
+            visualRange: function() {
+                return { startValue: viewPort[0], endValue: viewPort[1] };
             },
             calculateInterval: function(a, b) {
                 return a - b;
@@ -2342,13 +2342,13 @@ QUnit.test("GetViewport without zooming", function(assert) {
 
 QUnit.module("Zooming range data. Simple", {
     beforeEach: function() {
-        var viewPort = {};
+        var viewPort = [];
         this.zoom = function(min, max) {
-            viewPort = { min: min, max: max };
+            viewPort = [min, max];
         };
         this.argumentAxis = {
-            getViewport: function() {
-                return viewPort;
+            visualRange: function() {
+                return { startValue: viewPort[0], endValue: viewPort[1] };
             },
             calculateInterval: function(a, b) {
                 return a - b;
@@ -2520,20 +2520,27 @@ QUnit.test("Datetime argument. String value.", function(assert) {
 });
 
 QUnit.test("Discrete argument axis.", function(assert) {
-    var data = [{ arg: "1", val: 10 }, { arg: "2", val: 20 }, { arg: "3", val: 30 }, { arg: "4", val: 40 }, { arg: "5", val: 50 }, { arg: "6", val: 60 }],
+    var data = [{ arg: "a", val: 10 }, { arg: "b", val: 20 }, { arg: "c", val: 30 }, { arg: "d", val: 40 }, { arg: "e", val: 50 }, { arg: "f", val: 60 }],
         rangeData,
         series = createSeries($.extend(true, {}, this.defaultOptions, { argumentAxisType: "discrete" }), { argumentAxis: this.argumentAxis });
 
     series.updateData(data);
     series.createPoints();
 
-    this.zoom("3", "4");
+    this.zoom("c", "d");
+
+    const visualRange = this.argumentAxis.visualRange();
+    visualRange.categories = ["c", "d"];
+
+    this.argumentAxis.visualRange = function() {
+        return visualRange;
+    };
 
     rangeData = series.getViewport();
 
     assert.ok(rangeData, "Returned object");
-    assert.equal(rangeData.min, undefined, "min y");
-    assert.equal(rangeData.max, undefined, "max y");
+    assert.equal(rangeData.min, 30, "min y");
+    assert.equal(rangeData.max, 40, "max y");
     assert.strictEqual(rangeData.interval, undefined);
     // should include values inside of range AND neighbour points
     assert.strictEqual(rangeData.minVisible, undefined, "no min Visible Y");
@@ -2543,13 +2550,13 @@ QUnit.test("Discrete argument axis.", function(assert) {
 
 QUnit.module("Zooming range data. Bar/area", {
     beforeEach: function() {
-        var viewPort = {};
+        var viewPort = [];
         this.zoom = function(min, max) {
-            viewPort = { min: min, max: max };
+            viewPort = [min, max];
         };
         this.argumentAxis = {
-            getViewport: function() {
-                return viewPort;
+            visualRange: function() {
+                return { startValue: viewPort[0], endValue: viewPort[1] };
             },
             calculateInterval: function(a, b) {
                 return a - b;
@@ -2640,30 +2647,37 @@ QUnit.test("Discrete data", function(assert) {
 
     this.zoom("2", "4");
 
+    const visualRange = this.argumentAxis.visualRange();
+    visualRange.categories = ["2", "3", "4"];
+
+    this.argumentAxis.visualRange = function() {
+        return visualRange;
+    };
+
     rangeData = series.getViewport();
 
-    assert.equal(rangeData.min, undefined, "min Y");
-    assert.equal(rangeData.max, undefined, "max Y");
+    assert.equal(rangeData.min, 0, "min Y");
+    assert.equal(rangeData.max, 40, "max Y");
 });
 
 QUnit.module("Get points in viewport", {
     beforeEach: function() {
-        var argumentViewPort,
-            valueViewPort;
+        var argumentViewPort = [],
+            valueViewPort = [];
         this.zoomArgument = function(min, max) {
-            argumentViewPort = { min: min, max: max };
+            argumentViewPort = [min, max];
         };
         this.zoomValue = function(min, max) {
-            valueViewPort = { min: min, max: max };
+            valueViewPort = [min, max];
         };
         this.argumentAxis = {
-            getViewport: function() {
-                return argumentViewPort;
+            visualRange: function() {
+                return { startValue: argumentViewPort[0], endValue: argumentViewPort[1] };
             }
         };
         this.valueAxis = {
-            getViewport: function() {
-                return valueViewPort;
+            visualRange: function() {
+                return { startValue: valueViewPort[0], endValue: valueViewPort[1] };
             }
         };
     }
@@ -2713,13 +2727,13 @@ QUnit.test("Include value of edge points that out of argument viewport but they 
 
 QUnit.test("Line series without zoom", function(assert) {
     var data = [
-        { arg: 1, val: 10 },
-        { arg: 2, val: 20 },
-        { arg: 3, val: 30 },
-        { arg: 4, val: 40 },
-        { arg: 5, val: 50 },
-        { arg: 6, val: 60 },
-        { arg: 7, val: 70 }
+            { arg: 1, val: 10 },
+            { arg: 2, val: 20 },
+            { arg: 3, val: 30 },
+            { arg: 4, val: 40 },
+            { arg: 5, val: 50 },
+            { arg: 6, val: 60 },
+            { arg: 7, val: 70 }
         ],
         series = createSeries({ type: "line", argumentAxisType: "continuous" }, { argumentAxis: this.argumentAxis, valueAxis: this.valueAxis });
 
@@ -2872,4 +2886,111 @@ QUnit.test("Calculate interval in range data when aggregation is enabled", funct
     assert.strictEqual(rangeData.arg.min, 2, "Min arg should be correct");
     assert.strictEqual(rangeData.arg.max, 20, "Max arg should be correct");
     assert.strictEqual(rangeData.arg.interval, 3, "Min interval arg should be correct");
+});
+
+QUnit.test("Calculate range data when aggregation enabled. Add data range if axis viewport is set ", function(assert) {
+    const data = [{ arg: 2, val: 11 }, { arg: 5, val: 22 }, { arg: 13, val: 3 }, { arg: 20, val: 15 }];
+    const series = createSeries({ type: "scatter", argumentAxisType: "continuous", aggregation: { enabled: true } });
+
+    const argumentAxis = series.getArgumentAxis();
+
+    argumentAxis.getViewport = () => {
+        return { startValue: 3, endValue: 18 };
+    };
+
+    argumentAxis.getAggregationInfo = function() {
+        return {
+            interval: 1,
+            ticks: [5, 10, 15]
+        };
+    };
+
+    series.updateData(data);
+
+    series.createPoints();
+
+    const rangeData = series.getRangeData();
+
+    assert.ok(rangeData, "Range data should be created");
+    assert.strictEqual(rangeData.arg.min, 2, "Min arg should be correct");
+    assert.strictEqual(rangeData.arg.max, 20, "Max arg should be correct");
+    assert.strictEqual(rangeData.arg.interval, 5, "Min interval arg should be correct");
+});
+
+QUnit.test("Calculate range data when aggregation enabled. Do not inculde data range if argument viewport is not set", function(assert) {
+    const data = [{ arg: 2, val: 11 }, { arg: 5, val: 22 }, { arg: 13, val: 3 }, { arg: 20, val: 15 }];
+    const series = createSeries({ type: "scatter", argumentAxisType: "continuous", aggregation: { enabled: true } });
+    const argumentAxis = series.getArgumentAxis();
+
+    argumentAxis.getAggregationInfo = function() {
+        return {
+            interval: 1,
+            ticks: [5, 10, 15]
+        };
+    };
+
+    series.updateData(data);
+
+    series.createPoints();
+
+    const rangeData = series.getRangeData();
+
+    assert.ok(rangeData, "Range data should be created");
+    assert.strictEqual(rangeData.arg.min, 5, "Min arg should be correct");
+    assert.strictEqual(rangeData.arg.max, 10, "Max arg should be correct");
+    assert.strictEqual(rangeData.arg.interval, 5, "Min interval arg should be correct");
+});
+
+QUnit.test("Calculate range data when aggregation enabled. Do not inculde data min value if argument viewport is set using length", function(assert) {
+    const data = [{ arg: 2, val: 11 }, { arg: 5, val: 22 }, { arg: 13, val: 3 }, { arg: 20, val: 15 }];
+    const series = createSeries({ type: "scatter", argumentAxisType: "continuous", aggregation: { enabled: true } });
+    const argumentAxis = series.getArgumentAxis();
+
+    argumentAxis.getViewport = function() {
+        return { length: 10 };
+    };
+    argumentAxis.getAggregationInfo = function() {
+        return {
+            interval: 1,
+            ticks: [5, 10, 15]
+        };
+    };
+
+    series.updateData(data);
+
+    series.createPoints();
+
+    const rangeData = series.getRangeData();
+
+    assert.ok(rangeData, "Range data should be created");
+    assert.strictEqual(rangeData.arg.min, 2, "Min arg should be correct");
+    assert.strictEqual(rangeData.arg.max, 10, "Max arg should be correct");
+    assert.strictEqual(rangeData.arg.interval, 5, "Min interval arg should be correct");
+});
+
+QUnit.test("Calculate range data when aggregation enabled. Do not inculde data range if argument viewport is set using length and startValue", function(assert) {
+    const data = [{ arg: 2, val: 11 }, { arg: 5, val: 22 }, { arg: 13, val: 3 }, { arg: 20, val: 15 }];
+    const series = createSeries({ type: "scatter", argumentAxisType: "continuous", aggregation: { enabled: true } });
+    const argumentAxis = series.getArgumentAxis();
+
+    argumentAxis.getViewport = function() {
+        return { length: 10, startValue: 0 };
+    };
+    argumentAxis.getAggregationInfo = function() {
+        return {
+            interval: 1,
+            ticks: [5, 10, 15]
+        };
+    };
+
+    series.updateData(data);
+
+    series.createPoints();
+
+    const rangeData = series.getRangeData();
+
+    assert.ok(rangeData, "Range data should be created");
+    assert.strictEqual(rangeData.arg.min, 2, "Min arg should be correct");
+    assert.strictEqual(rangeData.arg.max, 20, "Max arg should be correct");
+    assert.strictEqual(rangeData.arg.interval, 5, "Min interval arg should be correct");
 });

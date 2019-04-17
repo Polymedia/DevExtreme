@@ -1,12 +1,10 @@
-"use strict";
-
 /* global internals, initTree */
 
 QUnit.module("Lazy rendering");
 
 QUnit.test("Render treeView with special symbols in id", function(assert) {
     var $treeView = initTree({
-            items: [{ id: "!/#$%&'()*+,./:;<=>?@[\]^`{|}~", text: "Item 1" }]
+            items: [{ id: "!/#$%&'()*+,./:;<=>?@[\\]^`{|}~", text: "Item 1" }]
         }),
         $item = $treeView.find("." + internals.NODE_CLASS),
         item = $treeView.dxTreeView("option", "items")[0];
@@ -93,7 +91,7 @@ QUnit.test("'selectAll' should have correct state on initialization", function(a
 QUnit.test("'selectAll' should work correctly when nested items are not rendered", function(assert) {
     var $treeView = initTree({
             items: [
-            { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
+                { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
             showCheckBoxesMode: "selectAll"
         }),
         $selectAllItem = $treeView.find(".dx-treeview-select-all-item");
@@ -109,7 +107,7 @@ QUnit.test("'selectAll' should work correctly when nested items are not rendered
 QUnit.test("'selectAll' should work correctly when nested items are rendered", function(assert) {
     var $treeView = initTree({
             items: [
-            { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
+                { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
             showCheckBoxesMode: "selectAll"
         }),
         $selectAllItem = $treeView.find(".dx-treeview-select-all-item");
@@ -126,7 +124,7 @@ QUnit.test("'selectAll' should work correctly when nested items are rendered", f
 QUnit.test("'selectAll' should work correctly when nested items are rendered after click on 'selectAll' item", function(assert) {
     var $treeView = initTree({
             items: [
-            { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
+                { id: 1, text: "Item 1", items: [{ id: 3, text: "Item 3" }] }, { id: 2, text: "Item 2" }],
             showCheckBoxesMode: "selectAll"
         }),
         $selectAllItem = $treeView.find(".dx-treeview-select-all-item");

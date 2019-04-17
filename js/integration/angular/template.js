@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     TemplateBase = require("../../ui/widget/ui.template_base"),
     isFunction = require("../../core/utils/type").isFunction,
@@ -14,10 +12,9 @@ var NgTemplate = TemplateBase.inherit({
     },
 
     _renderCore: function(options) {
-        var compiledTemplate = this._compiledTemplate,
-            result = isFunction(compiledTemplate) ? compiledTemplate(options) : compiledTemplate;
+        var compiledTemplate = this._compiledTemplate;
 
-        return result;
+        return isFunction(compiledTemplate) ? compiledTemplate(options) : compiledTemplate;
     },
 
     source: function() {

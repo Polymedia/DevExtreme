@@ -1,7 +1,5 @@
-"use strict";
-
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop;
+import $ from "jquery";
+import { noop as noop } from "core/utils/common";
 
 QUnit.testStart(function() {
     var markup =
@@ -14,15 +12,14 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("generic_light.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    ArrayStore = require("data/array_store"),
-    clientExporter = require("client_exporter");
+import { setupDataGridModules } from "../../helpers/dataGridMocks.js";
+import ArrayStore from "data/array_store";
+import clientExporter from "exporter";
 
 QUnit.module("ExportController", {
     beforeEach: function() {
@@ -31,7 +28,7 @@ QUnit.module("ExportController", {
 
             initDefaultOptions = initDefaultOptions !== undefined ? initDefaultOptions : true;
 
-            setupDataGridModules(this, ["data", "columns", "rows", "editorFactory", "editing", "selection", "grouping", "summary", "masterDetail", "export"], {
+            setupDataGridModules(this, ["data", "columns", "rows", "editorFactory", "editing", "selection", "grouping", "summary", "masterDetail", "virtualColumns", "export"], {
                 initViews: true,
                 initDefaultOptions: initDefaultOptions,
                 options: $.extend(true, { loadingTimeout: null }, this.options)
@@ -438,22 +435,67 @@ QUnit.test("Get cell value", function(assert) {
     // assert
     assert.equal(dataProvider.getRowsCount(), 3, "rows count");
 
-    assert.equal(dataProvider.getCellValue(0, 0), "Test Field 1", "header row 1 cell");
-    assert.equal(dataProvider.getCellValue(0, 1), "Test Field 2", "header row 2 cell");
-    assert.equal(dataProvider.getCellValue(0, 2), "Test Field 3", "header row 3 cell");
-    assert.equal(dataProvider.getCellValue(0, 3), "Test Field 4", "header row 4 cell");
-    assert.ok(!dataProvider.getCellValue(0, 4), "comand column should be missed");
+    assert.equal(dataProvider.getCellData(0, 0).value, "Test Field 1", "header row 1 cell");
+    assert.equal(dataProvider.getCellData(0, 1).value, "Test Field 2", "header row 2 cell");
+    assert.equal(dataProvider.getCellData(0, 2).value, "Test Field 3", "header row 3 cell");
+    assert.equal(dataProvider.getCellData(0, 3).value, "Test Field 4", "header row 4 cell");
+    assert.ok(!dataProvider.getCellData(0, 4).value, "comand column should be missed");
 
-    assert.equal(dataProvider.getCellValue(1, 0), "test1", "1 row 1 cell");
-    assert.equal(dataProvider.getCellValue(1, 1), 1, "1 row 2 cell");
-    assert.equal(dataProvider.getCellValue(1, 2), new Date("2/13/2014").toString(), "1 row 3 cell");
-    assert.equal(dataProvider.getCellValue(1, 3), "true", "1 row 4 cell");
+    assert.equal(dataProvider.getCellData(1, 0).value, "test1", "1 row 1 cell");
+    assert.equal(dataProvider.getCellData(1, 1).value, 1, "1 row 2 cell");
+    assert.equal(dataProvider.getCellData(1, 2).value, new Date("2/13/2014").toString(), "1 row 3 cell");
+    assert.equal(dataProvider.getCellData(1, 3).value, "true", "1 row 4 cell");
 
-    assert.equal(dataProvider.getCellValue(2, 0), "test2", "2 row 1 cell");
-    assert.equal(dataProvider.getCellValue(2, 1), 12, "2 row 2 cell");
-    assert.equal(dataProvider.getCellValue(2, 2), new Date("2/10/2014").toString(), "2 row 3 cell");
-    assert.equal(dataProvider.getCellValue(2, 3), "false", "2 row 4 cell");
-    assert.ok(!dataProvider.getCellValue(2, 4), "edit command column");
+    assert.equal(dataProvider.getCellData(2, 0).value, "test2", "2 row 1 cell");
+    assert.equal(dataProvider.getCellData(2, 1).value, 12, "2 row 2 cell");
+    assert.equal(dataProvider.getCellData(2, 2).value, new Date("2/10/2014").toString(), "2 row 3 cell");
+    assert.equal(dataProvider.getCellData(2, 3).value, "false", "2 row 4 cell");
+    assert.ok(!dataProvider.getCellData(2, 4).value, "edit command column");
+});
+
+QUnit.test("Virtual columns", function(assert) {
+    var data = [{}],
+        columns = [];
+
+    for(var i = 1; i <= 100; i++) {
+        var dataField = "field" + i;
+        data[0][dataField] = i;
+        columns.push({
+            dataField: dataField,
+            allowExporting: i !== 99
+        });
+    }
+
+    // act
+    this.setupModules({
+        width: 500,
+        columnWidth: 50,
+        dataSource: data,
+        showColumnHeaders: true,
+        scrolling: {
+            columnRenderingMode: "virtual"
+        },
+        columns: columns
+    });
+
+    var dataProvider = this.exportController.getDataProvider();
+
+    dataProvider.ready();
+
+    this.clock.tick();
+
+    // assert
+    assert.equal(this.getVisibleColumns().length, 11, "visible column count");
+    assert.equal(dataProvider.getColumns().length, 99, "column count");
+    assert.equal(dataProvider.getRowsCount(), 2, "row count");
+
+    assert.equal(dataProvider.getCellData(0, 0).value, "Field 1", "header row cell 1");
+    assert.equal(dataProvider.getCellData(0, 97).value, "Field 98", "header row cell 98");
+    assert.equal(dataProvider.getCellData(0, 98).value, "Field 100", "header row cell 99");
+
+    assert.equal(dataProvider.getCellData(1, 0).value, 1, "data row cell 1");
+    assert.equal(dataProvider.getCellData(1, 97).value, 98, "data row cell 98");
+    assert.equal(dataProvider.getCellData(1, 98).value, 100, "data row cell 99");
 });
 
 QUnit.test("Get lookup cell value", function(assert) {
@@ -491,11 +533,11 @@ QUnit.test("Get lookup cell value", function(assert) {
     // assert
     assert.equal(dataProvider.getRowsCount(), 2, "rows count");
 
-    assert.equal(dataProvider.getCellValue(0, 0), "Category 1", "1 row 1 cell");
-    assert.equal(dataProvider.getCellValue(0, 1), 1, "1 row 2 cell");
+    assert.equal(dataProvider.getCellData(0, 0).value, "Category 1", "1 row 1 cell");
+    assert.equal(dataProvider.getCellData(0, 1).value, 1, "1 row 2 cell");
 
-    assert.equal(dataProvider.getCellValue(1, 0), "Category 2", "2 row 1 cell");
-    assert.equal(dataProvider.getCellValue(1, 1), 12, "2 row 2 cell");
+    assert.equal(dataProvider.getCellData(1, 0).value, "Category 2", "2 row 1 cell");
+    assert.equal(dataProvider.getCellData(1, 1).value, 12, "2 row 2 cell");
 });
 
 QUnit.test("Get cell value with customizeText", function(assert) {
@@ -525,11 +567,11 @@ QUnit.test("Get cell value with customizeText", function(assert) {
     // assert
     assert.equal(dataProvider.getRowsCount(), 2, "rows count");
 
-    assert.equal(dataProvider.getCellValue(0, 0), "$1 current price", "1 row 1 cell");
-    assert.equal(dataProvider.getCellValue(0, 1), "да", "1 row 2 cell");
+    assert.equal(dataProvider.getCellData(0, 0).value, "$1 current price", "1 row 1 cell");
+    assert.equal(dataProvider.getCellData(0, 1).value, "да", "1 row 2 cell");
 
-    assert.equal(dataProvider.getCellValue(1, 0), "$12 current price", "2 row 1 cell");
-    assert.equal(dataProvider.getCellValue(1, 1), "нет", "2 row 2 cell");
+    assert.equal(dataProvider.getCellData(1, 0).value, "$12 current price", "2 row 1 cell");
+    assert.equal(dataProvider.getCellData(1, 1).value, "нет", "2 row 2 cell");
 });
 
 QUnit.test("Get cell value when value is not finite", function(assert) {
@@ -560,10 +602,10 @@ QUnit.test("Get cell value when value is not finite", function(assert) {
 
     // assert
     assert.equal(dataProvider.getRowsCount(), 4, "rows count");
-    assert.equal(dataProvider.getCellValue(0, 0), 1, "row 1");
-    assert.equal(dataProvider.getCellValue(1, 0), "NaN", "row 2");
-    assert.equal(dataProvider.getCellValue(2, 0), "Infinity", "row 3");
-    assert.equal(dataProvider.getCellValue(3, 0), 12, "row 4");
+    assert.equal(dataProvider.getCellData(0, 0).value, 1, "row 1");
+    assert.equal(dataProvider.getCellData(1, 0).value, "NaN", "row 2");
+    assert.equal(dataProvider.getCellData(2, 0).value, "Infinity", "row 3");
+    assert.equal(dataProvider.getCellData(3, 0).value, 12, "row 4");
 });
 
 QUnit.test("Get group cell value from lookup", function(assert) {
@@ -612,16 +654,16 @@ QUnit.test("Get group cell value from lookup", function(assert) {
     assert.equal(dataProvider.getColumns().length, 1, "columns count");
     assert.equal(dataProvider.getRowsCount(), 10, "rows count");
 
-    assert.equal(dataProvider.getCellValue(0, 0), "Active: false", "group row");
-    assert.equal(dataProvider.getCellValue(1, 0), "Name: Category 1", "group row");
-    assert.equal(dataProvider.getCellValue(2, 0), 1, "data row");
-    assert.equal(dataProvider.getCellValue(3, 0), "Name: Category 2", "group row");
-    assert.equal(dataProvider.getCellValue(4, 0), 12, "data row");
-    assert.equal(dataProvider.getCellValue(5, 0), "Name: Category 3", "group row");
-    assert.equal(dataProvider.getCellValue(6, 0), 12, "data row");
-    assert.equal(dataProvider.getCellValue(7, 0), "Active: true", "group row");
-    assert.equal(dataProvider.getCellValue(8, 0), "Name: Category 1", "group row");
-    assert.equal(dataProvider.getCellValue(9, 0), 1, "data row");
+    assert.equal(dataProvider.getCellData(0, 0).value, "Active: false", "group row");
+    assert.equal(dataProvider.getCellData(1, 0).value, "Name: Category 1", "group row");
+    assert.equal(dataProvider.getCellData(2, 0).value, 1, "data row");
+    assert.equal(dataProvider.getCellData(3, 0).value, "Name: Category 2", "group row");
+    assert.equal(dataProvider.getCellData(4, 0).value, 12, "data row");
+    assert.equal(dataProvider.getCellData(5, 0).value, "Name: Category 3", "group row");
+    assert.equal(dataProvider.getCellData(6, 0).value, 12, "data row");
+    assert.equal(dataProvider.getCellData(7, 0).value, "Active: true", "group row");
+    assert.equal(dataProvider.getCellData(8, 0).value, "Name: Category 1", "group row");
+    assert.equal(dataProvider.getCellData(9, 0).value, 1, "data row");
 });
 
 QUnit.test("Get group level by group index", function(assert) {
@@ -853,21 +895,21 @@ QUnit.test("Get total summary value", function(assert) {
     // assert, act
     assert.equal(summaryRowTypes.length, 2, "total footer types");
     assert.equal(dataProvider.getRowsCount(), 6, "rows count");
-    assert.equal(dataProvider.getCellValue(4, 0), "4 tests", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(4, 1), "Sum: $26", "summary cell 2");
-    assert.equal(dataProvider.getCellValue(4, 2), undefined, "summary cell 3");
-    assert.equal(dataProvider.getCellValue(5, 0), "Sale - 93%", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(5, 1), undefined, "summary cell 2");
-    assert.equal(dataProvider.getCellValue(5, 2), undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(4, 0).value, "4 tests", "summary cell 1");
+    assert.equal(dataProvider.getCellData(4, 1).value, "Sum: $26", "summary cell 2");
+    assert.equal(dataProvider.getCellData(4, 2).value, undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(5, 0).value, "Sale - 93%", "summary cell 1");
+    assert.equal(dataProvider.getCellData(5, 1).value, undefined, "summary cell 2");
+    assert.equal(dataProvider.getCellData(5, 2).value, undefined, "summary cell 3");
 });
 
 QUnit.test("Get total summary value when selected items are defined", function(assert) {
     // arrange
     var dataSource = [
-            { Name: 1, Price: 1, Sale: 0.03 },
-            { Name: 2, Price: 12, Sale: 0.14 },
-            { Name: 3, Price: 12, Sale: 0.63 },
-            { Name: 4, Price: 1, Sale: 0.93 }
+        { Name: 1, Price: 1, Sale: 0.03 },
+        { Name: 2, Price: 12, Sale: 0.14 },
+        { Name: 3, Price: 12, Sale: 0.63 },
+        { Name: 4, Price: 1, Sale: 0.93 }
     ];
 
     this.setupModules({
@@ -917,12 +959,12 @@ QUnit.test("Get total summary value when selected items are defined", function(a
 
     // assert, act
     assert.equal(dataProvider.getRowsCount(), 4, "rows count");
-    assert.equal(dataProvider.getCellValue(2, 0), "2 tests", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(2, 1), "Sum: $24", "summary cell 2");
-    assert.equal(dataProvider.getCellValue(2, 2), undefined, "summary cell 3");
-    assert.equal(dataProvider.getCellValue(3, 0), "Sale - 63%", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(3, 1), undefined, "summary cell 2");
-    assert.equal(dataProvider.getCellValue(3, 2), undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(2, 0).value, "2 tests", "summary cell 1");
+    assert.equal(dataProvider.getCellData(2, 1).value, "Sum: $24", "summary cell 2");
+    assert.equal(dataProvider.getCellData(2, 2).value, undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(3, 0).value, "Sale - 63%", "summary cell 1");
+    assert.equal(dataProvider.getCellData(3, 1).value, undefined, "summary cell 2");
+    assert.equal(dataProvider.getCellData(3, 2).value, undefined, "summary cell 3");
 });
 
 QUnit.test("Get total summary value when selected items are defined. Deferred selection", function(assert) {
@@ -935,7 +977,7 @@ QUnit.test("Get total summary value when selected items are defined. Deferred se
                 { id: 3, Name: 3, Price: 12, Sale: 0.63 },
                 { id: 4, Name: 4, Price: 1, Sale: 0.93 }
             ],
-                key: "id"
+            key: "id"
             })
         },
         selectionFilter: [["id", "=", 2], "or", ["id", "=", 3]],
@@ -982,12 +1024,12 @@ QUnit.test("Get total summary value when selected items are defined. Deferred se
 
     // assert, act
     assert.equal(dataProvider.getRowsCount(), 4, "rows count");
-    assert.equal(dataProvider.getCellValue(2, 0), "2 tests", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(2, 1), "Sum: $24", "summary cell 2");
-    assert.equal(dataProvider.getCellValue(2, 2), undefined, "summary cell 3");
-    assert.equal(dataProvider.getCellValue(3, 0), "Sale - 63%", "summary cell 1");
-    assert.equal(dataProvider.getCellValue(3, 1), undefined, "summary cell 2");
-    assert.equal(dataProvider.getCellValue(3, 2), undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(2, 0).value, "2 tests", "summary cell 1");
+    assert.equal(dataProvider.getCellData(2, 1).value, "Sum: $24", "summary cell 2");
+    assert.equal(dataProvider.getCellData(2, 2).value, undefined, "summary cell 3");
+    assert.equal(dataProvider.getCellData(3, 0).value, "Sale - 63%", "summary cell 1");
+    assert.equal(dataProvider.getCellData(3, 1).value, undefined, "summary cell 2");
+    assert.equal(dataProvider.getCellData(3, 2).value, undefined, "summary cell 3");
 });
 
 QUnit.test("Get total summary value when selected items are defined. Deferred selection. SelectedRowsData is failed", function(assert) {
@@ -1000,7 +1042,7 @@ QUnit.test("Get total summary value when selected items are defined. Deferred se
                 { id: 3, Name: 3, Price: 12, Sale: 0.63 },
                 { id: 4, Name: 4, Price: 1, Sale: 0.93 }
             ],
-                key: "id"
+            key: "id"
             })
         },
         selectionFilter: [["id", "=", 2], "or", ["id", "=", 3]],
@@ -1118,17 +1160,17 @@ QUnit.test("Get group summary value", function(assert) {
     assert.equal(dataProvider.getRowsCount(), 6, "rows count");
 
     assert.ok(!dataProvider.isTotalCell(0, 0), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(0, 0), "Name: test 1 (2 tests, Sum: $2, Sale - 93%)", "group summary row 1");
-    assert.equal(dataProvider.getCellValue(0, 1), undefined);
-    assert.equal(dataProvider.getCellValue(0, 2), undefined);
+    assert.equal(dataProvider.getCellData(0, 0).value, "Name: test 1 (2 tests, Sum: $2, Sale - 93%)", "group summary row 1");
+    assert.equal(dataProvider.getCellData(0, 1).value, undefined);
+    assert.equal(dataProvider.getCellData(0, 2).value, undefined);
 
     assert.ok(!dataProvider.isTotalCell(1, 0), "isTotalCell");
     assert.ok(!dataProvider.isTotalCell(2, 0), "isTotalCell");
 
     assert.ok(!dataProvider.isTotalCell(3, 0), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(3, 0), "Name: test 2 (2 tests, Sum: $24, Sale - 63%)", "group summary row 2");
-    assert.equal(dataProvider.getCellValue(3, 1), undefined);
-    assert.equal(dataProvider.getCellValue(3, 2), undefined);
+    assert.equal(dataProvider.getCellData(3, 0).value, "Name: test 2 (2 tests, Sum: $24, Sale - 63%)", "group summary row 2");
+    assert.equal(dataProvider.getCellData(3, 1).value, undefined);
+    assert.equal(dataProvider.getCellData(3, 2).value, undefined);
 });
 
 QUnit.test("Get group footer summary value", function(assert) {
@@ -1190,24 +1232,24 @@ QUnit.test("Get group footer summary value", function(assert) {
     assert.equal(dataProvider.getRowsCount(), 10, "rows count");
 
     assert.ok(dataProvider.isTotalCell(3), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(3, 0), "2 tests", "group footer row 1 cell 1");
-    assert.equal(dataProvider.getCellValue(3, 1), undefined, "group footer row 1 cell 2");
-    assert.equal(dataProvider.getCellValue(3, 2), "Min: 0.03", "group footer row 1 cell 3");
+    assert.equal(dataProvider.getCellData(3, 0).value, "2 tests", "group footer row 1 cell 1");
+    assert.equal(dataProvider.getCellData(3, 1).value, undefined, "group footer row 1 cell 2");
+    assert.equal(dataProvider.getCellData(3, 2).value, "Min: 0.03", "group footer row 1 cell 3");
 
     assert.ok(dataProvider.isTotalCell(4, 0), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(4, 0), "Sale - 93%", "group footer row 2 cell 1");
-    assert.equal(dataProvider.getCellValue(4, 1), undefined, "group footer row 2 cell 2");
-    assert.equal(dataProvider.getCellValue(4, 2), undefined, "group footer row 2 cell 3");
+    assert.equal(dataProvider.getCellData(4, 0).value, "Sale - 93%", "group footer row 2 cell 1");
+    assert.equal(dataProvider.getCellData(4, 1).value, undefined, "group footer row 2 cell 2");
+    assert.equal(dataProvider.getCellData(4, 2).value, undefined, "group footer row 2 cell 3");
 
     assert.ok(dataProvider.isTotalCell(8, 0), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(8, 0), "2 tests", "group footer row 3 cell 1");
-    assert.equal(dataProvider.getCellValue(8, 1), undefined, "group footer row 3 cell 2");
-    assert.equal(dataProvider.getCellValue(8, 2), "Min: 0.14", "group footer row 3 cell 3");
+    assert.equal(dataProvider.getCellData(8, 0).value, "2 tests", "group footer row 3 cell 1");
+    assert.equal(dataProvider.getCellData(8, 1).value, undefined, "group footer row 3 cell 2");
+    assert.equal(dataProvider.getCellData(8, 2).value, "Min: 0.14", "group footer row 3 cell 3");
 
     assert.ok(dataProvider.isTotalCell(9, 0), "isTotalCell");
-    assert.equal(dataProvider.getCellValue(9, 0), "Sale - 63%", "group footer row 4 cell 1");
-    assert.equal(dataProvider.getCellValue(9, 1), undefined, "group footer row 4 cell 2");
-    assert.equal(dataProvider.getCellValue(9, 2), undefined, "group footer row 4 cell 3");
+    assert.equal(dataProvider.getCellData(9, 0).value, "Sale - 63%", "group footer row 4 cell 1");
+    assert.equal(dataProvider.getCellData(9, 1).value, undefined, "group footer row 4 cell 2");
+    assert.equal(dataProvider.getCellData(9, 2).value, undefined, "group footer row 4 cell 3");
 });
 
 QUnit.test("Get summary value for a column", function(assert) {
@@ -1261,8 +1303,8 @@ QUnit.test("Get summary value for a column", function(assert) {
     this.clock.tick();
 
     // assert, act
-    assert.equal(dataProvider.getCellValue(0, 1), "Min: 1");
-    assert.equal(dataProvider.getCellValue(0, 2), "Max: 93%");
+    assert.equal(dataProvider.getCellData(0, 1).value, "Min: 1");
+    assert.equal(dataProvider.getCellData(0, 2).value, "Max: 93%");
 });
 
 QUnit.test("Get summary value for a column when summary items in one column", function(assert) {
@@ -1325,7 +1367,7 @@ QUnit.test("Get summary value for a column when summary items in one column", fu
     this.clock.tick();
 
     // assert, act
-    assert.equal(dataProvider.getCellValue(0, 2), "Max: 93% \n Min: 1");
+    assert.equal(dataProvider.getCellData(0, 2).value, "Max: 93% \n Min: 1");
 });
 
 QUnit.test("Check summary for a column in a group row", function(assert) {
@@ -1484,10 +1526,10 @@ QUnit.test("Summary group footers are contained in the options", function(assert
         columns: [{ dataField: "Name", groupIndex: 0, showWhenGrouped: true }, "Price", "Sale"]
     });
 
-        // act
+    // act
     this.exportController.getDataProvider().ready();
 
-        // assert
+    // assert
     assert.ok(this.exportController._hasSummaryGroupFooters());
     assert.equal(summaryRowTypes.length, 2, "group footers count");
 });
@@ -1881,10 +1923,10 @@ QUnit.test("Get cell value with master detail", function(assert) {
 
     // assert
     assert.equal(dataProvider.getRowsCount(), 2, "rows count");
-    assert.equal(dataProvider.getCellValue(0, 0), "test1", "row 1 cell 1");
-    assert.equal(dataProvider.getCellValue(0, 1), 1, "row 1 cell 2");
-    assert.equal(dataProvider.getCellValue(1, 0), "test2", "row 2 cell 1");
-    assert.equal(dataProvider.getCellValue(1, 1), 12, "row 2 cell 2");
+    assert.equal(dataProvider.getCellData(0, 0).value, "test1", "row 1 cell 1");
+    assert.equal(dataProvider.getCellData(0, 1).value, 1, "row 1 cell 2");
+    assert.equal(dataProvider.getCellData(1, 0).value, "test2", "row 2 cell 1");
+    assert.equal(dataProvider.getCellData(1, 1).value, 12, "row 2 cell 2");
 });
 
 QUnit.test("The export to Excel api method", function(assert) {
@@ -1964,7 +2006,7 @@ QUnit.test("Default options", function(assert) {
 });
 
 QUnit.test("get header row count when headers is visible", function(assert) {
-        // arrange
+    // arrange
     this.setupModules({
         showColumnHeaders: true,
         columns: [{
@@ -1997,7 +2039,7 @@ QUnit.test("get header row count when headers is visible", function(assert) {
 });
 
 QUnit.test("get header row count when headers is hidden", function(assert) {
-        // arrange
+    // arrange
     this.setupModules({
         showColumnHeaders: false,
         columns: [{
@@ -2030,7 +2072,7 @@ QUnit.test("get header row count when headers is hidden", function(assert) {
 });
 
 QUnit.test("get cell merging", function(assert) {
-        // arrange
+    // arrange
     this.setupModules({
         showColumnHeaders: true,
         columns: [{
@@ -2064,7 +2106,7 @@ QUnit.test("get cell merging", function(assert) {
 });
 
 QUnit.test("get frozen area", function(assert) {
-        // arrange
+    // arrange
     this.setupModules({
         showColumnHeaders: true,
         columns: [{
@@ -2149,7 +2191,6 @@ QUnit.test("data styles. column headers are hidden", function(assert) {
         alignment: "right",
         wrapText: false,
         format: undefined,
-        precision: undefined,
         dataType: "string"
     });
 });
@@ -2164,7 +2205,7 @@ QUnit.test("data styles", function(assert) {
         columns: [{
             dataField: 'TestField1', dataType: "string", alignment: "right"
         }, {
-            dataField: 'TestField2', dataType: "number", format: "currency", precision: 0
+            dataField: 'TestField2', dataType: "number", format: { type: "currency", precision: 0 }
         }]
     });
     var dataProvider = this.exportController.getDataProvider();
@@ -2180,15 +2221,16 @@ QUnit.test("data styles", function(assert) {
         alignment: "right",
         wrapText: false,
         format: undefined,
-        precision: undefined,
         dataType: "string"
     });
 
     assert.deepEqual(styles[dataProvider.getStyleId(1, 1)], {
         alignment: "right",
         wrapText: false,
-        format: "currency",
-        precision: 0,
+        format: {
+            type: "currency",
+            precision: 0
+        },
         dataType: "number"
     });
 });
@@ -2744,8 +2786,7 @@ QUnit.test("Export context menu items", function(assert) {
     }, true);
 
     var $container = $("#container"),
-        menuItems,
-        $exportButton;
+        menuItems;
 
     this.$element = function() {
         return $container;
@@ -2753,8 +2794,6 @@ QUnit.test("Export context menu items", function(assert) {
 
     // act
     this.headerPanel.render($container);
-
-    $exportButton = $container.find(".dx-datagrid-export-button").first();
 
     var $menu = $container.find(".dx-datagrid-export-menu"),
         menuInstance = $menu.dxContextMenu("instance");
@@ -2830,10 +2869,11 @@ QUnit.test("Context menu is hidden when item with export selected is clicked", f
     assert.ok(!menuInstance.option("visible"), "menu is hidden");
 });
 
+import messageLocalization from "localization/message";
+
 // T364045: dxDataGrid - Export to Excel is not working when the Export button text is localized
 QUnit.test("Export to Excel button call`s exportTo when the button text is localized", function(assert) {
     // arrange
-    var messageLocalization = require("localization/message");
 
     messageLocalization.load({
         "en": {
@@ -2906,10 +2946,10 @@ QUnit.test("Get columns with width from rowsView after grouping", function(asser
             groupPanel: { visible: true },
             grouping: { autoExpandAll: false },
             dataSource: [
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 }
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 }
             ],
             columns: [{
                 dataField: 'TestField1', dataType: "string", groupIndex: 1
@@ -2944,10 +2984,10 @@ QUnit.test("Get columns with width when headers is hidden", function(assert) {
             width: 300,
             loadingTimeout: 0,
             dataSource: [
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
-            { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 }
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 },
+                { "TestField1": 1, "TestField2": 2, "TestField3": 3, "TestField4": 4 }
             ],
             showColumnHeaders: false,
             columns: [{
@@ -3028,16 +3068,17 @@ QUnit.test("Customize a data and a columns before exporting", function(assert) {
     assert.equal(items[4].values[2], "3", "5 item of data");
 });
 
+import exportMixin from "ui/grid_core/ui.grid_core.export_mixin";
+
 // T399787
 QUnit.test("PrepareItems with extended Array prototypes", function(assert) {
     // arrange
     var resultItems,
-        items = [[{ test: "test" }], [{ test: "test" }]],
-        exportMixin = require("ui/grid_core/ui.grid_core.export_mixin");
+        items = [[{ test: "test" }], [{ test: "test" }]];
 
     items.test = function() { }; // As appending prototype method to array
 
-    resultItems = exportMixin._prepareItems(0, items);
+    resultItems = exportMixin._prepareItems(items);
 
     assert.deepEqual(resultItems, [
         [{

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     vizMocks = require("../../helpers/vizMocks.js"),
@@ -10,7 +8,6 @@ var $ = require("jquery"),
     layoutManagerModule = require("viz/chart_components/layout_manager"),
     trackerModule = require("viz/chart_components/tracker"),
     dxChart = require("viz/chart"),
-    scrollBarClassModule = require("viz/chart_components/scroll_bar"),
     resizeCallbacks = require("core/utils/resize_callbacks"),
     vizUtils = require("viz/core/utils"),
     chartMocks = require("../../helpers/chartMocks.js"),
@@ -52,6 +49,21 @@ QUnit.test("Updating layoutManager options", function(assert) {
     chart.option("adaptiveLayout", "test");
 
     assert.deepEqual(layoutManager.setOptions.lastCall.args, [{ width: "someWidth", height: "someHeight" }]);
+});
+
+// T708642
+QUnit.test("Claer hover after series updating", function(assert) {
+    chartMocks.seriesMockData.series.push(new MockSeries({}));
+    chartMocks.seriesMockData.series.push(new MockSeries({}));
+
+    var options = { series: [{ name: "series1" }, { name: "series2" }] },
+        chart = this.createChart(options);
+
+    commons.getTrackerStub().stub("clearHover").reset();
+
+    chart.option(options);
+
+    assert.equal(commons.getTrackerStub().stub("clearHover").callCount, 1);
 });
 
 QUnit.test("Create Tracker.", function(assert) {
@@ -192,35 +204,15 @@ QUnit.test("Actions sequence with series on render chart", function(assert) {
         argumentAxis = chart._argumentAxes[0];
 
     assert.ok(updateSeriesData.lastCall.calledBefore(argumentAxis.setBusinessRange.firstCall));
-    assert.deepEqual(argumentAxis.setBusinessRange.firstCall.args[0].min, 5);
-    assert.deepEqual(argumentAxis.setBusinessRange.firstCall.args[0].max, 20);
+    assert.equal(argumentAxis.setBusinessRange.firstCall.args[0].min, 5);
+    assert.equal(argumentAxis.setBusinessRange.firstCall.args[0].max, 20);
     assert.deepEqual(argumentAxis.updateCanvas.firstCall.args[0], chart._canvas);
 
     assert.ok(stubSeries.createPoints.lastCall.calledAfter(argumentAxis.updateCanvas.firstCall));
     assert.ok(stubSeries.createPoints.lastCall.calledAfter(argumentAxis.setBusinessRange.firstCall));
-    assert.ok(argumentAxis.setBusinessRange.lastCall.calledAfter(stubSeries.createPoints.lastCall));
-    assert.deepEqual(argumentAxis.setBusinessRange.lastCall.args[0].min, 0);
-    assert.deepEqual(argumentAxis.setBusinessRange.lastCall.args[0].max, 30);
-});
-
-QUnit.test("Set stub data for argument range if no data", function(assert) {
-    // arrange
-    var stubSeries = new MockSeries({});
-
-    chartMocks.seriesMockData.series.push(stubSeries);
-
-    stubSeries.getArgumentRange.returns({});
-
-    var chart = this.createChart({
-        series: [{ type: "line" }],
-        argumentAxis: {
-            argumentType: "datetime"
-        }
-    });
-    var argumentAxis = chart._argumentAxes[0];
-
-    assert.ok(argumentAxis.setBusinessRange.firstCall.args[0].min instanceof Date);
-    assert.ok(argumentAxis.setBusinessRange.firstCall.args[0].max instanceof Date);
+    assert.ok(argumentAxis.setBusinessRange.lastCall.calledAfter(stubSeries.createPoints.lastCall), "axis.setBusiness range should be after create points");
+    assert.equal(argumentAxis.setBusinessRange.lastCall.args[0].min, 0);
+    assert.equal(argumentAxis.setBusinessRange.lastCall.args[0].max, 30);
 });
 
 QUnit.test("Recreate series points on zooming if aggregation is enabled", function(assert) {
@@ -233,15 +225,14 @@ QUnit.test("Recreate series points on zooming if aggregation is enabled", functi
             series: [{ type: "line" }]
         }),
         series = chart.getAllSeries()[0],
-        argumentAxis = chart._argumentAxes[0];
+        argumentAxis = chart.getArgumentAxis();
 
     series.createPoints.reset();
     chart.seriesFamilies[0].adjustSeriesValues.reset();
 
-    chart.zoomArgument(0, 1);
+    argumentAxis.applyVisualRangeSetter.lastCall.args[0](argumentAxis, { startValue: 0, endValue: 1 });
 
     assert.ok(series.createPoints.called);
-    assert.ok(series.createPoints.lastCall.calledAfter(argumentAxis.zoom.lastCall));
     assert.ok(chart.seriesFamilies[0].adjustSeriesValues.calledOnce);
     assert.ok(chart.seriesFamilies[0].adjustSeriesValues.firstCall.calledAfter(series.createPoints.lastCall));
 });
@@ -259,8 +250,8 @@ QUnit.test("Recreate series points on scrolling if aggregation is enabled", func
 
     series.createPoints.reset();
 
-    chart.zoomArgument(0, 1);
-    chart.zoomArgument(1, 2);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: 0, endValue: 1 });
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: 1, endValue: 2 });
 
     assert.ok(series.createPoints.calledTwice);
 });
@@ -290,8 +281,8 @@ QUnit.test("Recreate series points on zooming if aggregation is enabled (discret
         };
     };
 
-    chart.zoomArgument("a", "b");
-    chart.zoomArgument("b", "d");
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: "a", endValue: "b" });
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: "b", endValue: "d" });
 
     assert.ok(series.createPoints.calledTwice);
 });
@@ -321,9 +312,17 @@ QUnit.test("Do not recreate series points on scrolling if aggregation is enabled
         };
     };
 
+    chart._argumentAxes[0].getViewport.returns({
+        min: 1,
+        max: 10
+    });
     chart.zoomArgument(1, 10);
     series._useAllAggregatedPoints = true;
-    chart.zoomArgument(10, 100);
+    chart._argumentAxes[0].getViewport.returns({
+        min: 10,
+        max: 100
+    });
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: 10, endValue: 100 });
 
     assert.ok(series.createPoints.calledOnce);
 });
@@ -341,9 +340,17 @@ QUnit.test("Do not recreate series points on scrolling if aggregation is enabled
 
     series.createPoints.reset();
 
+    chart._argumentAxes[0].getViewport.returns({
+        min: 0,
+        max: 1
+    });
     chart.zoomArgument(0, 1);
     series._useAllAggregatedPoints = true;
-    chart.zoomArgument(1, 2);
+    chart._argumentAxes[0].getViewport.returns({
+        min: 1,
+        max: 2
+    });
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: 1, endValue: 2 });
 
     assert.ok(series.createPoints.calledOnce);
 });
@@ -361,7 +368,7 @@ QUnit.test("Do not recreate series points on zooming if aggregation is not enabl
 
     series.createPoints.reset();
 
-    chart.zoomArgument(0, 1);
+    chart.getArgumentAxis().applyVisualRangeSetter.lastCall.args[0](chart.getArgumentAxis(), { startValue: 0, endValue: 1 });
 
     assert.ok(!series.createPoints.called);
 });
@@ -395,199 +402,20 @@ QUnit.test("Recreate points on resize if aggregation is enabled", function(asser
     assert.ok(argumentAxis.updateCanvas.firstCall.calledBefore(series.createPoints.lastCall));
 });
 
-QUnit.test("Transform argument", function(assert) {
-    var chartOptions = {
-        width: 800,
-        height: 800,
-        left: 80,
-        right: 90,
-        top: 10,
-        bottom: 80
-    };
+QUnit.test("Can call public API on onInitialized", function(assert) {
+    this.createChart({
+        onInitialized: function(e) {
+            var chart = e.component;
 
-    var stubSeries = new MockSeries();
-    chartMocks.seriesMockData.series.push(stubSeries);
-    var chart = this.createChart({
-        margin: chartOptions,
-        series: { type: "stock" },
-        scrollBar: {
-            visible: true
+            // act, assert
+            chart.zoomArgument(1, 3);
+            assert.deepEqual(chart.getAllSeries(), []);
+            assert.equal(chart.getSeriesByName("non_existent_series"), undefined);
+            assert.equal(chart.getSeriesByPos(1), undefined);
+            assert.equal(chart.getValueAxis(), undefined);
+            assert.equal(chart.getArgumentAxis(), undefined);
         }
     });
-    chart.series[0].applyClip = sinon.stub();
-    chart.series[0].resetClip = sinon.stub();
-    chart._labelsGroup.stub("remove").reset();
-    // act
-    chart._transformArgument(10, 2);
-    // assert
-
-    assert.deepEqual(chart._seriesGroup._stored_settings.scaleX, 2, "series group transformation");
-    assert.deepEqual(chart._seriesGroup._stored_settings.translateX, 10, "series group transformation");
-
-    $.each(chart._panesClipRects.base, function(i, clip) {
-        assert.deepEqual(clip._stored_settings.scaleX, 0.5, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateX, -5, i + " clip transformation");
-    });
-    assert.ok(chart.series[0].applyClip.calledOnce);
-    assert.ok(chart._labelsGroup.remove.calledOnce);
-    assert.ok(!chart.series[0].resetClip.called);
-
-    var scrollBar = scrollBarClassModule.ScrollBar.lastCall.returnValue;
-
-    assert.ok(scrollBar.transform.calledOnce);
-    assert.deepEqual(scrollBar.transform.lastCall.args, [-10, 2]);
-});
-
-QUnit.test("Transform argument. Rotated", function(assert) {
-    var chartOptions = {
-        width: 800,
-        height: 800,
-        left: 80,
-        right: 90,
-        top: 10,
-        bottom: 80
-    };
-
-    var stubSeries = new MockSeries();
-    chartMocks.seriesMockData.series.push(stubSeries);
-    var chart = this.createChart({
-        margin: chartOptions,
-        rotated: true,
-        series: { type: "stock" }
-    });
-    chart.series[0].applyClip = sinon.stub();
-    chart.series[0].resetClip = sinon.stub();
-    chart._labelsGroup.stub("remove").reset();
-    // act
-    chart._transformArgument(10, 2);
-    // assert
-    assert.deepEqual(chart._seriesGroup._stored_settings.scaleY, 2, "series group transformation");
-    assert.deepEqual(chart._seriesGroup._stored_settings.translateY, 10, "series group transformation");
-
-    $.each(chart._panesClipRects.base, function(i, clip) {
-        assert.deepEqual(clip._stored_settings.scaleY, 0.5, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateY, -5, i + " clip transformation");
-    });
-
-    assert.ok(chart.series[0].applyClip.calledOnce);
-    assert.ok(chart._labelsGroup.remove.calledOnce);
-    assert.ok(!chart.series[0].resetClip.called);
-});
-
-QUnit.test("Transform argument two times", function(assert) {
-    var chartOptions = {
-        width: 800,
-        height: 800,
-        left: 80,
-        right: 90,
-        top: 10,
-        bottom: 80
-    };
-
-    var stubSeries = new MockSeries();
-    chartMocks.seriesMockData.series.push(stubSeries);
-    var chart = this.createChart({
-        margin: chartOptions,
-        series: { type: "stock" }
-    });
-    chart.series[0].applyClip = sinon.stub();
-    chart.series[0].resetClip = sinon.stub();
-    chart._labelsGroup.stub("remove").reset();
-    // act
-    chart._transformArgument(10, 2);
-    chart._transformArgument(50, 0.5);
-    // assert
-    assert.deepEqual(chart._seriesGroup._stored_settings.scaleX, 0.5, "series group transformation");
-    assert.deepEqual(chart._seriesGroup._stored_settings.translateX, 50, "series group transformation");
-
-    $.each(chart._panesClipRects.base, function(i, clip) {
-        assert.deepEqual(clip._stored_settings.scaleX, 2, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateX, -100, i + " clip transformation");
-    });
-    assert.ok(chart.series[0].applyClip.calledOnce);
-    assert.ok(chart._labelsGroup.remove.calledOnce);
-    assert.ok(!chart.series[0].resetClip.called);
-
-});
-
-QUnit.test("Reset transform argument", function(assert) {
-    var chartOptions = {
-        width: 800,
-        height: 800,
-        left: 80,
-        right: 90,
-        top: 10,
-        bottom: 80
-    };
-
-    var stubSeries = new MockSeries();
-    chartMocks.seriesMockData.series.push(stubSeries);
-    var chart = this.createChart({
-        margin: chartOptions,
-        series: { type: "stock" }
-    });
-    chart.series[0].applyClip = sinon.stub();
-    chart.series[0].resetClip = sinon.stub();
-    chart._labelsGroup.stub("linkRemove").reset();
-    chart._labelsGroup.stub("linkAppend").reset();
-    chart._transformArgument(10, 2);
-
-    // act
-    chart._doRender({ force: true });
-    // assert
-    assert.strictEqual(chart._seriesGroup._stored_settings.scaleX, null, "series group transformation");
-    assert.strictEqual(chart._seriesGroup._stored_settings.scaleY, null, "series group transformation");
-    assert.strictEqual(chart._seriesGroup._stored_settings.translateX, 0, "series group transformation");
-    assert.strictEqual(chart._seriesGroup._stored_settings.translateY, 0, "series group transformation");
-
-    $.each(chart._panesClipRects.base, function(i, clip) {
-        assert.deepEqual(clip._stored_settings.scaleX, null, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.scaleY, null, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateX, 0, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateY, 0, i + " clip transformation");
-    });
-    assert.ok(chart.series[0].applyClip.calledOnce);
-    assert.ok(chart._labelsGroup.linkAppend.calledAfter(chart._labelsGroup.linkRemove));
-    assert.ok(chart.series[0].resetClip.calledOnce);
-});
-
-QUnit.test("Transform argument after reset transform", function(assert) {
-    var chartOptions = {
-        width: 800,
-        height: 800,
-        left: 80,
-        right: 90,
-        top: 10,
-        bottom: 80
-    };
-
-    var stubSeries = new MockSeries();
-    chartMocks.seriesMockData.series.push(stubSeries);
-    var chart = this.createChart({
-        margin: chartOptions,
-        series: { type: "stock" }
-    });
-    chart.series[0].applyClip = sinon.stub();
-    chart.series[0].resetClip = sinon.stub();
-    chart._labelsGroup.stub("linkRemove").reset();
-    chart._labelsGroup.stub("linkAppend").reset();
-    chart._transformArgument(10, 2);
-    chart._doRender({ force: true });
-    // act
-    chart._transformArgument(50, 0.5);
-    // assert
-
-    assert.strictEqual(chart._seriesGroup._stored_settings.scaleX, 0.5, "series group transformation");
-    assert.strictEqual(chart._seriesGroup._stored_settings.translateX, 50, "series group transformation");
-
-    $.each(chart._panesClipRects.base, function(i, clip) {
-        assert.deepEqual(clip._stored_settings.scaleX, 2, i + " clip transformation");
-        assert.deepEqual(clip._stored_settings.translateX, -100, i + " clip transformation");
-    });
-    assert.ok(chart.series[0].applyClip.calledTwice);
-    assert.ok(chart._labelsGroup.linkAppend.calledAfter(chart._labelsGroup.linkRemove));
-    assert.ok(chart.series[0].resetClip.calledOnce);
-
 });
 
 QUnit.module("LoadingIndicator", $.extend({}, commons.environment, {
@@ -802,7 +630,7 @@ QUnit.test("set strips options in value axis ", function(assert) {
     }, this.$container);
     // assert
 
-    var stripLabel = chart._valueAxes[0].getOptions().strips[0].label;
+    var stripLabel = chart.getValueAxis().getOptions().strips[0].label;
     assert.ok(stripLabel);
     assert.equal(stripLabel.horizontalAlignment, "center");
     assert.equal(stripLabel.verticalAlignment, "top");
@@ -901,7 +729,7 @@ QUnit.test("set constant lines options in value axis", function(assert) {
         }
     });
     // assert
-    var constantLine = chart._valueAxes[0].getOptions().constantLines[0];
+    var constantLine = chart.getValueAxis().getOptions().constantLines[0];
     assert.ok(constantLine);
     assert.equal(constantLine.label.horizontalAlignment, "left");
     assert.equal(constantLine.label.verticalAlignment, "center");
@@ -1197,13 +1025,13 @@ QUnit.test("sorting data for series with many argument fields", function(assert)
 
     assert.deepEqual(chartMocks.seriesMockData.series[0].reinitializedData,
         [{ arg1: "a1", val1: 1, arg2: "b1", val2: 1 },
-        { arg1: "a2", val1: 2, arg2: "b2", val2: 2 },
-        { arg1: "a3", val1: 3, arg2: "a3", val2: 3 }]
-        );
+            { arg1: "a2", val1: 2, arg2: "b2", val2: 2 },
+            { arg1: "a3", val1: 3, arg2: "a3", val2: 3 }]
+    );
 
     assert.deepEqual(chartMocks.seriesMockData.series[1].reinitializedData,
         [{ arg1: "a3", val1: 3, arg2: "a3", val2: 3 },
-        { arg1: "a1", val1: 1, arg2: "b1", val2: 1 },
-        { arg1: "a2", val1: 2, arg2: "b2", val2: 2 }]
-        );
+            { arg1: "a1", val1: 1, arg2: "b1", val2: 1 },
+            { arg1: "a2", val1: 2, arg2: "b2", val2: 2 }]
+    );
 });

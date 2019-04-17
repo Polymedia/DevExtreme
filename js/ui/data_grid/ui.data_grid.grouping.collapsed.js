@@ -1,19 +1,13 @@
-"use strict";
+import { extend } from "../../core/utils/extend";
+import { each } from "../../core/utils/iterator";
+import { combineFilters, normalizeSortingInfo } from "./ui.data_grid.core";
+import { GroupingHelper, createOffsetFilter } from "./ui.data_grid.grouping.core";
+import { createGroupFilter } from "./ui.data_grid.utils";
+import errors from "../widget/ui.errors";
+import { errors as dataErrors } from "../../data/errors";
+import { when, Deferred } from "../../core/utils/deferred";
 
-var extend = require("../../core/utils/extend").extend,
-    each = require("../../core/utils/iterator").each,
-    gridCore = require("./ui.data_grid.core"),
-    normalizeSortingInfo = gridCore.normalizeSortingInfo,
-    groupingCore = require("./ui.data_grid.grouping.core"),
-    createGroupFilter = groupingCore.createGroupFilter,
-    createOffsetFilter = groupingCore.createOffsetFilter,
-    errors = require("../widget/ui.errors"),
-    dataErrors = require("../../data/errors").errors,
-    deferredUtils = require("../../core/utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred;
-
-exports.GroupingHelper = groupingCore.GroupingHelper.inherit((function() {
+exports.GroupingHelper = GroupingHelper.inherit((function() {
     var foreachExpandedGroups = function(that, callback, updateGroups) {
         return that.foreachGroups(function(groupInfo, parents) {
             if(groupInfo.isExpanded) {
@@ -295,7 +289,7 @@ exports.GroupingHelper = groupingCore.GroupingHelper.inherit((function() {
         var filter = options.storeLoadOptions.filter;
 
         if(!options.storeLoadOptions.isLoadingAll) {
-            filter = gridCore.combineFilters([filter, gridCore.combineFilters(expandedFilters, "or")]);
+            filter = combineFilters([filter, combineFilters(expandedFilters, "or")]);
         }
 
         var loadOptions = extend({}, options.storeLoadOptions, {
@@ -320,7 +314,7 @@ exports.GroupingHelper = groupingCore.GroupingHelper.inherit((function() {
                 items = expandedInfo.take ? items.slice(0, expandedInfo.take) : items;
             }
             each(expandedInfo.items, function(index, item) {
-                var itemCount = item.count - (index === 0 && loadOptions.skip || 0),
+                var itemCount = item.count - (index === 0 && expandedInfo.skip || 0),
                     expandedItems = items.splice(0, itemCount);
 
                 applyContinuationToGroupItem(options, expandedInfo, groups.length - 1, index);
@@ -377,7 +371,7 @@ exports.GroupingHelper = groupingCore.GroupingHelper.inherit((function() {
             var groups = this._dataSource.group();
             return isGroupExpanded(groups, groupIndex);
         },
-        _updatePagingOptions: function(options) {
+        _updatePagingOptions: function(options, callback) {
             var that = this,
                 isVirtualPaging = that._isVirtualPaging(),
                 pageSize = that._dataSource.pageSize(),
@@ -401,6 +395,8 @@ exports.GroupingHelper = groupingCore.GroupingHelper.inherit((function() {
                         skipContinuationGroupCount = 0,
                         groupInfoCount = groupInfo.count + groupInfo.childrenTotalCount,
                         childrenGroupInfoCount = groupInfoCount;
+
+                    callback && callback(groupInfo, totalOffset);
 
                     skip = options.skip - totalOffset;
                     if(totalOffset <= options.skip + options.take && groupInfoCount) {

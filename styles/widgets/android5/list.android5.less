@@ -1,4 +1,5 @@
 @ANDROID5_LIST_ITEM_PADDING: 16px;
+@ANDROID5_LIST_ITEM_ICON_SIZE: 15px;
 @ANDROID5_LIST_ITEM_BORDER_BOTTOM: 1px solid @ANDROID5_LIST_ITEM_BORDER_BOTTOM_COLOR;
 @ANDROID5_LIST_GROUP_HEADER_BORDER_BOTTOM: 2px solid @ANDROID5_LIST_GROUP_HEADER_BORDER_BOTTOM_COLOR;
 @ANDROID5_LIST_SEARCH_EDITOR_HEIGHT: 48px;
@@ -55,7 +56,7 @@
 
     .dx-icon-toggle-delete {
         background-image: @ANDROID5_LIST_DELETE_SWITCH_BACKGROUND;
-        .background-size-prop(100%);
+        background-size: 100%;
     }
 
     &.dx-state-focused,
@@ -72,6 +73,14 @@
 
 .dx-list:not(.dx-list-select-decorator-enabled) .dx-list-item-selected {
     background-color: @ANDROID5_LIST_ITEM_SELECTED_BACKGROUND;
+}
+
+.dx-list-item-icon-container {
+    width: @ANDROID5_LIST_ITEM_ICON_SIZE + @ANDROID5_LIST_ITEM_PADDING;
+}
+
+.dx-list-item-icon {
+    .dx-icon-sizing(@ANDROID5_LIST_ITEM_ICON_SIZE);
 }
 
 .dx-list-item-chevron {
@@ -111,7 +120,7 @@
     .dx-list-toggle-delete-switch {
         border: none;
         background-color: transparent;
-        .box-shadow(none);
+        box-shadow: none;
     }
 
     .dx-button-content:before {
@@ -220,7 +229,7 @@
 
 .dx-list-context-menucontent {
     background-color: @ANDROID5_POPUP_CONTENT_BACKGROUND;
-    .box-shadow(~"0 3px 4px rgba(0,0,0,.15)");
+    box-shadow: 0 3px 4px rgba(0,0,0,.15);
 
     .dx-scrollable-container {
         border: none;

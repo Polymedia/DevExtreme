@@ -1,5 +1,3 @@
-"use strict";
-
 var typeUtils = require("../../core/utils/type"),
     SelectionStrategy = require("./selection.strategy"),
     errors = require("../widget/ui.errors"),
@@ -113,7 +111,7 @@ module.exports = SelectionStrategy.inherit({
         var key = this.options.key;
 
         if(key && key() === undefined) {
-            throw errors.Error("E1042");
+            throw errors.Error("E1042", "Deferred selection");
         }
     },
 
@@ -166,14 +164,11 @@ module.exports = SelectionStrategy.inherit({
 
         if(selectionFilter && selectionFilter.length) {
             that._removeSameFilter(selectionFilter, filter, isDeselect);
-            var lastOperation = JSON.stringify(filter) !== JSON.stringify(selectionFilter) && selectionFilter[1];
-            if(that._removeSameFilter(selectionFilter, filter, !isDeselect)) {
-                if(lastOperation !== "or" && currentOperation === "and") {
-                    needAddFilter = false;
-                    selectionFilter = [];
-                } if(currentOperation === "or") {
-                    needAddFilter = lastOperation === "and" && !isUnique;
-                }
+            var lastOperation = that._removeSameFilter(selectionFilter, filter, !isDeselect);
+
+            if(lastOperation && (lastOperation !== "or" && isDeselect || lastOperation !== "and" && !isDeselect)) {
+                needAddFilter = false;
+                selectionFilter = [];
             }
 
             if(needAddFilter) {
@@ -204,26 +199,26 @@ module.exports = SelectionStrategy.inherit({
 
         if(JSON.stringify(filter) === JSON.stringify(selectionFilter)) {
             selectionFilter.splice(0, selectionFilter.length);
-            return true;
+            return "undefined";
         }
 
         if(filterIndex >= 0) {
             if(filterIndex > 0) {
-                selectionFilter.splice(filterIndex - 1, 2);
+                return selectionFilter.splice(filterIndex - 1, 2)[0];
             } else {
-                selectionFilter.splice(filterIndex, 2);
+                return selectionFilter.splice(filterIndex, 2)[1] || "undefined";
             }
-            return true;
         } else {
             for(var i = 0; i < selectionFilter.length; i++) {
-                if(Array.isArray(selectionFilter[i]) && selectionFilter[i].length > 2 && this._removeSameFilter(selectionFilter[i], filter)) {
+                var lastRemoveOperation = Array.isArray(selectionFilter[i]) && selectionFilter[i].length > 2 && this._removeSameFilter(selectionFilter[i], filter);
+                if(lastRemoveOperation) {
                     if(selectionFilter[i].length === 1) {
                         selectionFilter[i] = selectionFilter[i][0];
                     }
+                    return lastRemoveOperation;
                 }
             }
         }
-        return false;
     },
 
     getSelectAllState: function() {

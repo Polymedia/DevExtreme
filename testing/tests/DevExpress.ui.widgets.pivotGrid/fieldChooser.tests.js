@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup = '<div id="container"></div><div id="pgfc"></div>';
     $("#qunit-fixture").html(markup);
@@ -86,11 +84,11 @@ QUnit.test("Empty options", function(assert) {
     assert.equal($areaFieldsContainers.length, 5, "area fields container count");
     assert.equal($areaFieldsContainers.eq(0).attr("group"), undefined, "group 1");
     assert.equal($areaFieldsContainers.eq(0).attr("allow-scrolling"), undefined, "group 1 - allow-scrolling");
-    assert.equal($areaFieldsContainers.eq(1).attr("group"), "filter", "group 2");
+    assert.equal($areaFieldsContainers.eq(1).attr("group"), "row", "group 2");
     assert.equal($areaFieldsContainers.eq(1).attr("allow-scrolling"), "true", "group 2 - allow-scrolling");
-    assert.equal($areaFieldsContainers.eq(2).attr("group"), "row", "group 3");
+    assert.equal($areaFieldsContainers.eq(2).attr("group"), "column", "group 3");
     assert.equal($areaFieldsContainers.eq(2).attr("allow-scrolling"), "true", "group 3 - allow-scrolling");
-    assert.equal($areaFieldsContainers.eq(3).attr("group"), "column", "group 4");
+    assert.equal($areaFieldsContainers.eq(3).attr("group"), "filter", "group 4");
     assert.equal($areaFieldsContainers.eq(3).attr("allow-scrolling"), "true", "group 4 - allow-scrolling");
     assert.equal($areaFieldsContainers.eq(4).attr("group"), "data", "group 5");
     assert.equal($areaFieldsContainers.eq(4).attr("allow-scrolling"), "true", "group 5 - allow-scrolling");
@@ -203,21 +201,21 @@ QUnit.test("Render to hidden container", function(assert) {
 
     // assert
     var columns = $("#container").find(".dx-col");
-    assert.strictEqual(columns.length, 2);
+    assert.strictEqual(columns.length, 4);
     assert.ok(columns.eq(0).height() > 0);
     assert.roughEqual(columns.eq(0).height(), columns.eq(1).height(), 1);
 });
 
 QUnit.test("Render Fields Tree", function(assert) {
     var fields = [
-            { dataField: "field1", caption: "Field 1", area: "row" },
-            { dataField: "field2", caption: "Field 2", area: "column" },
-            { dataField: "field3", caption: "Field 3" },
-            { dataField: "field4", caption: "Field 4", area: "filter" },
-            { dataField: "field5", caption: "Field 5", isDefault: true },
-            { dataField: "field6", caption: "Field 6", isDefault: false, area: "data" },
-            { dataField: "field7", caption: "Field 7", visible: false },
-            { dataField: "field8", caption: "Field 8", groupIndex: 0, groupName: "test" } // T232385
+        { dataField: "field1", caption: "Field 1", area: "row" },
+        { dataField: "field2", caption: "Field 2", area: "column" },
+        { dataField: "field3", caption: "Field 3" },
+        { dataField: "field4", caption: "Field 4", area: "filter" },
+        { dataField: "field5", caption: "Field 5", isDefault: true },
+        { dataField: "field6", caption: "Field 6", isDefault: false, area: "data" },
+        { dataField: "field7", caption: "Field 7", visible: false },
+        { dataField: "field8", caption: "Field 8", groupIndex: 0, groupName: "test" } // T232385
     ];
     var dataSourceOptions = {
         fields: fields
@@ -266,11 +264,11 @@ QUnit.test("Render Fields Tree with dimension and displayFolder", function(asser
             { dataField: "field4", caption: "Field 4", dimension: "Dimension 2", displayFolder: "Folder 1", area: "filter" },
             { dataField: "field5", caption: "Field 5" },
             { dataField: "field6", caption: "Field 6", dimension: "[Measures]", area: "data", isMeasure: true },
-        {
-            dataField: "HierarchyField", caption: "a hierarchy field", dimension: "Dimension 2", groupName: "hierarchy", isMeasure: false, levels: [
+            {
+                dataField: "HierarchyField", caption: "a hierarchy field", dimension: "Dimension 2", groupName: "hierarchy", isMeasure: false, levels: [
                     { dataField: "levelField" }
-            ]
-        }
+                ]
+            }
         ],
 
         dataSourceOptions = {
@@ -300,8 +298,8 @@ QUnit.test("Render Fields Tree with dimension and displayFolder", function(asser
         {
             text: "Dimension 1", key: "Dimension 1", path: "Dimension 1", selected: true, expanded: false, isMeasure: false,
             items: [
-                    { index: 0, field: fields[0], text: "Field 1", key: "field1", selected: true, isDefault: undefined, isMeasure: false, icon: "dimension" },
-                    { index: 1, field: fields[1], text: "Field 2", key: "field2", selected: true, isDefault: undefined, isMeasure: undefined, icon: undefined }
+                { index: 0, field: fields[0], text: "Field 1", key: "field1", selected: true, isDefault: undefined, isMeasure: false, icon: "dimension" },
+                { index: 1, field: fields[1], text: "Field 2", key: "field2", selected: true, isDefault: undefined, isMeasure: undefined, icon: undefined }
             ]
         },
         {
@@ -310,34 +308,34 @@ QUnit.test("Render Fields Tree with dimension and displayFolder", function(asser
                 {
                     text: "Folder 1", key: "Folder 1", path: "Dimension 2.Folder 1", selected: true, expanded: false, isMeasure: undefined,
                     items: [
-                    { index: 3, field: fields[3], selected: true, text: "Field 4", isDefault: undefined, key: "field4", isMeasure: undefined, icon: undefined }
+                        { index: 3, field: fields[3], selected: true, text: "Field 4", isDefault: undefined, key: "field4", isMeasure: undefined, icon: undefined }
                     ]
                 },
 
-            { text: "Field 3", index: 2, field: fields[2], key: "field3", selected: false, isDefault: undefined, isMeasure: undefined, icon: undefined },
+                { text: "Field 3", index: 2, field: fields[2], key: "field3", selected: false, isDefault: undefined, isMeasure: undefined, icon: undefined },
                 { key: "HierarchyField", selected: false, text: "a hierarchy field", isDefault: undefined, field: fields[6], index: 6, isMeasure: false, icon: "hierarchy" }
 
 
             ]
         },
-    { index: 4, field: fields[4], selected: false, text: "Field 5", key: "field5", isDefault: undefined, isMeasure: undefined, icon: undefined }
+        { index: 4, field: fields[4], selected: false, text: "Field 5", key: "field5", isDefault: undefined, isMeasure: undefined, icon: undefined }
 
     ]);
 });
 
 QUnit.test("Select Items in all fields area", function(assert) {
     var fields = [
-            { dataField: "field1", dimension: "Dimension 1" },
-            { dataField: "field2", dimension: "Dimension 1" },
-            { dataField: "field3", dimension: "Dimension 2" },
-            { dataField: "field4", dimension: "Dimension 2", displayFolder: "Folder2_1" },
-            { dataField: "field5" },
-            { dataField: "field6", dimension: "Dimension3" },
-            { dataField: "field7", dimension: "Dimension 2" },
-            { dataField: "field8", isMeasure: true },
-            { dataField: "field9", dimension: "Dimension 1", displayFolder: "Folder1_1" },
-            { dataField: "field11", dimension: "Dimension 1", displayFolder: "Folder1_2" },
-            { dataField: "field12", dimension: "Dimension 1", displayFolder: "Folder1_2", isDefault: true }
+        { dataField: "field1", dimension: "Dimension 1" },
+        { dataField: "field2", dimension: "Dimension 1" },
+        { dataField: "field3", dimension: "Dimension 2" },
+        { dataField: "field4", dimension: "Dimension 2", displayFolder: "Folder2_1" },
+        { dataField: "field5" },
+        { dataField: "field6", dimension: "Dimension3" },
+        { dataField: "field7", dimension: "Dimension 2" },
+        { dataField: "field8", isMeasure: true },
+        { dataField: "field9", dimension: "Dimension 1", displayFolder: "Folder1_1" },
+        { dataField: "field11", dimension: "Dimension 1", displayFolder: "Folder1_2" },
+        { dataField: "field12", dimension: "Dimension 1", displayFolder: "Folder1_2", isDefault: true }
     ];
     this.setup({
         fields: fields
@@ -346,10 +344,10 @@ QUnit.test("Select Items in all fields area", function(assert) {
     var treeView = this.$container.find(".dx-treeview").dxTreeView("instance"),
         treeViewItems = treeView.option("dataSource");
     // acts
-    treeView.selectItem(treeViewItems[4]);  // act1 - select field5
-    treeView.selectItem(treeViewItems[2]);  // act2 - select Dimension2
-    treeView.selectItem(treeViewItems[0]);  // act3 - select field8
-    treeView.selectItem(treeViewItems[1]);  // act4 - select Dimension1
+    treeView.selectItem(treeViewItems[4]); // act1 - select field5
+    treeView.selectItem(treeViewItems[2]); // act2 - select Dimension2
+    treeView.selectItem(treeViewItems[0]); // act3 - select field8
+    treeView.selectItem(treeViewItems[1]); // act4 - select Dimension1
     // assert
 
     assert.strictEqual(this.dataSource.load.callCount, 4);
@@ -380,18 +378,77 @@ QUnit.test("Select Items in all fields area", function(assert) {
     assert.ok(this.dataSource.load.getCall(3).calledAfter(this.dataSource.field.getCall(3)));
 });
 
+QUnit.test("T676235. Select Items in all fields area if applyChangesMode is onDemand", function(assert) {
+    var fields = [
+        { dataField: "field1", dimension: "Dimension 1" },
+        { dataField: "field2", dimension: "Dimension 1" },
+        { dataField: "field3", dimension: "Dimension 2" },
+        { dataField: "field4", dimension: "Dimension 2", displayFolder: "Folder2_1" },
+        { dataField: "field5" },
+        { dataField: "field6", dimension: "Dimension3" },
+        { dataField: "field7", dimension: "Dimension 2" },
+        { dataField: "field8", isMeasure: true },
+        { dataField: "field9", dimension: "Dimension 1", displayFolder: "Folder1_1" },
+        { dataField: "field11", dimension: "Dimension 1", displayFolder: "Folder1_2" },
+        { dataField: "field12", dimension: "Dimension 1", displayFolder: "Folder1_2", isDefault: true }
+    ];
+    this.setup({
+        fields: fields
+    }, {
+        applyChangesMode: "onDemand"
+    });
+
+    sinon.spy(this.fieldChooser, "_changedHandler");
+
+    var treeView = this.$container.find(".dx-treeview").dxTreeView("instance");
+    // acts
+    treeView.selectItem(treeView.option("dataSource")[4]); // act1 - select field5
+    treeView.selectItem(treeView.option("dataSource")[2]); // act2 - select Dimension2
+    treeView.selectItem(treeView.option("dataSource")[0]); // act3 - select field8
+    treeView.selectItem(treeView.option("dataSource")[1]); // act4 - select Dimension1
+
+    // assert
+    assert.strictEqual(this.dataSource.load.callCount, 0);
+    assert.strictEqual(this.fieldChooser._changedHandler.callCount, 4);
+    assert.strictEqual(this.dataSource.field.callCount, 4);
+
+    assert.deepEqual(this.dataSource.field.getCall(0).args, [4, {
+        area: "column",
+        areaIndex: undefined
+    }], "field5 should be added to column on act1");
+    assert.ok(this.fieldChooser._changedHandler.getCall(0).calledAfter(this.dataSource.field.getCall(0)));
+
+    assert.deepEqual(this.dataSource.field.getCall(1).args, [3, {
+        area: "column",
+        areaIndex: undefined
+    }], "field4 should be added to column on act2");
+    assert.ok(this.fieldChooser._changedHandler.getCall(1).calledAfter(this.dataSource.field.getCall(1)));
+
+    assert.deepEqual(this.dataSource.field.getCall(2).args, [7, {
+        area: "data",
+        areaIndex: undefined
+    }], "field8 should be added to data on act3");
+    assert.ok(this.fieldChooser._changedHandler.getCall(2).calledAfter(this.dataSource.field.getCall(2)));
+
+    assert.deepEqual(this.dataSource.field.getCall(3).args, [10, {
+        area: "column",
+        areaIndex: undefined
+    }], "field12 should be added to data on act4");
+    assert.ok(this.fieldChooser._changedHandler.getCall(3).calledAfter(this.dataSource.field.getCall(3)));
+});
+
 QUnit.test("Unselect Items in all fields area", function(assert) {
     var fields = [
-            { dataField: "field1", dimension: "Dimension 1", area: "row" },
-            { dataField: "field2", dimension: "Dimension 1", area: "column" },
-            { dataField: "field3", dimension: "Dimension 2" },
-            { dataField: "field4", dimension: "Dimension 2", displayFolder: "Folder2_1", area: "row" },
-            { dataField: "field5", area: "row" },
-            { dataField: "field6", dimension: "Dimension3" },
-            { dataField: "field7", dimension: "Dimension 2" },
-            { dataField: "field8", isMeasure: true, area: "data", dimension: "Measures" },
-            { dataField: "field9", dimension: "Dimension 1", displayFolder: "Folder1_1" },
-            { dataField: "field12", dimension: "Dimension 1", displayFolder: "Folder1_2", isDefault: true }
+        { dataField: "field1", dimension: "Dimension 1", area: "row" },
+        { dataField: "field2", dimension: "Dimension 1", area: "column" },
+        { dataField: "field3", dimension: "Dimension 2" },
+        { dataField: "field4", dimension: "Dimension 2", displayFolder: "Folder2_1", area: "row" },
+        { dataField: "field5", area: "row" },
+        { dataField: "field6", dimension: "Dimension3" },
+        { dataField: "field7", dimension: "Dimension 2" },
+        { dataField: "field8", isMeasure: true, area: "data", dimension: "Measures" },
+        { dataField: "field9", dimension: "Dimension 1", displayFolder: "Folder1_1" },
+        { dataField: "field12", dimension: "Dimension 1", displayFolder: "Folder1_2", isDefault: true }
     ];
     this.setup({
         fields: fields
@@ -400,8 +457,8 @@ QUnit.test("Unselect Items in all fields area", function(assert) {
     var treeView = this.$container.find(".dx-treeview").dxTreeView("instance"),
         treeViewItems = treeView.option("dataSource");
     // acts
-    treeView.unselectItem(treeViewItems[4]);  // act1 - unselect field5
-    treeView.selectItem(treeViewItems[2]);    // act2 - unselect Dimension2
+    treeView.unselectItem(treeViewItems[4]); // act1 - unselect field5
+    treeView.selectItem(treeViewItems[2]); // act2 - unselect Dimension2
     // assert
 
     assert.strictEqual(this.dataSource.load.callCount, 2);
@@ -710,15 +767,15 @@ QUnit.test("T247590. Save tree view scroll position on dataSource changed", func
             [{ value: 6 }, { value: 7 }, { value: 8 }, { value: 9 }, { value: 10 }]
         ],
         fields: [
-        { dataField: "Field1", isMeasure: true },
-        { dataField: "Field2", isMeasure: false },
-        { dataField: "Field3" },
-        { dataField: "Field4", isMeasure: true },
-        { dataField: "Field5", isMeasure: false },
-        { dataField: "Field6" },
-        { dataField: "Field7", isMeasure: true },
-        { dataField: "Field8", isMeasure: false },
-        { dataField: "Field9" }
+            { dataField: "Field1", isMeasure: true },
+            { dataField: "Field2", isMeasure: false },
+            { dataField: "Field3" },
+            { dataField: "Field4", isMeasure: true },
+            { dataField: "Field5", isMeasure: false },
+            { dataField: "Field6" },
+            { dataField: "Field7", isMeasure: true },
+            { dataField: "Field8", isMeasure: false },
+            { dataField: "Field9" }
         ]
     };
 
@@ -732,6 +789,45 @@ QUnit.test("T247590. Save tree view scroll position on dataSource changed", func
     scrollable.scrollTo({ y: 30 });
 
     dataSource.on.withArgs("changed").lastCall.args[1]();
+    // assert
+    var newTreeScrollable = $(".dx-treeview-border-visible").find(".dx-scrollable").dxScrollable("instance");
+
+    assert.strictEqual(newTreeScrollable.scrollTop(), 30);
+});
+
+QUnit.test("T676231. Save tree view scroll position on checkbox click if applyChangesMode is onDemand", function(assert) {
+    var dataSourceOptions = {
+        columnFields: [
+            { index: 0, caption: "Field 2", area: 'column', allowFiltering: true },
+            { index: 1, caption: "Field 3", area: 'column', filterValues: [8], allowFiltering: true }
+        ],
+        fieldValues: [
+            [{ value: 1 }, { value: 2 }, { value: 4 }, { value: 5 }],
+            [{ value: 6 }, { value: 7 }, { value: 8 }, { value: 9 }, { value: 10 }]
+        ],
+        fields: [
+            { dataField: "Field1", isMeasure: true, displayFolder: "Folder" },
+            { dataField: "Field2", isMeasure: false },
+            { dataField: "Field3" },
+            { dataField: "Field4", isMeasure: true },
+            { dataField: "Field5", isMeasure: false },
+            { dataField: "Field6" },
+            { dataField: "Field7", isMeasure: true },
+            { dataField: "Field8", isMeasure: false },
+            { dataField: "Field9" }
+        ]
+    };
+
+    this.setup(dataSourceOptions, { height: 90, applyChangesMode: "onDemand" });
+    this.clock.tick(500);
+
+    var scrollable = $(".dx-treeview-border-visible").find(".dx-scrollable").dxScrollable("instance");
+
+    // act
+    scrollable.scrollTo({ y: 30 });
+
+    $(".dx-treeview-border-visible .dx-checkbox").eq(0).trigger("dxclick");
+
     // assert
     var newTreeScrollable = $(".dx-treeview-border-visible").find(".dx-scrollable").dxScrollable("instance");
 
@@ -1110,9 +1206,9 @@ QUnit.test("Change filter type for group field", function(assert) {
 QUnit.test("Dragging Fields", function(assert) {
     var dataSourceOptions = {
             fields: [
-            { dataField: "Field1", isMeasure: true },
-            { dataField: "Field2", isMeasure: false },
-            { dataField: "Field3" }
+                { dataField: "Field1", isMeasure: true },
+                { dataField: "Field2", isMeasure: false },
+                { dataField: "Field3" }
             ]
         },
         fields;
@@ -1286,14 +1382,14 @@ QUnit.test("Layout 0", function(assert) {
     var $cols = this.$container.find(".dx-col");
     var $areas = this.$container.find(".dx-area");
 
-    assert.equal($cols.length, 2, "col count");
+    assert.equal($cols.length, 4, "col count");
     assert.ok($cols.eq(0).height() > 0, "col 0 height");
     assert.roughEqual($cols.eq(0).height(), $cols.eq(1).height(), 0.1, "col heights");
 
     assert.equal($areas.length, 5, "area count");
     assert.roughEqual($areas.eq(0).outerHeight(true) + $areas.eq(1).outerHeight(true), $areas.eq(2).outerHeight(true) + $areas.eq(3).outerHeight(true) + $areas.eq(4).outerHeight(true), 0.1, "area 0+1=2+3+4 height");
     assert.roughEqual($areas.eq(0).outerHeight(true), $areas.eq(2).outerHeight(true) + $areas.eq(3).outerHeight(true), 0.1, "area 0=2+3 height");
-    assert.roughEqual($areas.eq(1).outerHeight(true), $areas.eq(2).outerHeight(true), 0.1, "area 1=2 height");
+    assert.roughEqual($areas.eq(1).outerHeight(true), $areas.eq(2).outerHeight(true), 1.1, "area 1=2 height");
     assert.equal($areas.eq(0).width(), $areas.eq(1).width(), "area 0=1 width");
     assert.equal($areas.eq(1).width(), $areas.eq(2).width(), "area 1=2 width");
     assert.equal($areas.eq(2).width(), $areas.eq(3).width(), "area 2=3 width");
@@ -1340,9 +1436,9 @@ QUnit.test("Layout 2", function(assert) {
     assert.ok($areas.eq(0).outerHeight(true) > $areas.eq(1).outerHeight(true), "area 0>1 outerHeight");
     assert.ok($areas.eq(0).outerHeight(true) < $areas.eq(1).outerHeight(true) + $areas.eq(2).outerHeight(true), "area 0<1+2 outerHeight");
     assert.equal($areas.eq(1).outerHeight(true) + $areas.eq(2).outerHeight(true), $areas.eq(3).outerHeight(true) + $areas.eq(4).outerHeight(true), "area 1+2=3+4 outerHeight");
-    assert.roughEqual($areas.eq(1).outerHeight(true), $areas.eq(2).outerHeight(true), 0.1, "area 1=2 outerHeight");
-    assert.roughEqual($areas.eq(2).outerHeight(true), $areas.eq(3).outerHeight(true), 0.1, "area 2=3 outerHeight");
-    assert.roughEqual($areas.eq(3).outerHeight(true), $areas.eq(4).outerHeight(true), 0.1, "area 3=4 outerHeight");
+    assert.roughEqual($areas.eq(1).outerHeight(true), $areas.eq(2).outerHeight(true), 1.1, "area 1=2 outerHeight");
+    assert.roughEqual($areas.eq(2).outerHeight(true), $areas.eq(3).outerHeight(true), 1.1, "area 2=3 outerHeight");
+    assert.roughEqual($areas.eq(3).outerHeight(true), $areas.eq(4).outerHeight(true), 1.1, "area 3=4 outerHeight");
 
     assert.ok($areas.eq(0).width(), $areas.eq(1).width(), "area 0>1 width");
     assert.equal($areas.eq(1).width(), $areas.eq(2).width(), "area 1=2 width");
@@ -1353,10 +1449,10 @@ QUnit.test("Layout 2", function(assert) {
 QUnit.test("change group position", function(assert) {
     var dataSourceOptions = {
             columnFields: [
-            { caption: "Field 1", area: 'column', index: 0, areaIndex: 0 },
-            { caption: "Field 2", area: 'column', groupName: "Group1", index: 1, groupIndex: 0, areaIndex: 1 },
-            { caption: "Field 3", area: 'column', groupName: "Group1", index: 2, groupIndex: 0, areaIndex: 1 },
-            { caption: "Field 4", area: 'column', index: 3, areaIndex: 2 }
+                { caption: "Field 1", area: 'column', index: 0, areaIndex: 0 },
+                { caption: "Field 2", area: 'column', groupName: "Group1", index: 1, groupIndex: 0, areaIndex: 1 },
+                { caption: "Field 3", area: 'column', groupName: "Group1", index: 2, groupIndex: 0, areaIndex: 1 },
+                { caption: "Field 4", area: 'column', index: 3, areaIndex: 2 }
             ]
         },
         changedArgs = {
@@ -1381,13 +1477,13 @@ QUnit.test("change group position", function(assert) {
 
 QUnit.test("getDataSource method", function(assert) {
     var fields = [
-            { dataField: "field1", caption: "Field 1", area: "row" },
-            { dataField: "field2", caption: "Field 2", area: "column" },
-            { dataField: "field3", caption: "Field 3" },
-            { dataField: "field4", caption: "Field 4", area: "filter" },
-            { dataField: "field5", caption: "Field 5", isDefault: true },
-            { dataField: "field6", caption: "Field 6", isDefault: false, area: "data" },
-            { dataField: "field7", caption: "Field 7", visible: false }
+        { dataField: "field1", caption: "Field 1", area: "row" },
+        { dataField: "field2", caption: "Field 2", area: "column" },
+        { dataField: "field3", caption: "Field 3" },
+        { dataField: "field4", caption: "Field 4", area: "filter" },
+        { dataField: "field5", caption: "Field 5", isDefault: true },
+        { dataField: "field6", caption: "Field 6", isDefault: false, area: "data" },
+        { dataField: "field7", caption: "Field 7", visible: false }
     ];
     var dataSourceOptions = {
         fields: fields
@@ -2054,6 +2150,18 @@ QUnit.test("select in treeview", function(assert) {
     assert.equal(fields[0].areaIndex, 0);
 });
 
+QUnit.test("select and unselect in treeview", function(assert) {
+    this.setup({ fields: [{ dataField: "Field1", index: 0, displayFolder: "Folder1" }, { dataField: "Field2", index: 1, displayFolder: "Folder1" }] });
+
+    // act
+    this.$container.find(".dx-checkbox").eq(0).trigger("dxclick");
+    this.$container.find(".dx-checkbox").eq(0).trigger("dxclick");
+
+    var fields = this.fieldChooser.option("state").fields;
+    assert.equal(fields[0].area, undefined);
+    assert.equal(fields[0].areaIndex, undefined);
+});
+
 QUnit.test("unselect in treeview", function(assert) {
     this.setup({ fields: [{ dataField: "Field1", area: 'column', areaIndex: 0, index: 0 }] });
 
@@ -2202,12 +2310,14 @@ QUnit.test("cancel changes on dataSource change", function(assert) {
 
 QUnit.test("state option change", function(assert) {
     // arrange
-    this.setup({ fields: [{ index: 0, dataField: "Field1", area: 'row', allowSorting: true }] });
-    var startState = this.fieldChooser.getDataSource().state();
+    this.setup({ fields: [{ index: 0, dataField: "Field1", area: 'row', allowSorting: true, sortOrder: "asc" }] });
+    var dataSource = this.fieldChooser.getDataSource();
+    var startState = dataSource.state();
 
     // act
     var $sortIndicator = this.$container.find(".dx-area-fields[group=row] .dx-sort");
     $sortIndicator.parent().trigger("dxclick");
+    this.fieldChooser.applyChanges();
 
     this.fieldChooser.option("state", startState);
     this.clock.tick(500);
@@ -2215,4 +2325,6 @@ QUnit.test("state option change", function(assert) {
     // assert
     $sortIndicator = this.$container.find(".dx-area-fields[group=row] .dx-sort");
     assert.ok($sortIndicator.hasClass("dx-sort-up"), "state is changed");
+    // T717364
+    assert.strictEqual(dataSource.field(0).sortOrder, "desc", "field sort order is not changed after state change");
 });

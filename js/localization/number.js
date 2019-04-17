@@ -1,5 +1,3 @@
-"use strict";
-
 var dependencyInjector = require("../core/utils/dependency_injector"),
     inArray = require("../core/utils/array").inArray,
     escapeRegExp = require("../core/utils/common").escapeRegExp,
@@ -236,7 +234,7 @@ var numberLocalization = dependencyInjector({
     },
 
     getSign: function(text, format) {
-        if(text.replace(/[^0-9\-]/g, "").charAt(0) === "-") {
+        if(text.replace(/[^0-9-]/g, "").charAt(0) === "-") {
             return -1;
         }
         if(!format) {

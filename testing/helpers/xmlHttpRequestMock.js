@@ -1,14 +1,24 @@
-"use strict";
-
 /* global $ */
 
 var RealXMLHttpRequest = window.XMLHttpRequest;
 
 window.XMLHttpRequestMock = function() {
+    var LOAD_TIMEOUT_DEFAULT = 500;
+    var PROGRESS_INTERVAL_DEFAULT = 100;
+
     var xhrList = [];
-    var LOAD_TIMEOUT = this.LOAD_TIMEOUT = 500;
-    var PROGRESS_INTERVAL = this.PROGRESS_INTERVAL = 100;
+    var LOAD_TIMEOUT = this.LOAD_TIMEOUT = LOAD_TIMEOUT_DEFAULT;
+    var PROGRESS_INTERVAL = this.PROGRESS_INTERVAL = PROGRESS_INTERVAL_DEFAULT;
     var STATUS = this.STATUS = 200;
+
+    this.startSeries = function() {
+        this.changeTimeouts(100, 100);
+    },
+
+    this.changeTimeouts = function(loadTimeout, progressInterval) {
+        LOAD_TIMEOUT = this.LOAD_TIMEOUT = loadTimeout;
+        PROGRESS_INTERVAL = this.PROGRESS_INTERVAL = progressInterval;
+    };
 
     this.getInstanceAt = function(index) {
         index = index || 0;
@@ -24,6 +34,7 @@ window.XMLHttpRequestMock = function() {
     };
 
     this.dispose = function() {
+        this.changeTimeouts(LOAD_TIMEOUT_DEFAULT, PROGRESS_INTERVAL_DEFAULT);
         $.each(xhrList, function(_, request) {
             clearTimeout(request._timeout);
         });
@@ -73,7 +84,9 @@ window.XMLHttpRequestMock = function() {
 
             this.loadedSize = progressEvent.loaded;
             this.onProgressCallCount++;
-            this.upload["onprogress"](progressEvent);
+            if(this.upload["onprogress"]) {
+                this.upload["onprogress"](progressEvent);
+            }
 
             if(progressEvent.loaded >= progressEvent.total) {
                 var readyStateEvent = {

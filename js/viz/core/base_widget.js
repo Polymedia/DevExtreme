@@ -1,5 +1,3 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     windowUtils = require("../../core/utils/window"),
     domAdapter = require("../../core/dom_adapter"),
@@ -61,10 +59,8 @@ function defaultOnIncidentOccurred(e) {
     }
 }
 
-// TODO: Such ugly declaration is because of jshint
 var createIncidentOccurred = function(widgetName, eventTrigger) {
-    return incidentOccurred;
-    function incidentOccurred(id, args) {
+    return function incidentOccurred(id, args) {
         eventTrigger("incidentOccurred", {
             target: {
                 id: id,
@@ -75,7 +71,7 @@ var createIncidentOccurred = function(widgetName, eventTrigger) {
                 version: version
             }
         });
-    }
+    };
 };
 
 function pickPositiveValue(values) {
@@ -138,6 +134,10 @@ var getEmptyComponent = function() {
 
 var isServerSide = !windowUtils.hasWindow();
 
+function sizeIsValid(value) {
+    return typeUtils.isDefined(value) && value > 0;
+}
+
 module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
     _eventsMap: {
         "onIncidentOccurred": { name: "incidentOccurred" },
@@ -160,6 +160,7 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
 
         that.callBase.apply(that, arguments);
         that._changesLocker = 0;
+        that._optionChangedLocker = 0;
         that._changes = helpers.changes();
         that._suspendChanges();
         that._themeManager = that._createThemeManager();
@@ -187,7 +188,7 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
         that._change(that._initialChanges);
     },
 
-    _initialChanges: ["LAYOUT", "RESIZE_HANDLER", "THEME"],
+    _initialChanges: ["LAYOUT", "RESIZE_HANDLER", "THEME", "DISABLED"],
 
     _initPlugins: function() {
         var that = this;
@@ -224,6 +225,9 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
             if(that._optionsQueue) {
                 that._applyQueuedOptions();
             }
+            that._optionChangedLocker++;
+            that._notify();
+            that._optionChangedLocker--;
         }
     },
 
@@ -263,7 +267,7 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
 
     _layoutChangesOrder: ["ELEMENT_ATTR", "CONTAINER_SIZE", "LAYOUT"],
 
-    _customChangesOrder: [],
+    _customChangesOrder: ["DISABLED"],
 
     _change_EVENTS: function() {
         this._eventTrigger.applyChanges();
@@ -292,6 +296,26 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
 
     _change_LAYOUT: function() {
         this._setContentSize();
+    },
+
+    _change_DISABLED: function() {
+        var renderer = this._renderer,
+            root = renderer.root;
+
+        if(this.option("disabled")) {
+            this._initDisabledState = root.attr("pointer-events");
+            root.attr({
+                "pointer-events": "none",
+                filter: renderer.getGrayScaleFilter().id
+            });
+        } else {
+            if(root.attr("pointer-events") === "none") {
+                root.attr({
+                    "pointer-events": typeUtils.isDefined(this._initDisabledState) ? this._initDisabledState : null,
+                    "filter": null
+                });
+            }
+        }
     },
 
     _themeDependentChanges: ["RENDERER"],
@@ -345,8 +369,8 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
             size = that.option("size") || {},
             margin = that.option("margin") || {},
             defaultCanvas = that._getDefaultSize() || {},
-            elementWidth = windowUtils.hasWindow() ? that._$element.width() : 0,
-            elementHeight = windowUtils.hasWindow() ? that._$element.height() : 0,
+            elementWidth = !sizeIsValid(size.width) && windowUtils.hasWindow() ? that._$element.width() : 0,
+            elementHeight = !sizeIsValid(size.height) && windowUtils.hasWindow() ? that._$element.height() : 0,
             canvas = {
                 width: size.width <= 0 ? 0 : _floor(pickPositiveValue([size.width, elementWidth, defaultCanvas.width])),
                 height: size.height <= 0 ? 0 : _floor(pickPositiveValue([size.height, elementHeight, defaultCanvas.height])),
@@ -490,15 +514,27 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
     _render: noop,
 
     _optionChanged: function(arg) {
-        var that = this;
+        const that = this;
+        if(that._optionChangedLocker) {
+            return;
+        }
+        let partialChange;
+        if(arg.fullName) {
+            partialChange = arg.fullName.slice(arg.fullName.indexOf(".") + 1, arg.fullName.length);
+        }
+
+        const change = that._partialOptionChangesMap[partialChange] || that._optionChangesMap[arg.name];
+
         if(that._eventTrigger.change(arg.name)) {
             that._change(["EVENTS"]);
-        } else if(that._optionChangesMap[arg.name]) {
-            that._change([that._optionChangesMap[arg.name]]);
+        } else if(change) {
+            that._change([change]);
         } else {
             that.callBase.apply(that, arguments);
         }
     },
+
+    _notify: noop,
 
     _optionChangesMap: {
         size: "CONTAINER_SIZE",
@@ -507,8 +543,11 @@ module.exports = isServerSide ? getEmptyComponent() : DOMComponent.inherit({
         theme: "THEME",
         rtlEnabled: "THEME",
         encodeHtml: "THEME",
-        elementAttr: "ELEMENT_ATTR"
+        elementAttr: "ELEMENT_ATTR",
+        disabled: "DISABLED"
     },
+
+    _partialOptionChangesMap: { },
 
     _visibilityChanged: function() {
         this.render();

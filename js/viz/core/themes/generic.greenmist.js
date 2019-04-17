@@ -1,5 +1,3 @@
-"use strict";
-
 var themeModule = require("../../themes"),
     registerTheme = themeModule.registerTheme,
     ACCENT_COLOR = "#3cbab2",
@@ -120,18 +118,17 @@ registerTheme({
             opacity: 0.5
         }
     },
-    map: {
-        "layer:marker:dot": {
-            color: ACCENT_COLOR
-        },
-        "layer:marker:bubble": {
-            color: ACCENT_COLOR
-        },
-        legend: {
-            markerColor: ACCENT_COLOR
-        }
-    },
     bullet: {
         color: ACCENT_COLOR
+    },
+    gauge: {
+        valueIndicators: {
+            "rangebar": {
+                color: ACCENT_COLOR
+            },
+            "textcloud": {
+                color: ACCENT_COLOR
+            }
+        }
     }
 }, "generic.light");

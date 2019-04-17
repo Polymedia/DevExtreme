@@ -1,12 +1,10 @@
-@MATERIAL_BAR_HEIGHT: 5px;
+@MATERIAL_BAR_HEIGHT: 4px;
 @MATERIAL_BACKGROUND_WIDTH: 90%;
-@MATERIAL_PROGRESSBAR_BORDER_RADIUS: 2px;
 @MATERIAL_PROGRESSBAR_INTERDETERMINATE_STATE_GRADIENT: -90deg, transparent 5%, @progressbar-range-indeterminate-color, transparent 95%;
 
 .dx-progressbar-container {
     height: @MATERIAL_BAR_HEIGHT;
     background-color: @progressbar-bg;
-    .border-radius(@MATERIAL_PROGRESSBAR_BORDER_RADIUS);
 }
 
 .dx-progressbar-range {
@@ -14,9 +12,7 @@
     background-color: @progressbar-range-bg;
     margin-top: -1px;
 
-    .box-sizing(content-box);
-    .border-radius-top-left(@MATERIAL_PROGRESSBAR_BORDER_RADIUS);
-    .border-radius-bottom-left(@MATERIAL_PROGRESSBAR_BORDER_RADIUS);
+    box-sizing: content-box;
 }
 
 .dx-progressbar-animating-container {
@@ -24,9 +20,7 @@
     background-color: @progressbar-bg;
     background-size: @MATERIAL_BACKGROUND_WIDTH 5px;
 
-    .border-radius(@MATERIAL_PROGRESSBAR_BORDER_RADIUS);
-
-    .animation(loader 2s linear infinite);
+    animation: loader 2s linear infinite;
     .gradient-linear(@MATERIAL_PROGRESSBAR_INTERDETERMINATE_STATE_GRADIENT);
     background-repeat: repeat;
 }
@@ -37,7 +31,7 @@
     }
 
     .dx-progressbar-animating-container {
-        .animation(none);
+        animation: none;
         background-position-x: @MATERIAL_BACKGROUND_WIDTH / 2;
     }
 }
@@ -54,7 +48,7 @@
 .dx-rtl {
     .dx-progressbar, &.dx-progressbar {
         .dx-progressbar-animating-container {
-            .animation(loader-rtl 2s linear infinite);
+            animation: loader-rtl 2s linear infinite;
             .gradient-linear(@MATERIAL_PROGRESSBAR_INTERDETERMINATE_STATE_GRADIENT);
             background-repeat: repeat;
         }

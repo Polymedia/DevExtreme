@@ -1,5 +1,3 @@
-"use strict";
-
 var noop = require("core/utils/common").noop,
     themeManagerModule = require("viz/vector_map/theme_manager"),
     themeModule = require("viz/themes");
@@ -47,7 +45,7 @@ QUnit.module('RTL support', {
                     rtl: false
                 }
             }
-        }, "desktop");
+        }, "generic");
 
         this.themeManager = new themeManagerModule.ThemeManager();
         this.themeManager.setCallback(noop);
@@ -84,7 +82,7 @@ QUnit.test("Patch theme based on theme", function(assert) {
                 rtl: false
             }
         }
-    }, "desktop");
+    }, "generic");
 
     // act
     this.themeManager.setTheme('rtlTheme1');
@@ -107,7 +105,7 @@ QUnit.test("Do not patch theme (theme is rtl, options is ltr)", function(assert)
                 rtl: false
             }
         }
-    }, "desktop");
+    }, "generic");
 
     // act
     this.themeManager.setTheme('rtlTheme1', false);

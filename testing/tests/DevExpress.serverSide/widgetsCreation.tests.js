@@ -1,5 +1,3 @@
-"use strict";
-
 var widgets = {
     Accordion: require("ui/accordion"),
     ActionSheet: require("ui/action_sheet"),
@@ -17,12 +15,14 @@ var widgets = {
     DataGrid: require("ui/data_grid"),
     DateBox: require("ui/date_box"),
     DeferRendering: require("ui/defer_rendering"),
+    Drawer: require("ui/drawer"),
     DropDownBox: require("ui/drop_down_box"),
     FileUploader: require("ui/file_uploader"),
     FilterBuilder: require("ui/filter_builder"),
     Form: require("ui/form"),
     Funnel: require("viz/funnel"),
     Gallery: require("ui/gallery"),
+    HtmlEditor: require("ui/html_editor"),
     LinearGauge: require("viz/linear_gauge"),
     List: require("ui/list"),
     LoadIndicator: require("ui/load_indicator"),
@@ -98,7 +98,7 @@ Object.keys(widgets).forEach(function(widget) {
             var prevValue = options[optionName],
                 newValue = prevValue;
 
-             // NOTE: some widgets doesn't support dataSource === null
+            // NOTE: some widgets doesn't support dataSource === null
             if(optionName === "dataSource") {
                 // NOTE: dxResponsiveBox supports only plain object in items
                 var item = widget === "ResponsiveBox" ? { text: 1 } : 1;

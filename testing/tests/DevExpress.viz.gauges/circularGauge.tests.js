@@ -1,5 +1,3 @@
-"use strict";
-
 /* global createTestContainer */
 
 var $ = require("jquery"),
@@ -8,7 +6,6 @@ var $ = require("jquery"),
     factory = dxCircularGauge.prototype._factory,
     axisModule = require("viz/axes/base_axis"),
     Class = require("core/class"),
-    rangeModule = require("viz/translators/range"),
     rendererModule = require("viz/core/renderers/renderer");
 
 $('<div id="test-container">').appendTo("#qunit-fixture");
@@ -105,8 +102,6 @@ var TestPointerElement = TestElement.inherit({
 });
 
 (function circularGauge() {
-    var stubRange = vizMocks.stubClass(rangeModule.Range);
-
     rendererModule.Renderer = sinon.stub();
 
     sinon.stub(axisModule, "Axis", function(parameters) {
@@ -125,10 +120,6 @@ var TestPointerElement = TestElement.inherit({
         return axis;
     });
 
-    sinon.stub(rangeModule, "Range", function(parameters) {
-        return new stubRange(parameters);
-    });
-
     var environment = {
         beforeEach: function() {
             this.renderer = new vizMocks.Renderer();
@@ -143,7 +134,6 @@ var TestPointerElement = TestElement.inherit({
             this.renderer = null;
             axisModule.Axis.reset();
             rendererModule.Renderer.reset();
-            rangeModule.Range.reset();
         }
     };
     var canvas = {
@@ -160,12 +150,11 @@ var TestPointerElement = TestElement.inherit({
     QUnit.test("Gauge creation", function(assert) {
         new dxCircularGauge(this.container, {});
 
-        var range = rangeModule.Range.getCall(0).returnValue,
-            scale = axisModule.Axis.getCall(0).returnValue;
+        var scale = axisModule.Axis.getCall(0).returnValue;
 
         assert.strictEqual(rendererModule.Renderer.firstCall.args[0]["cssClass"], "dxg dxg-circular-gauge", "root class");
 
-        assert.deepEqual(scale.setBusinessRange.lastCall.args[0], range, "range for scale");
+        assert.ok(scale.setBusinessRange.lastCall.args[0], "range for scale");
         assert.deepEqual(scale.draw.getCall(0).args[0], canvas, "canvas for scale");
 
         assert.deepEqual(scale.updateOptions.getCall(0).args[0].startAngle, -135, "start angle");
@@ -183,6 +172,20 @@ var TestPointerElement = TestElement.inherit({
         });
 
         assert.equal(axisModule.Axis.getCall(0).returnValue.updateOptions.getCall(1).args[0].label.indentFromAxis, 15, "indent");
+    });
+
+    // T677202
+    QUnit.test("Default ticks indent when they are invisible", function(assert) {
+        new dxCircularGauge(this.container, {
+            scale: {
+                tick: {
+                    length: 50,
+                    visible: false
+                }
+            }
+        });
+
+        assert.equal(axisModule.Axis.getCall(0).returnValue.updateOptions.getCall(1).args[0].label.indentFromAxis, 10, "indent");
     });
 
     QUnit.test("Ticks indent with positive value. Inside orientation of ticks", function(assert) {

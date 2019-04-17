@@ -1,18 +1,16 @@
-"use strict";
+import eventsEngine from "../../events/core/events_engine";
+import eventUtils from "../../events/utils";
+import { extend } from "../../core/utils/extend";
+import translator2DModule from "../translators/translator2d";
+import { isDefined } from "../../core/utils/type";
+import { noop } from "../../core/utils/common";
+import dragEvents from "../../events/drag";
 
-var $ = require("../../core/renderer"),
-    domAdapter = require("../../core/dom_adapter"),
-    eventsEngine = require("../../events/core/events_engine"),
-    eventUtils = require("../../events/utils"),
-    extend = require("../../core/utils/extend").extend,
-    MIN_SCROLL_BAR_SIZE = 2,
-    translator2DModule = require("../translators/translator2d"),
-    pointerEvents = require("../../events/pointer"),
-    isDefined = require("../../core/utils/type").isDefined,
-    _min = Math.min,
-    _max = Math.max;
+const _min = Math.min;
+const _max = Math.max;
+const MIN_SCROLL_BAR_SIZE = 2;
 
-var ScrollBar = function(renderer, group) {
+const ScrollBar = function(renderer, group) {
     this._translator = new translator2DModule.Translator2D({}, {}, {});
     this._scroll = renderer.rect().append(group);
     this._addEvents();
@@ -45,46 +43,44 @@ function _getYCoord(canvas, pos, offset, width) {
 ScrollBar.prototype = {
 
     _addEvents: function() {
-        var document = domAdapter.getDocument(),
-            that = this,
-            $scroll = $(that._scroll.element),
-            startPosX = 0,
-            startPosY = 0,
-            scrollChangeHandler = function(e) {
-                var dX = (startPosX - e.pageX) * that._scale,
-                    dY = (startPosY - e.pageY) * that._scale;
+        const scrollElement = this._scroll.element;
 
-                eventUtils.fireEvent({
-                    type: "dxc-scroll-move",
-                    originalEvent: e,
-                    target: $scroll.get(0),
-                    pointers: [{
-                        pageX: startPosX + dX,
-                        pageY: startPosY + dY
-                    }]
-                });
-            };
-        eventsEngine.on($scroll, pointerEvents.down, function(e) {
-            startPosX = e.pageX;
-            startPosY = e.pageY;
-
+        eventsEngine.on(scrollElement, dragEvents.start, e => {
             eventUtils.fireEvent({
                 type: "dxc-scroll-start",
                 originalEvent: e,
-                target: $scroll.get(0),
-                pointers: [{
-                    pageX: startPosX,
-                    pageY: startPosY
-                }]
+                target: scrollElement
             });
-
-            eventsEngine.on(document, pointerEvents.move, scrollChangeHandler);
         });
 
-        eventsEngine.on(document, pointerEvents.up, function() {
-            eventsEngine.off(document, pointerEvents.move, scrollChangeHandler);
+        eventsEngine.on(scrollElement, dragEvents.move, e => {
+            const dX = -e.offset.x * this._scale;
+            const dY = -e.offset.y * this._scale;
+            const lx = this._offset - (this._layoutOptions.vertical ? dY : dX) / this._scale;
+            this._applyPosition(lx, lx + this._translator.canvasLength / this._scale);
+
+            eventUtils.fireEvent({
+                type: "dxc-scroll-move",
+                originalEvent: e,
+                target: scrollElement,
+                offset: {
+                    x: dX,
+                    y: dY
+                }
+            });
         });
 
+        eventsEngine.on(scrollElement, dragEvents.end, e => {
+            eventUtils.fireEvent({
+                type: "dxc-scroll-end",
+                originalEvent: e,
+                target: scrollElement,
+                offset: {
+                    x: -e.offset.x * this._scale,
+                    y: -e.offset.y * this._scale
+                }
+            });
+        });
     },
 
     update: function(options) {
@@ -118,13 +114,17 @@ ScrollBar.prototype = {
     },
 
     init: function(range, stick) {
-        var that = this;
-        that._translateWithOffset = (range.axisType === "discrete" && !stick && 1) || 0;
+        const that = this;
+        const isDiscrete = range.axisType === "discrete";
+        that._translateWithOffset = (isDiscrete && !stick && 1) || 0;
         that._translator.update(extend({}, range, {
             minVisible: null,
             maxVisible: null,
             visibleCategories: null
-        }), that._canvas, { isHorizontal: !that._layoutOptions.vertical, stick: stick });
+        }, isDiscrete && {
+            min: null,
+            max: null
+        } || {}), that._canvas, { isHorizontal: !that._layoutOptions.vertical, stick: stick });
         return that;
     },
 
@@ -176,13 +176,15 @@ ScrollBar.prototype = {
     },
 
     // Axis like functions
-    draw: function() {},
+    draw: noop,
 
-    shift: function() {},
+    shift: noop,
 
-    hideTitle: function() {},
+    hideTitle: noop,
 
-    hideOuterElements: function() {},
+    hideOuterElements: noop,
+
+    prepareAnimation: noop,
     // Axis like functions
 
     setPosition: function(min, max) {
@@ -195,15 +197,6 @@ ScrollBar.prototype = {
         that._scale = translator.getScale(min, max);
 
         that._applyPosition(_min(minPoint, maxPoint), _max(minPoint, maxPoint));
-    },
-
-    transform: function(translate, scale) {
-        var translator = this._translator,
-            x = translator.getCanvasVisibleArea().min,
-            dx = x - (x * scale - translate),
-            lx = this._offset + dx / (this._scale * scale);
-
-        this._applyPosition(lx, lx + translator.canvasLength / (this._scale * scale));
     },
 
     dispose: function() {

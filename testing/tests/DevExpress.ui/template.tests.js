@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     TemplateBase = require("ui/widget/ui.template_base"),
     templateRendered = require("ui/widget/ui.template_base").renderedCallbacks;
@@ -157,4 +155,18 @@ QUnit.test("template should not receive dxshown event when attached to detached 
         model: {},
         container: $container
     });
+});
+
+QUnit.test("template should call onRendered method", function(assert) {
+    var renderCoreHandler = sinon.spy(),
+        onRenderedHandler = sinon.spy(),
+        TestTemplate = TemplateBase.inherit({
+            _renderCore: renderCoreHandler
+        }),
+        template = new TestTemplate();
+
+    template.render({ onRendered: onRenderedHandler });
+
+    assert.strictEqual(renderCoreHandler.getCall(0).args[0].onRendered, undefined, "onRendered has been removed on first call");
+    assert.equal(onRenderedHandler.callCount, 1, "onRendered has been called once");
 });

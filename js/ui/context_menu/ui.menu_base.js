@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     commonUtils = require("../../core/utils/common"),
     typeUtils = require("../../core/utils/type"),
@@ -45,7 +43,7 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
 
             /**
             * @name dxMenuBaseOptions.items
-            * @type Array<dxMenuBaseItemTemplate>
+            * @type Array<dxMenuBaseItem>
             */
             items: [],
 
@@ -189,13 +187,13 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
             */
 
             /**
-            * @name dxMenuBaseItemTemplate
-            * @inherits CollectionWidgetItemTemplate
+            * @name dxMenuBaseItem
+            * @inherits CollectionWidgetItem
             * @type object
             */
 
             /**
-            * @name dxMenuBaseItemTemplate.beginGroup
+            * @name dxMenuBaseItem.beginGroup
             * @type Boolean
             */
 
@@ -210,48 +208,48 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
             useInkRipple: false
 
             /**
-            * @name dxMenuBaseItemTemplate.html
+            * @name dxMenuBaseItem.html
             * @type String
             * @hidden
             */
             /**
-            * @name dxMenuBaseItemTemplate.disabled
+            * @name dxMenuBaseItem.disabled
             * @type boolean
             * @default false
             */
             /**
-            * @name dxMenuBaseItemTemplate.visible
+            * @name dxMenuBaseItem.visible
             * @type boolean
             * @default true
             */
             /**
-            * @name dxMenuBaseItemTemplate.icon
+            * @name dxMenuBaseItem.icon
             * @type String
             */
             /**
-            * @name dxMenuBaseItemTemplate.text
+            * @name dxMenuBaseItem.text
             * @type String
             */
             /**
-             * @name dxMenuBaseItemTemplate.html
+             * @name dxMenuBaseItem.html
              * @type String
              */
             /**
-            * @name dxMenuBaseItemTemplate.items
-            * @type Array<dxMenuBaseItemTemplate>
+            * @name dxMenuBaseItem.items
+            * @type Array<dxMenuBaseItem>
             */
             /**
-            * @name dxMenuBaseItemTemplate.selectable
+            * @name dxMenuBaseItem.selectable
             * @type boolean
             * @default false
             */
             /**
-            * @name dxMenuBaseItemTemplate.selected
+            * @name dxMenuBaseItem.selected
             * @type boolean
             * @default false
             */
             /**
-            * @name dxMenuBaseItemTemplate.closeMenuOnClick
+            * @name dxMenuBaseItem.closeMenuOnClick
             * @type boolean
             * @default true
             */
@@ -262,7 +260,7 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
         return this.callBase().concat([
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5();
                 },
                 options: {
                     useInkRipple: true
@@ -530,7 +528,26 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
 
             $nodeContainer = this._renderContainer(this.$element(), submenuContainer);
 
+            var firstVisibleIndex = -1,
+                nextGroupFirstIndex = -1;
+
             each(nodes, function(index, node) {
+                var isVisibleNode = node.visible !== false;
+
+                if(isVisibleNode && firstVisibleIndex < 0) {
+                    firstVisibleIndex = index;
+                }
+
+                var isBeginGroup = firstVisibleIndex < index && (node.beginGroup || index === nextGroupFirstIndex);
+
+                if(isBeginGroup) {
+                    nextGroupFirstIndex = isVisibleNode ? index : index + 1;
+                }
+
+                if(index === nextGroupFirstIndex && firstVisibleIndex < index) {
+                    that._renderSeparator($nodeContainer);
+                }
+
                 that._renderItem(index, node, $nodeContainer);
             });
 
@@ -556,8 +573,6 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
     _renderItem: function(index, node, $nodeContainer, $nodeElement) {
         var items = this.option("items"),
             $itemFrame;
-
-        this._renderSeparator(node, index, $nodeContainer);
 
         if(node.internalFields.item.visible === false) return;
         var $node = $nodeElement || this._createDOMElement($nodeContainer);
@@ -638,20 +653,10 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
         return item.selectable !== false;
     },
 
-    _renderSeparator: function(node, index, $itemsContainer) {
-        if(node.beginGroup && index > 0) {
-            this._needSeparate = true;
-        }
-
-        if(node.visible !== false && this._needSeparate) {
-            if(index > 0) {
-                $("<li>")
-                    .appendTo($itemsContainer)
-                    .addClass(DX_MENU_SEPARATOR_CLASS);
-            }
-
-            this._needSeparate = false;
-        }
+    _renderSeparator: function($itemsContainer) {
+        $("<li>")
+            .appendTo($itemsContainer)
+            .addClass(DX_MENU_SEPARATOR_CLASS);
     },
 
     _itemClickHandler: function(e) {
@@ -702,7 +707,7 @@ var MenuBase = HierarchicalCollectionWidget.inherit({
         return this._itemContainer().is(':empty');
     },
 
-    _syncSelectionOptions: commonUtils.noop,
+    _syncSelectionOptions: commonUtils.asyncNoop,
 
     _optionChanged: function(args) {
         if(this._cancelOptionChange === args.name) {

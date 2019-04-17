@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     angular = require("angular"),
     registerComponent = require("core/component_registrator"),
@@ -84,8 +82,8 @@ QUnit.test("dxPopup", function(assert) {
     var $markup = $("\
         <div dx-popup='popupOptions'>\
             <div data-options='dxTemplate: { name: \"custom\" }' style='line-height: 18px'>\
-		        {{VeryVeryVeryLongField.value1}}\
-		        {{VeryVeryVeryLongField.value2}}\
+                {{VeryVeryVeryLongField.value1}}\
+                {{VeryVeryVeryLongField.value2}}\
             </div>\
         </div>\
     ");
@@ -519,7 +517,7 @@ QUnit.test("Two-way binding does not work for inserted rows", function(assert) {
     assert.equal(calcWatchersCount(), initialWatchersCount + 2, "watchers count. Inserted row is ignored");
 });
 
-    // T429370
+// T429370
 QUnit.test("Assign selectedRowKeys option via binding", function(assert) {
     var $markup = $("<div dx-data-grid=\"gridOptions\"></div>");
 
@@ -533,8 +531,8 @@ QUnit.test("Assign selectedRowKeys option via binding", function(assert) {
                 store: {
                     type: "array",
                     data: [
-                    { field1: 1, field2: 2 },
-                    { field1: 3, field2: 4 }
+                        { field1: 1, field2: 2 },
+                        { field1: 3, field2: 4 }
                     ],
                     key: ["field1", "field2"]
                 }
@@ -568,9 +566,9 @@ QUnit.test("Change selection.mode option via binding and refresh", function(asse
                 $scope.grid = e.component;
             },
             dataSource: [
-                    { value: 1, text: "A" },
-                    { value: 2, text: "B" },
-                    { value: 3, text: "C" }
+                { value: 1, text: "A" },
+                { value: 2, text: "B" },
+                { value: 3, text: "C" }
             ],
             loadingTimeout: undefined,
             bindingOptions: {
@@ -917,8 +915,8 @@ QUnit.module("box", {
 QUnit.test("innerBox with nested box item", function(assert) {
     var $markup = $("\
         <div dx-box=\"{}\">\
-            <div data-options=\"dxItem: {baseSize: 272, ratio: 0, box: {direction: \'col\'}}\">\
-                <div data-options=\"dxItem: {baseSize: \'auto\', ratio: 0}\"><h2>Box1</h2></div>\
+            <div data-options=\"dxItem: {baseSize: 272, ratio: 0, box: {direction: 'col'}}\">\
+                <div data-options=\"dxItem: {baseSize: 'auto', ratio: 0}\"><h2>Box1</h2></div>\
             </div>\
         </div>\
     ");
@@ -1128,8 +1126,8 @@ QUnit.test("Scope for template with 'noModel' option is not destroyed after clea
     var TestContainer = Widget.inherit({
         _render: function() {
             var content = $("<div />")
-                    .addClass("dx-content")
-                    .appendTo(this.$element());
+                .addClass("dx-content")
+                .appendTo(this.$element());
 
             this.option("integrationOptions.templates")["template"].render({
                 container: content,

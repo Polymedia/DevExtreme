@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
     _extend = extend,
@@ -7,24 +5,7 @@ var extend = require("../../core/utils/extend").extend,
     legendModule = require("../components/legend"),
     _BaseLegend = legendModule.Legend;
 
-// DEPRECATED_15_2
-var sourceMap = {
-    "areacolorgroups": { category: "areas", name: "color" },
-    "markercolorgroups": { category: "markers", name: "color" },
-    "markersizegroups": { category: "markers", name: "size" }
-};
 var unknownSource = { category: "UNKNOWN", name: "UNKNOWN" };
-
-function parseSource(source) {
-    var result;
-    // DEPRECATED_15_2
-    if(typeof source === "string") {
-        result = sourceMap[source.toLowerCase()] || unknownSource;
-    } else {
-        result = { category: source.layer, name: source.grouping };
-    }
-    return result;
-}
 
 function buildData(partition, values, field) {
     var i,
@@ -90,6 +71,7 @@ Legend.prototype = _extend(require("../../core/utils/object").clone(_BaseLegend.
     locate: _BaseLegend.prototype.shift,
 
     _updateData: function(data) {
+        this._options.defaultColor = data && data.defaultColor;
         this.update(data ? buildData(data.partition, data.values, this._dataName) : [], this._options);
         this.updateLayout();
     },
@@ -109,7 +91,8 @@ Legend.prototype = _extend(require("../../core/utils/object").clone(_BaseLegend.
         var that = this;
         that.update(that._data, options);
         that._unbindData();
-        that._bindData(options.source && parseSource(options.source) || unknownSource);
+        let source = options.source;
+        that._bindData(source ? { category: source.layer, name: source.grouping } : unknownSource);
         that.updateLayout();
         return that;
     }

@@ -6,11 +6,6 @@
 */
 var dxChart = {
     /**
-    * @name dxChart.Options
-    * @namespace DevExpress.viz.charts
-    * @hidden
-    */
-    /**
     * @name dxChartOptions.seriesTemplate
     * @type object
     * @default undefined
@@ -27,7 +22,7 @@ var dxChart = {
         * @name dxChartOptions.seriesTemplate.customizeSeries
         * @type function(seriesName)
         * @type_function_param1 seriesName:any
-        * @type_function_return dxChartOptions.series
+        * @type_function_return ChartSeries
         */
         customizeSeries: function() { }
     },
@@ -417,15 +412,77 @@ var dxChart = {
         position: 'top'
     },
     /**
+    * @name dxChartOptions.zoomAndPan
+    * @type object
+    */
+    zoomAndPan: {
+        /**
+        * @name dxChartOptions.zoomAndPan.valueAxis
+        * @type Enums.ChartZoomAndPanMode
+        * @default 'none'
+        */
+        valueAxis: 'none',
+        /**
+        * @name dxChartOptions.zoomAndPan.argumentAxis
+        * @type Enums.ChartZoomAndPanMode
+        * @default 'none'
+        */
+        argumentAxis: 'none',
+        /**
+        * @name dxChartOptions.zoomAndPan.dragToZoom
+        * @type boolean
+        * @default false
+        */
+        dragToZoom: false,
+        /**
+        * @name dxChartOptions.zoomAndPan.dragBoxStyle
+        * @type object
+        */
+        dragBoxStyle: {
+            /**
+            * @name dxChartOptions.zoomAndPan.dragBoxStyle.color
+            * @type string
+            * @default undefined
+            */
+            color: undefined,
+            /**
+            * @name dxChartOptions.zoomAndPan.dragBoxStyle.opacity
+            * @type number
+            * @default undefined
+            */
+            opacity: undefined
+        },
+        /**
+        * @name dxChartOptions.zoomAndPan.panKey
+        * @type Enums.EventKeyModifier
+        * @default 'shift'
+        */
+        panKey: 'shift',
+        /**
+        * @name dxChartOptions.zoomAndPan.allowMouseWheel
+        * @type boolean
+        * @default true
+        */
+        allowMouseWheel: true,
+        /**
+        * @name dxChartOptions.zoomAndPan.allowTouchGestures
+        * @type boolean
+        * @default true
+        */
+       allowTouchGestures: true
+    },
+    /**
     * @name dxChartOptions.zoomingMode
     * @type Enums.ChartPointerType
     * @default 'none'
+    * @deprecated dxChartOptions.zoomAndPan
     */
     zoomingMode: 'none',
     /**
     * @name dxChartOptions.scrollingMode
     * @type Enums.ChartPointerType
     * @default 'none'
+    * @deprecated dxChartOptions.zoomAndPan
     */
     scrollingMode: 'none',
     /**
@@ -487,39 +544,15 @@ var dxChart = {
              */
             visible: false,
             /**
-             * @name dxChartOptions.crosshair.label.font
-             * @type object
+            * @name dxChartOptions.crosshair.label.font
+            * @type Font
+            * @default '#FFFFFF' @prop color
              */
             font: {
-                /**
-                * @name dxChartOptions.crosshair.label.font.family
-                * @type string
-                * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                */
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                /**
-                * @name dxChartOptions.crosshair.label.font.weight
-                * @type number
-                * @default 400
-                */
+                family: undefined,
                 weight: 400,
-                /**
-                * @name dxChartOptions.crosshair.label.font.color
-                * @type string
-                * @default '#FFFFFF'
-                */
                 color: '#FFFFFF',
-                /**
-                * @name dxChartOptions.crosshair.label.font.size
-                * @type number|string
-                * @default 12
-                */
                 size: 12,
-                /**
-                * @name dxChartOptions.crosshair.label.font.opacity
-                * @type number
-                * @default undefined
-                */
                 opacity: undefined
             },
             /**
@@ -527,11 +560,6 @@ var dxChart = {
            * @extends CommonVizFormat
            */
             format: '',
-            /**
-            * @name dxChartOptions.crosshair.label.precision
-            * @extends CommonVizPrecision
-            */
-            precision: 0,
             /**
             * @name dxChartOptions.crosshair.label.customizeText
             * @type function(info)
@@ -597,39 +625,15 @@ var dxChart = {
                  */
                 visible: false,
                 /**
-                 * @name dxChartOptions.crosshair.verticalLine.label.font
-                 * @type object
+                * @name dxChartOptions.crosshair.verticalLine.label.font
+                * @type Font
+                * @default '#FFFFFF' @prop color
                  */
                 font: {
-                    /**
-                    * @name dxChartOptions.crosshair.verticalLine.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxChartOptions.crosshair.verticalLine.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxChartOptions.crosshair.verticalLine.label.font.color
-                    * @type string
-                    * @default '#FFFFFF'
-                    */
                     color: '#FFFFFF',
-                    /**
-                    * @name dxChartOptions.crosshair.verticalLine.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxChartOptions.crosshair.verticalLine.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 },
                 /**
@@ -637,11 +641,6 @@ var dxChart = {
                 * @extends CommonVizFormat
                 */
                 format: '',
-                /**
-                * @name dxChartOptions.crosshair.verticalLine.label.precision
-                * @extends CommonVizPrecision
-                */
-                precision: 0,
                 /**
                 * @name dxChartOptions.crosshair.verticalLine.label.customizeText
                 * @type function(info)
@@ -708,39 +707,15 @@ var dxChart = {
                  */
                 visible: false,
                 /**
-                 * @name dxChartOptions.crosshair.horizontalLine.label.font
-                 * @type object
+                * @name dxChartOptions.crosshair.horizontalLine.label.font
+                * @type Font
+                * @default '#FFFFFF' @prop color
                  */
                 font: {
-                    /**
-                    * @name dxChartOptions.crosshair.horizontalLine.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxChartOptions.crosshair.horizontalLine.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxChartOptions.crosshair.horizontalLine.label.font.color
-                    * @type string
-                    * @default '#FFFFFF'
-                    */
                     color: '#FFFFFF',
-                    /**
-                    * @name dxChartOptions.crosshair.horizontalLine.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxChartOptions.crosshair.horizontalLine.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 },
                 /**
@@ -748,11 +723,6 @@ var dxChart = {
                 * @extends CommonVizFormat
                 */
                 format: '',
-                /**
-                * @name dxChartOptions.crosshair.horizontalLine.label.precision
-                * @extends CommonVizPrecision
-                */
-                precision: 0,
                 /**
                 * @name dxChartOptions.crosshair.horizontalLine.label.customizeText
                 * @type function(info)
@@ -824,13 +794,6 @@ var dxChart = {
     * @type object
     */
     commonAxisSettings: {
-        /**
-        * @name dxChartOptions.commonAxisSettings.setTicksAtUnitBeginning
-        * @type boolean
-        * @default true
-        * @deprecated
-        */
-        setTicksAtUnitBeginning: true,
         /**
         * @name dxChartOptions.commonAxisSettings.discreteAxisDivisionMode
         * @type Enums.DiscreteAxisDivisionMode
@@ -928,36 +891,10 @@ var dxChart = {
             displayMode: "standard",
             /**
             * @name dxChartOptions.commonAxisSettings.label.overlappingBehavior
-            * @type string|object
+            * @type Enums.OverlappingBehavior
             * @default 'hide'
-            * @acceptValues 'stagger' | 'rotate' | 'hide' | 'none'
-            * @deprecatedAcceptValues 'ignore' | 'enlargeTickInterval'
             */
-            overlappingBehavior: {
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.overlappingBehavior.mode
-                * @type string
-                * @default 'hide'
-                * @acceptValues 'stagger' | 'rotate' | 'hide' | 'none'
-                * @deprecatedAcceptValues 'ignore' | 'enlargeTickInterval'
-                * @deprecated dxChartOptions.commonAxisSettings.label.overlappingBehavior
-                */
-                mode: 'hide',
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.overlappingBehavior.rotationAngle
-                * @type number
-                * @default 90
-                * @deprecated dxChartOptions.commonAxisSettings.label.rotationAngle
-                */
-                rotationAngle: 90,
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.overlappingBehavior.staggeringSpacing
-                * @type number
-                * @default 5
-                * @deprecated dxChartOptions.commonAxisSettings.label.staggeringSpacing
-                */
-                staggeringSpacing: 5
-            },
+            overlappingBehavior: "hide",
             /**
             * @name dxChartOptions.commonAxisSettings.label.indentFromAxis
             * @type number
@@ -966,38 +903,14 @@ var dxChart = {
             indentFromAxis: 10,
             /**
             * @name dxChartOptions.commonAxisSettings.label.font
-            * @type object
+            * @type Font
+            * @default '#767676' @prop color
             */
             font: {
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.font.family
-                * @type string
-                * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                */
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.font.weight
-                * @type number
-                * @default 400
-                */
+                family: undefined,
                 weight: 400,
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.font.color
-                * @type string
-                * @default '#767676'
-                */
                 color: '#767676',
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.font.size
-                * @type number|string
-                * @default 12
-                */
                 size: 12,
-                /**
-                * @name dxChartOptions.commonAxisSettings.label.font.opacity
-                * @type number
-                * @default undefined
-                */
                 opacity: undefined
             }
         },
@@ -1140,38 +1053,15 @@ var dxChart = {
         title: {
             /**
             * @name dxChartOptions.commonAxisSettings.title.font
-            * @type object
+            * @type Font
+            * @default '#767676' @prop color
+            * @default 16 @prop size
             */
             font: {
-                /**
-                * @name dxChartOptions.commonAxisSettings.title.font.family
-                * @type string
-                * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                */
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                /**
-                * @name dxChartOptions.commonAxisSettings.title.font.weight
-                * @type number
-                * @default 400
-                */
+                family: undefined,
                 weight: 400,
-                /**
-                * @name dxChartOptions.commonAxisSettings.title.font.color
-                * @type string
-                * @default '#767676'
-                */
                 color: '#767676',
-                /**
-                * @name dxChartOptions.commonAxisSettings.title.font.size
-                * @type number|string
-                * @default 16
-                */
                 size: 16,
-                /**
-                * @name dxChartOptions.commonAxisSettings.title.font.opacity
-                * @type number
-                * @default undefined
-                */
                 opacity: undefined
             },
             /**
@@ -1217,38 +1107,14 @@ var dxChart = {
                 verticalAlignment: 'center',
                 /**
                 * @name dxChartOptions.commonAxisSettings.stripStyle.label.font
-                * @type object
+                * @type Font
+                * @default '#767676' @prop color
                 */
                 font: {
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.stripStyle.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.stripStyle.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.stripStyle.label.font.color
-                    * @type string
-                    * @default '#767676'
-                    */
                     color: '#767676',
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.stripStyle.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.stripStyle.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 }
             }
@@ -1307,38 +1173,14 @@ var dxChart = {
                 position: 'inside',
                 /**
                 * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font
-                * @type object
+                * @type Font
+                * @default '#767676' @prop color
                 */
                 font: {
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font.color
-                    * @type string
-                    * @default '#767676'
-                    */
                     color: '#767676',
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxChartOptions.commonAxisSettings.constantLineStyle.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 }
             }
@@ -1388,13 +1230,11 @@ var dxChart = {
     argumentAxis: {
         /**
         * @name dxChartOptions.argumentAxis.tickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         tickInterval: {},
         /**
         * @name dxChartOptions.argumentAxis.minorTickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         minorTickInterval: {},
@@ -1456,7 +1296,6 @@ var dxChart = {
         aggregationGroupWidth: 10,
         /**
         * @name dxChartOptions.argumentAxis.aggregationInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         aggregationInterval: undefined,
@@ -1488,12 +1327,7 @@ var dxChart = {
             * @name dxChartOptions.argumentAxis.label.format
             * @extends CommonVizFormat
             */
-            format: '',
-            /**
-            * @name dxChartOptions.argumentAxis.label.precision
-            * @extends CommonVizPrecision
-            */
-            precision: 0
+            format: ''
         },
         /**
         * @name dxChartOptions.argumentAxis.strips
@@ -1571,6 +1405,12 @@ var dxChart = {
             */
             value: undefined,
             /**
+            * @name dxChartOptions.argumentAxis.constantLines.extendAxis
+            * @type boolean
+            * @default false
+            */
+            extendAxis: false,
+            /**
             * @name dxChartOptions.argumentAxis.constantLines.label
             * @type object
             */
@@ -1604,15 +1444,43 @@ var dxChart = {
         /**
         * @name dxChartOptions.argumentAxis.min
         * @type number | datetime | string
+        * @deprecated dxChartOptions.argumentAxis.visualRange
         * @default undefined
         */
         min: undefined,
         /**
         * @name dxChartOptions.argumentAxis.max
         * @type number | datetime | string
+        * @deprecated dxChartOptions.argumentAxis.visualRange
         * @default undefined
         */
         max: undefined,
+        /**
+        * @name dxChartOptions.argumentAxis.visualRange
+        * @type VizRange | Array<number,string,Date>
+        * @fires BaseWidgetOptions.onOptionChanged
+        * @notUsedInTheme
+        */
+        visualRange: undefined,
+         /**
+        * @name dxChartOptions.argumentAxis.wholeRange
+        * @type VizRange | Array<number,string,Date>
+        * @default undefined
+        */
+        wholeRange: undefined,
+        /**
+        * @name dxChartOptions.argumentAxis.visualRangeUpdateMode
+        * @type Enums.VisualRangeUpdateMode
+        * @default 'auto'
+        */
+        visualRangeUpdateMode: "auto",
+        /**
+        * @name dxChartOptions.argumentAxis.minVisualRangeLength
+        * @inherits VizTimeInterval
+        * @default undefined
+        * @notUsedInTheme
+        */
+        minVisualRangeLength: undefined,
         /**
         * @name dxChartOptions.argumentAxis.axisDivisionFactor
         * @type number
@@ -1682,13 +1550,11 @@ var dxChart = {
         multipleAxesSpacing: 5,
         /**
         * @name dxChartOptions.valueAxis.tickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         tickInterval: {},
         /**
         * @name dxChartOptions.valueAxis.minorTickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         minorTickInterval: {},
@@ -1765,12 +1631,7 @@ var dxChart = {
             * @name dxChartOptions.valueAxis.label.format
             * @extends CommonVizFormat
             */
-            format: '',
-            /**
-            * @name dxChartOptions.valueAxis.label.precision
-            * @extends CommonVizPrecision
-            */
-            precision: 0
+            format: ''
         },
         /**
         * @name dxChartOptions.valueAxis.strips
@@ -1848,6 +1709,12 @@ var dxChart = {
             */
             value: undefined,
             /**
+            * @name dxChartOptions.valueAxis.constantLines.extendAxis
+            * @type boolean
+            * @default false
+            */
+            extendAxis: false,
+            /**
             * @name dxChartOptions.valueAxis.constantLines.label
             * @type object
             */
@@ -1881,15 +1748,43 @@ var dxChart = {
         /**
         * @name dxChartOptions.valueAxis.min
         * @type number | datetime | string
+        * @deprecated dxChartOptions.valueAxis.visualRange
         * @default undefined
         */
         min: undefined,
         /**
         * @name dxChartOptions.valueAxis.max
         * @type number | datetime | string
+        * @deprecated dxChartOptions.valueAxis.visualRange
         * @default undefined
         */
         max: undefined,
+        /**
+        * @name dxChartOptions.valueAxis.visualRange
+        * @type VizRange | Array<number,string,Date>
+        * @fires BaseWidgetOptions.onOptionChanged
+        * @notUsedInTheme
+        */
+        visualRange: undefined,
+        /**
+        * @name dxChartOptions.valueAxis.wholeRange
+        * @type VizRange | Array<number,string,Date>
+        * @default undefined
+        */
+        wholeRange: undefined,
+        /**
+        * @name dxChartOptions.valueAxis.visualRangeUpdateMode
+        * @type Enums.VisualRangeUpdateMode
+        * @default 'auto'
+        */
+        visualRangeUpdateMode: "auto",
+        /**
+        * @name dxChartOptions.valueAxis.minVisualRangeLength
+        * @inherits VizTimeInterval
+        * @default undefined
+        * @notUsedInTheme
+        */
+        minVisualRangeLength: undefined,
         /**
         * @name dxChartOptions.valueAxis.axisDivisionFactor
         * @type number
@@ -1976,6 +1871,13 @@ var dxChart = {
     /**
      * @name dxChartOptions.onZoomStart
      * @extends Action
+     * @type function(e)
+     * @type_function_param1 e:object
+     * @type_function_param1_field4 event:event
+     * @type_function_param1_field5 axis:chartAxisObject
+     * @type_function_param1_field6 range:VizRange
+     * @type_function_param1_field7 cancel:boolean
+     * @type_function_param1_field8 actionType:Enums.ChartZoomPanActionType
      * @notUsedInTheme
      * @action
      */
@@ -1985,41 +1887,29 @@ var dxChart = {
      * @extends Action
      * @type function(e)
      * @type_function_param1 e:object
-     * @type_function_param1_field4 rangeStart:Date|Number
-     * @type_function_param1_field5 rangeEnd:Date|Number
+     * @type_function_param1_field4 event:event
+     * @type_function_param1_field5 rangeStart:Date|Number:deprecated(range)
+     * @type_function_param1_field6 rangeEnd:Date|Number:deprecated(range)
+     * @type_function_param1_field7 axis:chartAxisObject
+     * @type_function_param1_field8 range:VizRange
+     * @type_function_param1_field9 previousRange:VizRange
+     * @type_function_param1_field10 cancel:boolean
+     * @type_function_param1_field11 actionType:Enums.ChartZoomPanActionType
+     * @type_function_param1_field12 zoomFactor:Number
+     * @type_function_param1_field13 shift:Number
      * @notUsedInTheme
      * @action
      */
     onZoomEnd: function() { },
     /**
     * @name dxChartOptions.series
-    * @type Object|Array<Object>
+    * @type ChartSeries|Array<ChartSeries>
     * @default undefined
-    * @inherits dxChartSeriesTypes.CommonSeries
     * @hideDefaults true
     * @notUsedInTheme
     * @inheritAll
     */
-    series: [{
-        /**
-        * @name dxChartOptions.series.name
-        * @type string
-        * @default undefined
-        */
-        name: undefined,
-        /**
-        * @name dxChartOptions.series.tag
-        * @type any
-        * @default undefined
-        */
-        tag: undefined,
-        /**
-        * @name dxChartOptions.series.type
-        * @type Enums.SeriesType
-        * @default 'line'
-        */
-        type: 'line'
-    }],
+    series: undefined,
     /**
     * @name dxChartOptions.minBubbleSize
     * @default 12
@@ -2042,6 +1932,30 @@ var dxChart = {
     * @param2 endValue:Number|Date|string
     */
     zoomArgument: function() { },
+    /**
+    * @name dxchartmethods.resetVisualRange
+    * @publicName resetVisualRange()
+    */
+    resetVisualRange: function() { },
+    /**
+    * @name dxchartmethods.getValueAxis
+    * @publicName getValueAxis()
+    * @return chartAxisObject
+    */
+    getValueAxis: function() { },
+    /**
+    * @name dxchartmethods.getValueAxis(name)
+    * @publicName getValueAxis(name)
+    * @param1 name:string
+    * @return chartAxisObject
+    */
+    getValueAxis: function(name) { },
+    /**
+    * @name dxchartmethods.getArgumentAxis
+    * @publicName getArgumentAxis()
+    * @return chartAxisObject
+    */
+    getArgumentAxis: function() { }
 };
 
 /**
@@ -2051,11 +1965,6 @@ var dxChart = {
 * @export default
 */
 var dxPieChart = {
-    /**
-    * @name dxPieChart.Options
-    * @namespace DevExpress.viz.charts
-    * @hidden
-    */
     /**
     * @name dxPieChartOptions.seriesTemplate
     * @type object
@@ -2073,7 +1982,7 @@ var dxPieChart = {
         * @name dxPieChartOptions.seriesTemplate.customizeSeries
         * @type function(seriesName)
         * @type_function_param1 seriesName:any
-        * @type_function_return dxPieChartOptions.series
+        * @type_function_return PieChartSeries
         */
         customizeSeries: function() { }
     },
@@ -2123,33 +2032,12 @@ var dxPieChart = {
     palette: [],
     /**
     * @name dxPieChartOptions.series
-    * @type Object|Array<Object>
+    * @type PieChartSeries|Array<PieChartSeries>
     * @default undefined
-    * @inherits dxPieChartSeriesTypes.CommonPieChartSeries
     * @hideDefaults true
     * @inheritAll
     */
-    series: [{
-        /**
-        * @name dxPieChartOptions.series.name
-        * @type string
-        * @default undefined
-        */
-        name: undefined,
-        /**
-        * @name dxPieChartOptions.series.tag
-        * @type any
-        * @default undefined
-        */
-        tag: undefined,
-        /**
-        * @name dxPieChartOptions.series.type
-        * @type Enums.PieChartType
-        * @default 'pie'
-        * @deprecated dxPieChartOptions.type
-        */
-        type: 'pie'
-    }],
+    series: undefined,
     /**
     * @name dxPieChartOptions.type
     * @type Enums.PieChartType
@@ -2163,22 +2051,7 @@ var dxPieChart = {
     * @hideDefaults true
     * @inheritAll
     */
-    commonSeriesSettings: {
-        /**
-        * @name dxPieChartOptions.commonSeriesSettings.type
-        * @type Enums.PieChartType
-        * @default 'pie'
-        * @deprecated dxPieChartOptions.type
-        */
-        type: 'pie'
-    },
-    /**
-    * @name dxPieChartMethods.getSeries
-    * @publicName getSeries()
-    * @return pieChartSeriesObject
-    * @deprecated BaseChartMethods.getAllSeries
-    */
-    getSeries: function() { },
+    commonSeriesSettings: { },
     /**
     * @name dxPieChartOptions.diameter
     * @type number
@@ -2239,11 +2112,6 @@ var dxPieChart = {
 */
 var dxPolarChart = {
     /**
-    * @name dxPolarChart.Options
-    * @namespace DevExpress.viz.charts
-    * @hidden
-    */
-    /**
     * @name dxPolarChartOptions.seriesTemplate
     * @type object
     * @default undefined
@@ -2260,7 +2128,7 @@ var dxPolarChart = {
         * @name dxPolarChartOptions.seriesTemplate.customizeSeries
         * @type function(seriesName)
         * @type_function_param1 seriesName:any
-        * @type_function_return dxPolarChartOptions.series
+        * @type_function_return PolarChartSeries
         */
         customizeSeries: function() { }
     },
@@ -2467,13 +2335,6 @@ var dxPolarChart = {
     */
     commonAxisSettings: {
         /**
-        * @name dxPolarChartOptions.commonAxisSettings.setTicksAtUnitBeginning
-        * @type boolean
-        * @default true
-        * @deprecated
-        */
-        setTicksAtUnitBeginning: true,
-        /**
         * @name dxPolarChartOptions.commonAxisSettings.discreteAxisDivisionMode
         * @type Enums.DiscreteAxisDivisionMode
         * @default 'betweenLabels'
@@ -2516,10 +2377,8 @@ var dxPolarChart = {
             visible: true,
             /**
             * @name dxPolarChartOptions.commonAxisSettings.label.overlappingBehavior
-            * @type string
+            * @type Enums.PolarChartOverlappingBehavior
             * @default 'hide'
-            * @acceptValues 'hide' | 'none'
-            * @deprecatedAcceptValues 'ignore' | 'enlargeTickInterval'
             */
             overlappingBehavior: 'hide',
             /**
@@ -2530,38 +2389,14 @@ var dxPolarChart = {
             indentFromAxis: 5,
             /**
             * @name dxPolarChartOptions.commonAxisSettings.label.font
-            * @type object
+            * @type Font
+            * @default '#767676' @prop color
             */
             font: {
-                /**
-                * @name dxPolarChartOptions.commonAxisSettings.label.font.family
-                * @type string
-                * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                */
-                family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                /**
-                * @name dxPolarChartOptions.commonAxisSettings.label.font.weight
-                * @type number
-                * @default 400
-                */
+                family: undefined,
                 weight: 400,
-                /**
-                * @name dxPolarChartOptions.commonAxisSettings.label.font.color
-                * @type string
-                * @default '#767676'
-                */
                 color: '#767676',
-                /**
-                * @name dxPolarChartOptions.commonAxisSettings.label.font.size
-                * @type number|string
-                * @default 12
-                */
                 size: 12,
-                /**
-                * @name dxPolarChartOptions.commonAxisSettings.label.font.opacity
-                * @type number
-                * @default undefined
-                */
                 opacity: undefined
             }
         },
@@ -2709,38 +2544,14 @@ var dxPolarChart = {
             label: {
                 /**
                 * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font
-                * @type object
+                * @type Font
+                * @default '#767676' @prop color
                 */
                 font: {
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font.color
-                    * @type string
-                    * @default '#767676'
-                    */
                     color: '#767676',
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.stripStyle.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 }
             }
@@ -2781,38 +2592,14 @@ var dxPolarChart = {
                 visible: true,
                 /**
                 * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font
-                * @type object
+                * @type Font
+                * @default '#767676' @prop color
                 */
                 font: {
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font.family
-                    * @type string
-                    * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-                    */
-                    family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font.weight
-                    * @type number
-                    * @default 400
-                    */
+                    family: undefined,
                     weight: 400,
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font.color
-                    * @type string
-                    * @default '#767676'
-                    */
                     color: '#767676',
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font.size
-                    * @type number|string
-                    * @default 12
-                    */
                     size: 12,
-                    /**
-                    * @name dxPolarChartOptions.commonAxisSettings.constantLineStyle.label.font.opacity
-                    * @type number
-                    * @default undefined
-                    */
                     opacity: undefined
                 }
             }
@@ -2868,13 +2655,11 @@ var dxPolarChart = {
         originValue: undefined,
         /**
         * @name dxPolarChartOptions.argumentAxis.tickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         tickInterval: {},
         /**
         * @name dxPolarChartOptions.argumentAxis.minorTickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         minorTickInterval: {},
@@ -2912,12 +2697,7 @@ var dxPolarChart = {
             * @name dxPolarChartOptions.argumentAxis.label.format
             * @extends CommonVizFormat
             */
-            format: '',
-            /**
-            * @name dxPolarChartOptions.argumentAxis.label.precision
-            * @extends CommonVizPrecision
-            */
-            precision: 0
+            format: ''
         },
         /**
         * @name dxPolarChartOptions.argumentAxis.strips
@@ -2970,6 +2750,12 @@ var dxPolarChart = {
             * @default undefined
             */
             value: undefined,
+            /**
+            * @name dxPolarChartOptions.argumentAxis.constantLines.extendAxis
+            * @type boolean
+            * @default false
+            */
+            extendAxis: false,
             /**
             * @name dxPolarChartOptions.argumentAxis.constantLines.label
             * @type object
@@ -3033,13 +2819,11 @@ var dxPolarChart = {
         showZero: undefined,
         /**
         * @name dxPolarChartOptions.valueAxis.tickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         tickInterval: {},
         /**
         * @name dxPolarChartOptions.valueAxis.minorTickInterval
-        * @extends VizTimeIntervalEnum
         * @inherits VizTimeInterval
         */
         minorTickInterval: {},
@@ -3091,12 +2875,7 @@ var dxPolarChart = {
             * @name dxPolarChartOptions.valueAxis.label.format
             * @extends CommonVizFormat
             */
-            format: '',
-            /**
-            * @name dxPolarChartOptions.valueAxis.label.precision
-            * @extends CommonVizPrecision
-            */
-            precision: 0
+            format: ''
         },
         /**
         * @name dxPolarChartOptions.valueAxis.strips
@@ -3149,6 +2928,12 @@ var dxPolarChart = {
             * @default undefined
             */
             value: undefined,
+            /**
+            * @name dxPolarChartOptions.valueAxis.constantLines.extendAxis
+            * @type boolean
+            * @default false
+            */
+            extendAxis: false,
             /**
             * @name dxPolarChartOptions.valueAxis.constantLines.label
             * @type object
@@ -3252,46 +3037,21 @@ var dxPolarChart = {
     onSeriesSelectionChanged: function() { },
     /**
     * @name dxPolarChartOptions.series
-    * @type Object|Array<Object>
+    * @type PolarChartSeries|Array<PolarChartSeries>
     * @default undefined
-    * @inherits dxPolarChartSeriesTypes.CommonPolarChartSeries
     * @hideDefaults true
     * @notUsedInTheme
     * @inheritAll
     */
-    series: [{
-        /**
-        * @name dxPolarChartOptions.series.name
-        * @type string
-        * @default undefined
-        */
-        name: undefined,
-        /**
-        * @name dxPolarChartOptions.series.tag
-        * @type any
-        * @default undefined
-        */
-        tag: undefined,
-        /**
-        * @name dxPolarChartOptions.series.type
-        * @type Enums.PolarChartSeriesType
-        * @default 'scatter'
-        */
-        type: 'scatter'
-    }],
+    series: undefined,
 };
 /**
 * @name BaseChart
 * @type object
 * @hidden
-* @inherits BaseWidget
+* @inherits BaseWidget, DataHelperMixin
 */
 var BaseChart = {
-    /**
-    * @name BaseChart.Options
-    * @namespace DevExpress.viz.charts
-    * @hidden
-    */
     /**
     * @name BaseChartOptions.onDone
     * @extends Action
@@ -3373,19 +3133,7 @@ var BaseChart = {
         * @name BaseChartOptions.tooltip.argumentFormat
         * @extends CommonVizFormat
         */
-        argumentFormat: '',
-        /**
-        * @name BaseChartOptions.tooltip.argumentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        argumentPrecision: 0,
-        /**
-        * @name BaseChartOptions.tooltip.percentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        percentPrecision: 0
+        argumentFormat: ''
     },
     /**
     * @name BaseChartOptions.onPointClick
@@ -3475,38 +3223,14 @@ var BaseChart = {
         itemsAlignment: undefined,
         /**
         * @name BaseChartOptions.legend.font
-        * @type object
+        * @type Font
+        * @default '#767676' @prop color
         */
         font: {
-            /**
-            * @name BaseChartOptions.legend.font.color
-            * @type string
-            * @default '#767676'
-            */
             color: '#767676',
-            /**
-            * @name BaseChartOptions.legend.font.family
-            * @type string
-            * @default undefined
-            */
             family: undefined,
-            /**
-            * @name BaseChartOptions.legend.font.weight
-            * @type number
-            * @default undefined
-            */
             weight: undefined,
-            /**
-            * @name BaseChartOptions.legend.font.size
-            * @type number|string
-            * @default undefined
-            */
             size: undefined,
-            /**
-            * @name BaseChartOptions.legend.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**
@@ -3678,6 +3402,11 @@ var BaseChart = {
     */
     render: function(renderOptions) { },
     /**
+    * @name BaseChartMethods.refresh
+    * @publicName refresh()
+    */
+    refresh: function() { },
+    /**
     * @name BaseChartMethods.getAllSeries
     * @publicName getAllSeries()
     * @return Array<baseSeriesObject>
@@ -3697,12 +3426,6 @@ var BaseChart = {
     * @return chartSeriesObject
     */
     getSeriesByPos: function() { },
-    /**
-    * @name BaseChartMethods.getDataSource
-    * @publicName getDataSource()
-    * @return DataSource
-    */
-    getDataSource: function() { },
     /**
     * @name BaseChartOptions.adaptiveLayout
     * @type object

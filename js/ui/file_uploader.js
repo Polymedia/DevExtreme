@@ -1,6 +1,6 @@
-"use strict";
-
 var $ = require("../core/renderer"),
+    Class = require("../core/class"),
+    Guid = require("../core/guid"),
     window = require("../core/utils/window").getWindow(),
     eventsEngine = require("../events/core/events_engine"),
     registerComponent = require("../core/component_registrator"),
@@ -46,8 +46,10 @@ var FILEUPLOADER_CLASS = "dx-fileuploader",
     FILEUPLOADER_CANCEL_BUTTON_CLASS = "dx-fileuploader-cancel-button",
     FILEUPLOADER_UPLOAD_BUTTON_CLASS = "dx-fileuploader-upload-button",
 
-    FILEUPLOADER_AFTER_LOAD_DELAY = 400;
+    FILEUPLOADER_INVALID_CLASS = "dx-fileuploader-invalid",
 
+    FILEUPLOADER_AFTER_LOAD_DELAY = 400,
+    FILEUPLOADER_CHUNK_META_DATA_NAME = "chunkMetadata";
 
 var renderFileUploaderInput = function() {
     return $("<input>").attr("type", "file");
@@ -64,6 +66,7 @@ var isFormDataSupported = function() {
 * @export default
 */
 var FileUploader = Editor.inherit({
+    _uploadStrategy: null,
 
     _supportedKeys: function() {
         var click = function(e) {
@@ -88,6 +91,12 @@ var FileUploader = Editor.inherit({
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
+            /**
+            * @name dxFileUploaderOptions.chunkSize
+            * @type number
+            * @default 0
+            */
+            chunkSize: 0,
             /**
             * @name dxFileUploaderOptions.value
             * @type Array<File>
@@ -119,7 +128,7 @@ var FileUploader = Editor.inherit({
             /**
             * @name dxFileUploaderOptions.name
             * @type string
-            * @default ""
+            * @default "files[]"
             */
             name: "files[]",
 
@@ -267,13 +276,56 @@ var FileUploader = Editor.inherit({
             * @extends Action
             * @type function(e)
             * @type_function_param1 e:object
-            * @type_function_param1_field4 file:object
+            * @type_function_param1_field4 file:File
             * @type_function_param1_field5 jQueryEvent:jQuery.Event:deprecated(event)
             * @type_function_param1_field6 event:event
             * @type_function_param1_field7 request:XMLHttpRequest
             * @action
             */
             onUploadAborted: null,
+
+            /**
+            * @name dxFileUploaderOptions.allowedFileExtensions
+            * @type Array<string>
+            * @default []
+            */
+            allowedFileExtensions: [],
+
+            /**
+            * @name dxFileUploaderOptions.maxFileSize
+            * @type number
+            * @default 0
+            */
+            maxFileSize: 0,
+
+            /**
+            * @name dxFileUploaderOptions.minFileSize
+            * @type number
+            * @default 0
+            */
+            minFileSize: 0,
+
+            /**
+            * @name dxFileUploaderOptions.invalidFileExtensionMessage
+            * @type string
+            * @default "File type is not allowed"
+            */
+            invalidFileExtensionMessage: messageLocalization.format("dxFileUploader-invalidFileExtension"),
+
+            /**
+            * @name dxFileUploaderOptions.invalidMaxFileSizeMessage
+            * @type string
+            * @default "File is too large"
+            */
+            invalidMaxFileSizeMessage: messageLocalization.format("dxFileUploader-invalidMaxFileSize"),
+
+            /**
+            * @name dxFileUploaderOptions.invalidMinFileSizeMessage
+            * @type string
+            * @default "File is too small"
+            */
+            invalidMinFileSizeMessage: messageLocalization.format("dxFileUploader-invalidMinFileSize"),
+
 
             /**
             * @name dxFileUploaderOptions.extendSelection
@@ -387,6 +439,11 @@ var FileUploader = Editor.inherit({
         this._createProgressAction();
         this._createUploadErrorAction();
         this._createUploadAbortedAction();
+        this._setUploadStrategy();
+    },
+
+    _setUploadStrategy: function() {
+        this._uploadStrategy = this.option("chunkSize") > 0 ? new ChunksFileUploadStrategy(this) : new WholeFileUploadStrategy(this);
     },
 
     _initFileInput: function() {
@@ -515,16 +572,74 @@ var FileUploader = Editor.inherit({
         this.callBase();
     },
 
+    _createFileProgressBar: function(file) {
+        file.progressBar = this._createProgressBar(file.value.size);
+        file.progressBar.$element().appendTo(file.$file);
+        this._initStatusMessage(file);
+        this._initCancelButton(file);
+    },
+
+    _setStatusMessage: function(file, key) {
+        setTimeout(function() {
+            if(this.option("showFileList")) {
+                file.$statusMessage.text(this.option(key));
+                file.$statusMessage.css("display", "");
+                file.progressBar.$element().remove();
+            }
+        }.bind(this), FILEUPLOADER_AFTER_LOAD_DELAY);
+    },
+
     _createFiles: function() {
         var value = this.option("value");
 
         if(!this._files || value.length === 0 || !this._shouldFileListBeExtended()) {
+            this._preventFilesUploading(this._files);
             this._files = [];
         }
 
-        each(value.slice(this._files.length), (function(_, value) {
-            this._files.push(this._createFile(value));
-        }).bind(this));
+        each(value.slice(this._files.length), function(_, value) {
+            var file = this._createFile(value);
+            this._validateFile(file);
+            this._files.push(file);
+        }.bind(this));
+    },
+
+    _preventFilesUploading: function(files) {
+        each(files, function(_, file) {
+            file.request && file.request.abort();
+        }.bind(this));
+    },
+
+    _validateFile: function(file) {
+        file.isValidFileExtension = this._validateFileExtension(file);
+        file.isValidMinSize = this._validateMinFileSize(file);
+        file.isValidMaxSize = this._validateMaxFileSize(file);
+    },
+
+    _validateFileExtension: function(file) {
+        var allowedExtensions = this.option("allowedFileExtensions"),
+            fileExtension = file.value.name.substring(file.value.name.lastIndexOf('.')).toLowerCase();
+        if(allowedExtensions.length === 0) {
+            return true;
+        }
+        for(var i = 0; i < allowedExtensions.length; i++) {
+            if(fileExtension === allowedExtensions[i].toLowerCase()) {
+                return true;
+            }
+        }
+        return false;
+    },
+
+    _validateMaxFileSize: function(file) {
+        var fileSize = file.value.size,
+            maxFileSize = this.option("maxFileSize");
+        return maxFileSize > 0 ? fileSize <= maxFileSize : true;
+    },
+
+    _validateMinFileSize: function(file) {
+        var fileSize = file.value.size,
+            minFileSize = this.option("minFileSize");
+        return minFileSize > 0 ? fileSize >= minFileSize : true;
     },
 
     _createUploadStartedAction: function() {
@@ -555,7 +670,13 @@ var FileUploader = Editor.inherit({
             onAbort: Callbacks(),
             onLoad: Callbacks(),
             onError: Callbacks(),
-            onLoadStart: Callbacks()
+            onLoadStart: Callbacks(),
+            isValidFileExtension: true,
+            isValidMaxSize: true,
+            isValidMinSize: true,
+            isValid: function() {
+                return this.isValidFileExtension && this.isValidMaxSize && this.isValidMinSize;
+            }
         };
     },
 
@@ -571,7 +692,6 @@ var FileUploader = Editor.inherit({
         }
 
         var showFileList = this.option("showFileList");
-
         if(showFileList) {
             var that = this;
 
@@ -583,7 +703,7 @@ var FileUploader = Editor.inherit({
         }
 
         this.$element().toggleClass(FILEUPLOADER_SHOW_FILE_LIST_CLASS, showFileList);
-        this.$element().toggleClass(FILEUPLOADER_EMPTY_CLASS, !this._files.length);
+        this._toggleFileUploaderEmptyClassName();
         this._updateFileNameMaxWidth();
 
         this._$validationMessage && this._$validationMessage.dxOverlay("instance").repaint();
@@ -593,22 +713,21 @@ var FileUploader = Editor.inherit({
         var value = file.value;
 
         var $fileContainer = $("<div>")
-                .addClass(FILEUPLOADER_FILE_CONTAINER_CLASS)
-                .appendTo(this._$filesContainer);
+            .addClass(FILEUPLOADER_FILE_CONTAINER_CLASS)
+            .appendTo(this._$filesContainer);
 
         this._renderFileButtons(file, $fileContainer);
 
         file.$file = $("<div>")
-                .addClass(FILEUPLOADER_FILE_CLASS)
-                .appendTo($fileContainer);
+            .addClass(FILEUPLOADER_FILE_CLASS)
+            .appendTo($fileContainer);
 
         var $fileInfo = $("<div>")
-                .addClass(FILEUPLOADER_FILE_INFO_CLASS)
-                .appendTo(file.$file);
+            .addClass(FILEUPLOADER_FILE_INFO_CLASS)
+            .appendTo(file.$file);
 
         file.$statusMessage = $("<div>")
             .addClass(FILEUPLOADER_FILE_STATUS_MESSAGE_CLASS)
-            .text(this.option("readyToUploadMessage"))
             .appendTo(file.$file);
 
         $("<div>")
@@ -622,6 +741,24 @@ var FileUploader = Editor.inherit({
                 .text(this._getFileSize(value.size))
                 .appendTo($fileInfo);
         }
+
+        if(file.isValid()) {
+            file.$statusMessage.text(this.option("readyToUploadMessage"));
+        } else {
+            if(!file.isValidFileExtension) {
+                file.$statusMessage.append(this._createValidationElement("invalidFileExtensionMessage"));
+            }
+            if(!file.isValidMaxSize) {
+                file.$statusMessage.append(this._createValidationElement("invalidMaxFileSizeMessage"));
+            }
+            if(!file.isValidMinSize) {
+                file.$statusMessage.append(this._createValidationElement("invalidMinFileSizeMessage"));
+            }
+            $fileContainer.addClass(FILEUPLOADER_INVALID_CLASS);
+        }
+    },
+    _createValidationElement: function(key) {
+        return $("<span>").text(this.option(key));
     },
 
     _updateFileNameMaxWidth: function() {
@@ -671,7 +808,7 @@ var FileUploader = Editor.inherit({
     },
 
     _getUploadButton: function(file) {
-        if(this.option("uploadMode") !== "useButtons") {
+        if(!file.isValid() || this.option("uploadMode") !== "useButtons") {
             return null;
         }
 
@@ -707,11 +844,23 @@ var FileUploader = Editor.inherit({
         this.option("value", value);
         this._preventRecreatingFiles = false;
 
-        this.$element().toggleClass(FILEUPLOADER_EMPTY_CLASS, !this._files.length);
+        this._toggleFileUploaderEmptyClassName();
 
         this._doPreventInputChange = true;
         this._$fileInput.val("");
         this._doPreventInputChange = false;
+    },
+
+    _toggleFileUploaderEmptyClassName: function() {
+        this.$element().toggleClass(FILEUPLOADER_EMPTY_CLASS, !this._files.length || this._hasInvalidFile(this._files));
+    },
+    _hasInvalidFile: function(files) {
+        for(var i = 0; i < files.length; i++) {
+            if(!files[i].isValid()) {
+                return true;
+            }
+        }
+        return false;
     },
 
     _getFileSize: function(size) {
@@ -848,7 +997,7 @@ var FileUploader = Editor.inherit({
             return;
         }
 
-        this._dragEventsCount = 0;
+        this._dragEventsTargets = [];
 
         eventsEngine.on(this._$inputWrapper, eventUtils.addNamespace("dragenter", this.NAME), this._dragEnterHandler.bind(this));
         eventsEngine.on(this._$inputWrapper, eventUtils.addNamespace("dragover", this.NAME), this._dragOverHandler.bind(this));
@@ -869,7 +1018,8 @@ var FileUploader = Editor.inherit({
             e.preventDefault();
         }
 
-        this._dragEventsCount++;
+        this._updateEventTargets(e);
+
         this.$element().addClass(FILEUPLOADER_DRAGOVER_CLASS);
     },
 
@@ -884,15 +1034,26 @@ var FileUploader = Editor.inherit({
             e.preventDefault();
         }
 
-        this._dragEventsCount--;
+        this._updateEventTargets(e);
 
-        if(this._dragEventsCount <= 0) {
+        if(!this._dragEventsTargets.length) {
             this.$element().removeClass(FILEUPLOADER_DRAGOVER_CLASS);
         }
     },
 
+    _updateEventTargets: function(e) {
+        var targetIndex = this._dragEventsTargets.indexOf(e.target),
+            isTargetExists = targetIndex !== -1;
+
+        if(e.type === "dragenter") {
+            !isTargetExists && this._dragEventsTargets.push(e.target);
+        } else {
+            isTargetExists && this._dragEventsTargets.splice(targetIndex, 1);
+        }
+    },
+
     _dropHandler: function(e) {
-        this._dragEventsCount = 0;
+        this._dragEventsTargets = [];
         this.$element().removeClass(FILEUPLOADER_DRAGOVER_CLASS);
 
         if(this._useInputForDrop()) {
@@ -990,126 +1151,34 @@ var FileUploader = Editor.inherit({
     },
 
     _uploadFiles: function() {
-        if(!isFormDataSupported()) {
-            return;
+        if(isFormDataSupported()) {
+            each(this._files, (function(_, file) {
+                this._uploadFile(file);
+            }).bind(this));
         }
-
-        each(this._files, (function(_, file) {
-            this._uploadFile(file);
-        }).bind(this));
     },
-
     _uploadFile: function(file) {
-        if(file.uploadStarted) {
-            return;
-        }
-
-        var $file = file.$file,
-            value = file.value;
-
-        if($file) {
-            file.progressBar = this._createProgressBar(value.size);
-            file.progressBar.$element().appendTo($file);
-            this._initStatusMessage(file);
-            this._initCancelButton(file);
-        }
-
-        file.onLoadStart.add(this._onUploadStarted.bind(this, file));
-        file.onLoad.add(this._onLoadedHandler.bind(this, file));
-        file.onError.add(this._onErrorHandler.bind(this, file));
-        file.onAbort.add(this._onAbortHandler.bind(this, file));
-        file.onProgress.add(this._onProgressHandler.bind(this, file));
-        this._sendFileData(file, this._createFormData(this.option("name"), value));
+        this._uploadStrategy.upload(file);
     },
+    _updateProgressBar: function(file, loadedFileData) {
+        file.progressBar && file.progressBar.option({
+            value: loadedFileData.loaded,
+            showStatus: true
+        });
 
-    _onUploadStarted: function(file, e) {
-        file.uploadStarted = true;
-
-        this._uploadStartedAction({
+        this._progressAction({
             file: file.value,
-            event: e,
+            segmentSize: loadedFileData.currentSegmentSize,
+            bytesLoaded: loadedFileData.loaded,
+            bytesTotal: loadedFileData.total,
+            event: loadedFileData.event,
             request: file.request
         });
     },
-
-    _onErrorHandler: function(file, e) {
-        var that = this;
-
-        setTimeout(function() {
-            if(that.option("showFileList")) {
-                file.$statusMessage.text(that.option("uploadFailedMessage"));
-                file.$statusMessage.css("display", "");
-                file.progressBar.$element().remove();
-            }
-        }, FILEUPLOADER_AFTER_LOAD_DELAY);
-
-        this._uploadErrorAction({
-            file: file.value,
-            event: e,
-            request: file.request
-        });
-    },
-
-    _onAbortHandler: function(file, e) {
-        this._uploadAbortedAction({
-            file: file.value,
-            event: e,
-            request: file.request
-        });
-    },
-
-    _onLoadedHandler: function(file, e) {
-        var that = this;
-
-        setTimeout(function() {
-            if(that.option("showFileList")) {
-                file.$statusMessage.text(that.option("uploadedMessage"));
-                file.$statusMessage.css("display", "");
-                file.progressBar.$element().remove();
-            }
-        }, FILEUPLOADER_AFTER_LOAD_DELAY);
-
-        this._uploadedAction({
-            file: file.value,
-            event: e,
-            request: file.request
-        });
-    },
-
-    _onProgressHandler: function(file, e) {
-        var totalSize = this._getTotalSize(),
-            currentLoadedSize = 0,
-            loadedSize = this._getLoadedSize(),
-            progress = 0;
-
-        if(file) {
-            currentLoadedSize = Math.min(e.loaded, file.value.size);
-            var segmentSize = currentLoadedSize - file.loadedSize;
-            loadedSize += segmentSize;
-
-            file.progressBar && file.progressBar.option({
-                value: currentLoadedSize,
-                showStatus: true
-            });
-
-            this._progressAction({
-                file: file.value,
-                segmentSize: segmentSize,
-                bytesLoaded: e.loaded,
-                bytesTotal: e.total,
-                event: e,
-                request: file.request
-            });
-
-            file.loadedSize = currentLoadedSize;
-        }
-
-        if(totalSize) {
-            progress = Math.round(loadedSize / totalSize * 100);
-        }
-
+    _updateTotalProgress: function(totalFilesSize, totalLoadedFilesSize) {
+        var progress = totalFilesSize ? Math.round(totalLoadedFilesSize / totalFilesSize * 100) : 0;
         this.option("progress", progress);
-        this._setLoadedSize(loadedSize);
+        this._setLoadedSize(totalLoadedFilesSize);
     },
 
     _initStatusMessage: function(file) {
@@ -1117,12 +1186,10 @@ var FileUploader = Editor.inherit({
     },
 
     _initCancelButton: function(file) {
-        var cancelClickHandler = (function() {
-            file.request.abort();
+        file.cancelButton.option("onClick", function() {
+            this._preventFilesUploading([file]);
             this._removeFile(file);
-        }).bind(this);
-
-        file.cancelButton.option("onClick", cancelClickHandler);
+        }.bind(this));
 
         var hideCancelButton = function() {
             setTimeout(function() {
@@ -1134,56 +1201,6 @@ var FileUploader = Editor.inherit({
 
         file.onLoad.add(hideCancelButton);
         file.onError.add(hideCancelButton);
-    },
-
-    _sendFileData: function(file, data) {
-        var that = this;
-
-        file.loadedSize = 0;
-
-        ajax.sendRequest({
-            url: this.option("uploadUrl"),
-            method: this.option("uploadMethod"),
-            headers: this.option("uploadHeaders"),
-            beforeSend: function(xhr) {
-                file.request = xhr;
-            },
-            upload: {
-                "onprogress": function(e) {
-                    if(file._isError) {
-                        return;
-                    }
-
-                    file._isProgressStarted = true;
-                    file.onProgress.fire(e);
-                },
-                "onloadstart": function() {
-                    file.onLoadStart.fire();
-                },
-                "onabort": function() {
-                    file.onAbort.fire();
-                }
-            },
-            data: data
-        }).done(function() {
-            file.onLoad.fire();
-        }).fail(function(e) {
-            if(that._isStatusError(e.status) || !file._isProgressStarted) {
-                file._isError = true;
-                file.onError.fire();
-            }
-        });
-    },
-
-    _isStatusError: function(status) {
-        return 400 <= status && status < 500
-            || 500 <= status && status < 600;
-    },
-
-    _createFormData: function(fieldName, fieldValue) {
-        var formData = new window.FormData();
-        formData.append(fieldName, fieldValue);
-        return formData;
     },
 
     _createProgressBar: function(fileSize) {
@@ -1199,43 +1216,34 @@ var FileUploader = Editor.inherit({
         });
     },
 
-    _getTotalSize: function() {
-        if(!this._totalSize) {
-            var value = this.option("value"),
-                totalSize = 0;
-
-            each(value, function(_, file) {
-                totalSize += file.size;
-            });
-
-            this._totalSize = totalSize;
+    _getTotalFilesSize: function() {
+        if(!this._totalFilesSize) {
+            this._totalFilesSize = 0;
+            each(this._files, function(_, file) {
+                this._totalFilesSize += file.value.size;
+            }.bind(this));
         }
-
-        return this._totalSize;
+        return this._totalFilesSize;
     },
 
-    _getLoadedSize: function() {
-        if(!this._loadedSize) {
-            var loadedSize = 0;
-
+    _getTotalLoadedFilesSize: function() {
+        if(!this._totalLoadedFilesSize) {
+            this._totalLoadedFilesSize = 0;
             each(this._files, function(_, file) {
-                loadedSize += file.loadedSize;
-            });
-
-            this._loadedSize = loadedSize;
+                this._totalLoadedFilesSize += file.loadedSize;
+            }.bind(this));
         }
-
-        return this._loadedSize;
+        return this._totalLoadedFilesSize;
     },
 
     _setLoadedSize: function(value) {
-        this._loadedSize = value;
+        this._totalLoadedFilesSize = value;
     },
 
     _recalculateProgress: function() {
-        delete this._totalSize;
-        delete this._loadedSize;
-        this._onProgressHandler();
+        this._totalFilesSize = 0;
+        this._totalLoadedFilesSize = 0;
+        this._updateTotalProgress(this._getTotalFilesSize(), this._getTotalLoadedFilesSize());
     },
 
     _getValidationMessageTarget: function() {
@@ -1285,6 +1293,12 @@ var FileUploader = Editor.inherit({
             case "_uploadButtonType":
                 this._uploadButton && this._uploadButton.option("type", value);
                 break;
+            case "maxFileSize":
+            case "minFileSize":
+            case "allowedFileExtensions":
+            case "invalidFileExtensionMessage":
+            case "invalidMaxFileSizeMessage":
+            case "invalidMinFileSizeMessage":
             case "readyToUploadMessage":
             case "uploadedMessage":
             case "uploadFailedMessage":
@@ -1297,6 +1311,9 @@ var FileUploader = Editor.inherit({
                 if(!this._preventRecreatingFiles) {
                     this._renderFiles();
                 }
+                break;
+            case "chunkSize":
+                this._setUploadStrategy();
                 break;
             case "uploadUrl":
             case "progress":
@@ -1355,6 +1372,274 @@ FileUploader.__internals = {
     }
 };
 ///#ENDDEBUG
+
+var FileBlobReader = Class.inherit({
+    ctor: function(file, chunkSize) {
+        this.file = file;
+        this.chunkSize = chunkSize;
+        this.index = 0;
+    },
+
+    read: function() {
+        if(!this.file) {
+            return null;
+        }
+        var result = this.createBlobResult(this.file, this.index, this.chunkSize);
+        if(result.isCompleted) {
+            this.file = null;
+        }
+        this.index++;
+        return result;
+    },
+
+    createBlobResult: function(file, index, chunkSize) {
+        var currentPosition = index * chunkSize;
+        return {
+            blob: this.sliceFile(file, currentPosition, chunkSize),
+            index: index,
+            isCompleted: currentPosition + chunkSize >= file.size
+        };
+    },
+
+    sliceFile: function(file, startPos, length) {
+        if(file.slice) {
+            return file.slice(startPos, startPos + length);
+        }
+        if(file.webkitSlice) {
+            return file.webkitSlice(startPos, startPos + length);
+        }
+        return null;
+    }
+});
+
+var FileUploadStrategyBase = Class.inherit({
+    ctor: function(fileUploader) {
+        this.fileUploader = fileUploader;
+    },
+
+    upload: function(file) {
+        if(file.isValid() && !file.uploadStarted) {
+            this._prepareFileBeforeUpload(file);
+            this._uploadCore(file);
+        }
+    },
+
+    _uploadCore: function(file) {
+    },
+
+    _prepareFileBeforeUpload: function(file) {
+        if(file.$file) {
+            this.fileUploader._createFileProgressBar(file);
+        }
+
+        file.onLoadStart.add(this._onUploadStarted.bind(this, file));
+        file.onLoad.add(this._onLoadedHandler.bind(this, file));
+        file.onError.add(this._onErrorHandler.bind(this, file));
+        file.onAbort.add(this._onAbortHandler.bind(this, file));
+        file.onProgress.add(this._onProgressHandler.bind(this, file));
+    },
+
+    _isStatusError: function(status) {
+        return 400 <= status && status < 500 || 500 <= status && status < 600;
+    },
+
+    _onUploadStarted: function(file, e) {
+        file.uploadStarted = true;
+
+        this.fileUploader._uploadStartedAction({
+            file: file.value,
+            event: e,
+            request: file.request
+        });
+    },
+
+    _onAbortHandler: function(file, e) {
+        this.fileUploader._uploadAbortedAction({
+            file: file.value,
+            event: e,
+            request: file.request
+        });
+    },
+
+    _onErrorHandler: function(file, e) {
+        this.fileUploader._setStatusMessage(file, "uploadFailedMessage");
+        this.fileUploader._uploadErrorAction({
+            file: file.value,
+            event: e,
+            request: file.request
+        });
+    },
+
+    _onLoadedHandler: function(file, e) {
+        this.fileUploader._setStatusMessage(file, "uploadedMessage");
+        this.fileUploader._uploadedAction({
+            file: file.value,
+            event: e,
+            request: file.request
+        });
+    },
+
+    _onProgressHandler: function(file, e) {
+        if(file) {
+            var totalFilesSize = this.fileUploader._getTotalFilesSize();
+            var totalLoadedFilesSize = this.fileUploader._getTotalLoadedFilesSize();
+
+            var loadedSize = Math.min(e.loaded, file.value.size);
+            var segmentSize = loadedSize - file.loadedSize;
+            file.loadedSize = loadedSize;
+
+            this.fileUploader._updateTotalProgress(totalFilesSize, totalLoadedFilesSize + segmentSize);
+            this.fileUploader._updateProgressBar(file, this._getLoadedData(loadedSize, e.total, segmentSize, e));
+        }
+    },
+
+    _getLoadedData: function(loaded, total, currentSegmentSize, event) {
+        return {
+            loaded: loaded,
+            total: total,
+            currentSegmentSize: currentSegmentSize
+        };
+    }
+});
+
+var ChunksFileUploadStrategy = FileUploadStrategyBase.inherit({
+    ctor: function(fileUploader) {
+        this.callBase(fileUploader);
+        this.chunkSize = this.fileUploader.option("chunkSize");
+    },
+
+    _uploadCore: function(file) {
+        var realFile = file.value;
+        this._sendChunk(file, {
+            name: realFile.name,
+            loadedBytes: 0,
+            type: realFile.type,
+            blobReader: new FileBlobReader(realFile, this.chunkSize),
+            guid: new Guid(),
+            fileSize: realFile.size,
+            count: Math.ceil(realFile.size / this.chunkSize)
+        });
+    },
+
+    _sendChunk: function(file, chunksData) {
+        var chunk = chunksData.blobReader.read();
+        if(chunk) {
+            chunksData.loadedBytes += chunk.blob.size;
+            ajax.sendRequest({
+                url: this.fileUploader.option("uploadUrl"),
+                method: this.fileUploader.option("uploadMethod"),
+                headers: this.fileUploader.option("uploadHeaders"),
+                beforeSend: function(xhr) {
+                    file.request = xhr;
+                },
+                upload: {
+                    "onloadstart": function() {
+                        if(!file.isStartLoad) {
+                            file.isStartLoad = true;
+                            file.onLoadStart.fire();
+                        }
+                    },
+                    "onabort": function() {
+                        file.onAbort.fire();
+                    }
+                },
+                data: this._createFormData({
+                    fileName: chunksData.name,
+                    blobName: this.fileUploader.option("name"),
+                    blob: chunk.blob,
+                    index: chunk.index,
+                    count: chunksData.count,
+                    type: chunksData.type,
+                    guid: chunksData.guid,
+                    size: chunksData.fileSize
+                })
+            }).done(function() {
+                file.onProgress.fire({
+                    loaded: chunksData.loadedBytes,
+                    total: file.value.size
+                });
+
+                if(chunk.isCompleted) {
+                    file.onLoad.fire();
+                }
+                this._sendChunk(file, chunksData);
+            }.bind(this)).fail(function(e) {
+                if(this._isStatusError(e.status)) {
+                    file._isError = true;
+                    file.onError.fire();
+                }
+            }.bind(this));
+        }
+    },
+
+    _createFormData: function(options) {
+        var formData = new window.FormData();
+        formData.append(options.blobName, options.blob);
+        formData.append(FILEUPLOADER_CHUNK_META_DATA_NAME, JSON.stringify({
+            FileName: options.fileName,
+            Index: options.index,
+            TotalCount: options.count,
+            FileSize: options.size,
+            FileType: options.type,
+            FileGuid: options.guid
+        }));
+        return formData;
+    },
+
+    _getEvent: function(e) {
+        return null;
+    }
+});
+
+var WholeFileUploadStrategy = FileUploadStrategyBase.inherit({
+    _uploadCore: function(file) {
+        file.loadedSize = 0;
+        ajax.sendRequest({
+            url: this.fileUploader.option("uploadUrl"),
+            method: this.fileUploader.option("uploadMethod"),
+            headers: this.fileUploader.option("uploadHeaders"),
+            beforeSend: function(xhr) {
+                file.request = xhr;
+            },
+            upload: {
+                "onprogress": function(e) {
+                    if(file._isError) {
+                        return;
+                    }
+
+                    file._isProgressStarted = true;
+                    file.onProgress.fire(e);
+                },
+                "onloadstart": function() {
+                    file.onLoadStart.fire();
+                },
+                "onabort": function() {
+                    file.onAbort.fire();
+                }
+            },
+            data: this._createFormData(this.fileUploader.option("name"), file.value)
+        }).done(function() {
+            file.onLoad.fire();
+        }).fail(function(e) {
+            if(this._isStatusError(e.status) || !file._isProgressStarted) {
+                file._isError = true;
+                file.onError.fire();
+            }
+        }.bind(this));
+    },
+
+    _createFormData: function(fieldName, fieldValue) {
+        var formData = new window.FormData();
+        formData.append(fieldName, fieldValue);
+        return formData;
+    },
+
+    _getLoadedData: function(loaded, total, segmentSize, event) {
+        var result = this.callBase(loaded, total, segmentSize, event);
+        result.event = event;
+        return result;
+    }
+});
 
 registerComponent("dxFileUploader", FileUploader);
 

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     vizMocks = require("../../helpers/vizMocks.js"),
     rendererModule = require("viz/core/renderers/renderer"),
@@ -37,8 +35,6 @@ QUnit.module("RangeSelector", {
 
 // T347971
 QUnit.test("Empty scale is drawn with compact height when 'dataSource' is defined and 'chart' is not", function(assert) {
-
-
     this.$container.dxRangeSelector({
         dataSource: []
     });
@@ -78,9 +74,7 @@ QUnit.test("There is no unexpected incident when 'chart.series' array is empty",
 // T347293
 QUnit.test("There is no error when 'dataSource' is an empty array and scale is discrete datetime", function(assert) {
     var translator = this.axis.getTranslator();
-    translator.updateBusinessRange({
-        stubData: true
-    });
+    translator.updateBusinessRange({});
 
     this.$container.dxRangeSelector({
         scale: {
@@ -94,40 +88,5 @@ QUnit.test("There is no error when 'dataSource' is an empty array and scale is d
     });
 
     assert.deepEqual(this.$container.dxRangeSelector("instance").getValue(), [undefined, undefined]);
-    assert.strictEqual(this.axis.setBusinessRange.lastCall.args[0].stubData, true);
-});
-
-// DEPRECATED IN 17.1 START
-QUnit.test("useTicksAutoArrangement is true", function(assert) {
-    this.$container.dxRangeSelector({
-        scale: {
-            startValue: 0,
-            endValue: 100,
-            useTicksAutoArrangement: true
-        }
-    });
-    assert.equal(this.axis.updateOptions.lastCall.args[0].label.overlappingBehavior.mode, "hide");
-});
-
-QUnit.test("useTicksAutoArrangement is false", function(assert) {
-    this.$container.dxRangeSelector({
-        scale: {
-            startValue: 0,
-            endValue: 100,
-            useTicksAutoArrangement: false
-        }
-    });
-    assert.equal(this.axis.updateOptions.lastCall.args[0].label.overlappingBehavior.mode, "none");
-});
-// DEPRECATED IN 17.1 END
-
-QUnit.test("overlappingBehavior is set", function(assert) {
-    this.$container.dxRangeSelector({
-        scale: {
-            startValue: 0,
-            endValue: 100,
-            label: { overlappingBehavior: "hide" }
-        }
-    });
-    assert.equal(this.axis.updateOptions.lastCall.args[0].label.overlappingBehavior.mode, "hide");
+    assert.strictEqual(this.axis.setBusinessRange.lastCall.args[0].isEmpty(), true);
 });

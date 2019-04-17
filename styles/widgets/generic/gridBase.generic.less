@@ -126,7 +126,7 @@
         line-height: inherit;
 
         .dx-row-alt {
-            & > td {
+            & > td, & > tr > td {
                 background-color: ~"@{@{widgetName}-row-alternation-bg}";
             }
 
@@ -162,8 +162,13 @@
             }
         }
 
-        .dx-row > td {
-            padding: @GENERIC_GRID_BASE_CELL_PADDING;
+        .dx-row {
+            & > td {
+                padding: @GENERIC_GRID_BASE_CELL_PADDING;
+            }
+            & > td.dx-command-adaptive {
+                padding: @GENERIC_GRID_BASE_CELL_PADDING - 2px @GENERIC_GRID_BASE_CELL_PADDING;
+            }
         }
 
         .dx-@{widgetName}-content .dx-@{widgetName}-table .dx-row {
@@ -186,6 +191,14 @@
         .dx-texteditor-input {
             padding: @GENERIC_GRID_BASE_CELL_PADDING;
             min-height: round(@GENERIC_BASE_LINE_HEIGHT * @GENERIC_BASE_FONT_SIZE) + 2 * @GENERIC_GRID_BASE_CELL_PADDING
+        }
+
+        .dx-numberbox, .dx-textbox {
+            &.dx-show-clear-button.dx-texteditor-empty:not(.dx-invalid) {
+                .dx-texteditor-input {
+                    padding-right: @GENERIC_GRID_BASE_CELL_PADDING;
+                }
+            }
         }
 
         .dx-lookup {
@@ -297,11 +310,8 @@
         }
 
         &.dx-checkbox-indeterminate {
-            .dx-checkbox-icon:before {
-                width: 6px;
-                height: 6px;
-                left: 4px;
-                top: 4px;
+            .dx-checkbox-icon {
+                font-size: 6px;
             }
         }
     }
@@ -337,8 +347,8 @@
 
         .dx-overlay-content {
             background-color: ~"@{@{widgetName}-columnchooser-bg}";
-            .border-radius(~"@{@{widgetName}-columnchooser-overlay-border-radius}");
-            .box-shadow(0px 1px 3px ~"@{@{widgetName}-columnchooser-shadow-color}");
+            border-radius: ~"@{@{widgetName}-columnchooser-overlay-border-radius}";
+            box-shadow: 0px 1px 3px ~"@{@{widgetName}-columnchooser-shadow-color}";
 
             .dx-popup-title {
                 padding-top: 7px;
@@ -354,14 +364,14 @@
                     font-weight: ~"@{@{widgetName}-columnchooser-font-weight}";
                     border: ~"@{@{widgetName}-border}";
                     padding: @GENERIC_GRID_BASE_CELL_PADDING;
-                    .box-shadow(0px 1px 3px -1px ~"@{@{widgetName}-columnchooser-shadow-color}");
+                    box-shadow: 0px 1px 3px -1px ~"@{@{widgetName}-columnchooser-shadow-color}";
                 }
             }
         }
     }
 
     .dx-@{widgetName}-drag-header {
-        .box-shadow(@GENERIC_GRID_BASE_DRAG_HEADER_FIRST_SHADOW, @GENERIC_GRID_BASE_DRAG_HEADER_SECOND_SHADOW);
+        box-shadow: @GENERIC_GRID_BASE_DRAG_HEADER_FIRST_SHADOW, @GENERIC_GRID_BASE_DRAG_HEADER_SECOND_SHADOW;
         color: ~"@{@{widgetName}-columnchooser-item-color}";
         font-weight: ~"@{@{widgetName}-columnchooser-font-weight}";
         padding: @GENERIC_GRID_BASE_CELL_PADDING;
@@ -403,11 +413,15 @@
             .dx-command-expand {
                 width: @GENERIC_GRID_BASE_COMMAND_EXPAND_COLUMN_WIDTH;
                 min-width: @GENERIC_GRID_BASE_COMMAND_EXPAND_COLUMN_WIDTH;
+
+                &.dx-@{widgetName}-group-space {
+                    padding-top: @GENERIC_GRID_BASE_CELL_PADDING
+                }
             }
         }
 
         .dx-data-row.dx-state-hover {
-            &:not(.dx-selection):not(.dx-row-inserted):not(.dx-row-removed):not(.dx-edit-row) {
+            &:not(.dx-selection):not(.dx-row-inserted):not(.dx-row-removed):not(.dx-edit-row):not(.dx-row-focused) {
                 & > td:not(.dx-focused) {
                     background-color: ~"@{@{widgetName}-hover-bg}";
                     color: ~"@{@{widgetName}-row-hovered-color}";
@@ -434,7 +448,7 @@
     .dx-@{widgetName}-headers {
         color: ~"@{@{widgetName}-columnchooser-item-color}";
         font-weight: ~"@{@{widgetName}-columnchooser-font-weight}";
-        .touch-action(pinch-zoom);
+        touch-action: pinch-zoom;
         border-bottom: ~"@{@{widgetName}-border}";
 
         .dx-@{widgetName}-content {
@@ -508,7 +522,7 @@
         .dx-overlay-content {
             border: ~"@{@{widgetName}-border}";
             overflow: inherit;
-            .box-shadow(2px 2px 3px ~"@{@{widgetName}-overlay-content-shadow-color}");
+            box-shadow: 2px 2px 3px ~"@{@{widgetName}-overlay-content-shadow-color}";
 
             .dx-editor-container.dx-highlight-outline::after {
                 border-color: ~"@{@{widgetName}-cell-modified-border-color}";
@@ -528,7 +542,7 @@
         }
     }
 
-    &.dx-filter-menu {
+    .dx-filter-menu {
         &.dx-menu {
             background-color: transparent;
             height: 100%;
@@ -568,7 +582,13 @@
         }
 
         .dx-apply-button {
-            .dx-button-styling-variant( @button-success-bg, @button-success-border-color, @button-success-color, @button-success-hover-bg, @button-success-hover-border-color, @button-success-focused-bg, @button-success-focused-border-color, @button-success-active-bg, @button-success-active-border-color, @button-success-color, @button-success-icon-color );
+            .dx-button-styling-variant(
+                @button-success-bg, @button-success-border-color, @button-success-color,
+                darken(@button-success-bg, 10%), @button-success-border-color,
+                darken(@button-success-bg, 15%), @button-success-border-color,
+                darken(@button-success-bg, 20%), @button-success-border-color, @button-success-color,
+                @button-success-color
+            );
         }
     }
 
@@ -622,7 +642,11 @@
     }
 
     .dx-@{widgetName}-rowsview {
-        border-top: ~"@{@{widgetName}-border}";
+
+        .dx-@{widgetName}-borders &,
+        .dx-@{widgetName}-headers + & {
+            border-top: ~"@{@{widgetName}-border}";
+        }
 
         .dx-row {
             border-top: @GENERIC_GRID_BASE_ROW_BORDER;
@@ -705,7 +729,7 @@
         }
 
         .dx-item-modified {
-            .border-radius(@base-border-radius);
+            border-radius: @base-border-radius;
             border: 2px solid ~"@{@{widgetName}-cell-modified-border-color}";
 
             &.dx-adaptive-item-text {
@@ -715,9 +739,47 @@
             }
         }
 
+        .dx-row-focused {
+            &:focus {
+                outline: none;
+            }
+            &.dx-data-row:not(.dx-edit-row) {
+                & > td:not(.dx-focused),
+                & > tr > td:not(.dx-focused),
+                & .dx-command-edit .dx-link {
+                    background-color: ~"@{@{widgetName}-row-focused-bg}";
+                    color: ~"@{@{widgetName}-row-focused-color}";
+
+                    & .dx-@{widgetName}-group-opened,
+                    & .dx-@{widgetName}-group-closed {
+                        color: ~"@{@{widgetName}-row-focused-color}";
+                    }
+                }
+                & > td,
+                & > tr:last-child > td {
+                    border-bottom: 1px solid ~"@{@{widgetName}-focused-border-color}";
+                }
+                &:not(.dx-row-lines) {
+                    & > td, & > tr:first-child > td {
+                        border-top: 1px solid ~"@{@{widgetName}-focused-border-color}";
+                    }
+                }
+            }
+
+            &.dx-group-row {
+                background-color: ~"@{@{widgetName}-row-focused-bg}";
+                color: ~"@{@{widgetName}-row-focused-color}";
+
+                & .dx-@{widgetName}-group-opened,
+                & .dx-@{widgetName}-group-closed {
+                    color: ~"@{@{widgetName}-row-focused-color}";
+                }
+            }
+        }
+
         .dx-selection.dx-row,
         .dx-selection.dx-row:hover {
-            & > td {
+            & > td, & > tr > td {
                 background-color: ~"@{@{widgetName}-selection-bg}";
                 color: ~"@{@{widgetName}-row-selected-color}";
 
@@ -729,25 +791,36 @@
                     border-left-color: ~"@{@{widgetName}-row-selected-border-color}";
                     border-right-color: ~"@{@{widgetName}-row-selected-border-color}";
                 }
+
+                &.dx-focused {
+                    background-color: ~"@{@{widgetName}-base-background-color}";
+                    color: ~"@{@{widgetName}-base-color}";
+                }
+            }
+            &:not(.dx-row-lines):not(.dx-row-focused) {
+                & > td {
+                    border-bottom: 1px solid ~"@{@{widgetName}-selection-bg}";
+                    border-top: 1px solid ~"@{@{widgetName}-selection-bg}";
+                }
+                & > tr:first-child > td {
+                    border-top: 1px solid ~"@{@{widgetName}-selection-bg}";
+                }
+                & > tr:last-child > td {
+                    border-bottom: 1px solid ~"@{@{widgetName}-selection-bg}";
+                }
             }
 
-            & > td.dx-focused {
-                background-color: ~"@{@{widgetName}-base-background-color}";
-                color: ~"@{@{widgetName}-base-color}";
+            &.dx-column-lines {
+                & > td, & > tr > td {
+                    border-left-color: ~"@{@{widgetName}-row-selected-border-color}";
+                    border-right-color: ~"@{@{widgetName}-row-selected-border-color}";
+                }
             }
 
-            &:not(.dx-row-lines) > td {
-                border-bottom: 1px solid ~"@{@{widgetName}-selection-bg}";
-                border-top: 1px solid ~"@{@{widgetName}-selection-bg}";
-            }
-
-            &.dx-column-lines > td {
-                border-left-color: ~"@{@{widgetName}-row-selected-border-color}";
-                border-right-color: ~"@{@{widgetName}-row-selected-border-color}";
-            }
-
-            &.dx-row-lines > td {
-                border-bottom-color: ~"@{@{widgetName}-row-selected-border-color}";
+            &.dx-row-lines {
+                & > td, & > tr > td {
+                    border-bottom-color: ~"@{@{widgetName}-row-selected-border-color}";
+                }
             }
         }
 
@@ -795,7 +868,13 @@
         .dx-revert-button {
             margin: 0px 1px;
             margin-left: 1px;
-            .dx-button-styling-variant( @button-danger-bg, @button-danger-border-color, @button-danger-color, @button-danger-hover-bg, @button-danger-hover-border-color, @button-danger-focused-bg, @button-danger-focused-border-color, @button-danger-active-bg, @button-danger-active-border-color, @button-danger-color, @button-danger-icon-color );
+            .dx-button-styling-variant(
+                @button-danger-bg, @button-danger-border-color, @button-danger-color,
+                darken(@button-danger-bg, 10%), @button-danger-border-color,
+                darken(@button-danger-bg, 15%), @button-danger-border-color,
+                darken(@button-danger-bg, 20%), @button-danger-border-color, @button-danger-color,
+                @button-danger-color
+            );
             > .dx-button-content {
                 padding: @GENERIC_GRID_BASE_CELL_PADDING;
             }
@@ -828,7 +907,7 @@
 
 
         .dx-data-row.dx-state-hover {
-            &:not(.dx-selection):not(.dx-row-inserted):not(.dx-row-removed):not(.dx-edit-row) {
+            &:not(.dx-selection):not(.dx-row-inserted):not(.dx-row-removed):not(.dx-edit-row):not(.dx-row-focused) {
                 & > td:not(.dx-focused) {
                     &.dx-@{widgetName}-group-space {
                         border-left-color: ~"@{@{widgetName}-hover-bg}";
@@ -854,13 +933,13 @@
 
         .dx-@{widgetName}-rowsview {
             .dx-selection.dx-row, .dx-selection.dx-row:hover {
-                & > td:not(.dx-focused) {
-                    &.dx-@{widgetName}-group-space {
-                        border-left-color: ~"@{@{widgetName}-selection-bg}";
+                & > td, & > tr > td {
+                    &:not(.dx-focused) {
+                        &.dx-@{widgetName}-group-space {
+                            border-left-color: ~"@{@{widgetName}-selection-bg}";
+                        }
                     }
-                }
 
-                & > td {
                     border-right-color: ~"@{@{widgetName}-row-selected-border-color}";
 
                     &.dx-pointer-events-none {

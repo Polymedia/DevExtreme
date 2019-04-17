@@ -1,7 +1,5 @@
-"use strict";
-
 var vizUtils = require("../core/utils"),
-    isNumeric = require("../../core/utils/type").isNumeric,
+    isDefined = require("../../core/utils/type").isDefined,
     extend = require("../../core/utils/extend").extend,
     constants = require("./axes_constants"),
     circularAxes,
@@ -41,8 +39,8 @@ function getPolarQuarter(angle) {
 polarAxes = exports;
 
 circularAxes = polarAxes.circular = {
-    _applyMargins: function(range) {
-        return range;
+    _applyMargins: function(dataRange) {
+        return dataRange;
     },
 
     _getTranslatorOptions: function() {
@@ -80,11 +78,10 @@ circularAxes = polarAxes.circular = {
     },
 
     _processCanvas: function(canvas) {
-        var options = this._options;
         this._updateRadius(canvas);
         this._updateCenter(canvas);
 
-        return { left: 0, right: 0, width: _math.abs(options.endAngle - options.startAngle) };
+        return { left: 0, right: 0, width: this._getScreenDelta() };
     },
 
     _createAxisElement: function() {
@@ -104,17 +101,31 @@ circularAxes = polarAxes.circular = {
         return this._options.firstPointOnStartAngle;
     },
 
-    _getMinMax: function() {
-        var options = this._options,
-            min = isNumeric(options.originValue) ? options.originValue : undefined,
-            max;
+    _validateOptions(options) {
+        const that = this;
+        let originValue = options.originValue;
+        const wholeRange = options.wholeRange = {};
+        const period = options.period;
 
-        if(options.period > 0 && options.argumentType === constants.numeric) {
-            min = min || 0;
-            max = min + options.period;
+        if(isDefined(originValue)) {
+            originValue = that._validateUnit(originValue);
         }
 
-        return { min: min, max: max };
+        if(period > 0 && options.argumentType === constants.numeric) {
+            originValue = originValue || 0;
+            wholeRange.endValue = originValue + period;
+            that._viewport = vizUtils.getVizRangeObject([originValue, wholeRange.endValue]);
+        }
+
+        if(isDefined(originValue)) {
+            wholeRange.startValue = originValue;
+        }
+    },
+
+    _setVisualRange: _noop,
+
+    allowToExtendVisualRange(isEnd) {
+        return true;
     },
 
     _getStick: function() {
@@ -147,10 +158,8 @@ circularAxes = polarAxes.circular = {
         };
     },
 
-    _createStrip: function(fromAngle, toAngle, attr) {
-        var coords = this._getStripGraphicAttributes(fromAngle, toAngle);
-
-        return this._renderer.arc(coords.x, coords.y, coords.innerRadius, coords.outerRadius, coords.startAngle, coords.endAngle).attr(attr);
+    _createStrip: function(coords) {
+        return this._renderer.arc(coords.x, coords.y, coords.innerRadius, coords.outerRadius, coords.startAngle, coords.endAngle);
     },
 
     _getStripLabelCoords: function(from, to) {
@@ -195,12 +204,16 @@ circularAxes = polarAxes.circular = {
 
     _checkAlignmentConstantLineLabels: _noop,
 
-    _getScreenDelta: function() {
-        var angles = this.getAngles();
-        return _abs(angles[0] - angles[1]) * this.getRadius() * Math.PI / 180;
+    _adjustDivisionFactor: function(val) {
+        return val * 180 / (this.getRadius() * Math.PI);
     },
 
-    _getTickMarkPoints: function(tick, length) {
+    _getScreenDelta: function() {
+        const angles = this.getAngles();
+        return _math.abs(angles[0] - angles[1]);
+    },
+
+    _getTickMarkPoints: function(coords, length) {
         var center = this.getCenter(),
             corrections = {
                 inside: -1,
@@ -333,7 +346,7 @@ circularAxes = polarAxes.circular = {
         }
 
         if(constants.areLabelsOverlap(boxes[0], boxes[lastVisibleLabelIndex], labelOpt.minSpacing, constants.center)) {
-            labelOpt.overlappingBehavior.hideFirstOrLast === "first" ? majorTicks[0].label.remove() : majorTicks[lastVisibleLabelIndex].label.remove();
+            labelOpt.hideFirstOrLast === "first" ? majorTicks[0].label.remove() : majorTicks[lastVisibleLabelIndex].label.remove();
         }
     },
 
@@ -342,7 +355,7 @@ circularAxes = polarAxes.circular = {
     }
 };
 
-exports.circularSpider = _extend({}, circularAxes, {
+polarAxes.circularSpider = _extend({}, circularAxes, {
     _createAxisElement: function() {
         return this._renderer.path([], "area");
     },
@@ -413,9 +426,8 @@ exports.circularSpider = _extend({}, circularAxes, {
         };
     },
 
-    _createStrip: function(fromAngle, toAngle, attr) {
-        var points = this._getStripGraphicAttributes(fromAngle, toAngle).points;
-        return this._renderer.path(points, "area").attr(attr);
+    _createStrip: function({ points }) {
+        return this._renderer.path(points, "area");
     },
 
     _getTranslatedCoord: function(value, offset) {
@@ -428,7 +440,7 @@ exports.circularSpider = _extend({}, circularAxes, {
 });
 
 polarAxes.linear = {
-    _getMinMax: circularAxes._getMinMax,
+    _setVisualRange: _noop,
     _getStick: xyAxesLinear._getStick,
     _getSpiderCategoryOption: _noop,
 
@@ -466,8 +478,7 @@ polarAxes.linear = {
         return this.getRadius();
     },
 
-    _getTickMarkPoints: function(tick, length) {
-        var coords = tick.coords;
+    _getTickMarkPoints: function(coords, length) {
         return [
             coords.x - length / 2,
             coords.y,
@@ -498,7 +509,7 @@ polarAxes.linear = {
         return function(tick, gridStyle) {
             var grid = that._getGridPoints(tick.coords);
 
-            return that._renderer.circle(grid.x, grid.y, grid.r)
+            return that._renderer.circle(grid.cx, grid.cy, grid.r)
                 .attr(gridStyle)
                 .sharp();
         };
@@ -508,8 +519,8 @@ polarAxes.linear = {
         var pos = this.getCenter();
 
         return {
-            x: pos.x,
-            y: pos.y,
+            cx: pos.x,
+            cy: pos.y,
             r: vizUtils.getDistance(pos.x, pos.y, coords.x, coords.y)
         };
     },
@@ -542,9 +553,8 @@ polarAxes.linear = {
         };
     },
 
-    _createStrip: function(fromPoint, toPoint, attr) {
-        var attrs = this._getStripGraphicAttributes(fromPoint, toPoint);
-        return this._renderer.arc(attrs.x, attrs.y, attrs.innerRadius, attrs.outerRadius, 0, 360).attr(attr);
+    _createStrip: function(attrs) {
+        return this._renderer.arc(attrs.x, attrs.y, attrs.innerRadius, attrs.outerRadius, 0, 360);
     },
 
     _getAdjustedStripLabelCoords: circularAxes._getAdjustedStripLabelCoords,
@@ -648,11 +658,7 @@ polarAxes.linearSpider = _extend({}, polarAxes.linear, {
         };
     },
 
-    _createStrip: function(fromPoint, toPoint, attr) {
-        var points = this._getStripGraphicAttributes(fromPoint, toPoint).points;
-
-        return this._renderer.path(points, "area").attr(attr);
-    },
+    _createStrip: polarAxes.circularSpider._createStrip,
 
     _getConstantLineGraphicAttributes: function(value) {
         return this._getGridPointsByRadius(value);

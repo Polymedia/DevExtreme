@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<style>\
@@ -17,24 +15,26 @@ QUnit.testStart(function() {
 });
 
 
-require("common.css!");
-require("generic_light.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-window.Hogan = require("../../../node_modules/hogan.js/dist/hogan-3.0.2.js");
+import hogan from "../../../node_modules/hogan.js/dist/hogan-3.0.2.js";
 
-var $ = require("jquery"),
-    devices = require("core/devices"),
-    device = devices.real(),
-    browser = require("core/utils/browser"),
-    setTemplateEngine = require("ui/set_template_engine"),
-    nativePointerMock = require("../../helpers/nativePointerMock.js"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    MockColumnsController = dataGridMocks.MockColumnsController,
-    gridCoreUtils = require("ui/grid_core/ui.grid_core.utils"),
+window.Hogan = hogan;
+
+import $ from "jquery";
+import browser from "core/utils/browser";
+import devices from "core/devices";
+import setTemplateEngine from "ui/set_template_engine";
+import nativePointerMock from "../../helpers/nativePointerMock.js";
+import { setupDataGridModules, MockDataController, MockColumnsController } from "../../helpers/dataGridMocks.js";
+import gridCoreUtils from "ui/grid_core/ui.grid_core.utils";
+import dataUtils from "core/element_data";
+import translator from "animation/translator";
+
+var device = devices.real(),
     expandCellTemplate = gridCoreUtils.getExpandCellTemplate();
 
 var generateData = function(countItems) {
@@ -60,7 +60,7 @@ QUnit.module("Fixed columns", {
         var that = this;
 
         that.items = [{ values: ["test4", "test1", "test3", "test5", "test2"], rowType: "data" },
-                        { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" }];
+            { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" }];
 
         that.columns = [
             {
@@ -172,10 +172,13 @@ QUnit.test("Draw fixed table for rowsView", function(assert) {
 
     assert.equal($table.find("tbody > tr").first().find("td").length, 5, "count column");
     assert.strictEqual($cells.first().text(), "test4", "fixed a first column");
+    assert.strictEqual($cells.first().hasClass("dx-hidden-cell"), true, "fixed a first cell is hidden"); // T674528
     assert.strictEqual($cells.eq(1).text(), "test1", "second column");
+    assert.strictEqual($cells.eq(1).hasClass("dx-hidden-cell"), false, "second cell is not hidden");
     assert.strictEqual($cells.eq(2).text(), "test3", "third column");
     assert.strictEqual($cells.eq(3).text(), "test5", "fourth column");
     assert.strictEqual($cells.last().text(), "test2", "fixed a fifth column");
+    assert.strictEqual($cells.last().hasClass("dx-hidden-cell"), true, "fixed a fifth cell is hidden");
 
     $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
     $fixedCells = $fixTable.find("tbody > tr").first().find("td");
@@ -199,8 +202,8 @@ QUnit.test("Draw fixed table for rowsView", function(assert) {
     if(device.platform === "ios") {
         scrollableInstance = $testElement.find(".dx-datagrid-rowsview").dxScrollable("instance");
         assert.ok(scrollableInstance, "has dxScrollable");
-        assert.equal(scrollableInstance.scrollTop(), -1, "scroll top of the main table");
-        assert.equal($fixTable.position().top, 1, "scroll top of the fixed table");
+        assert.equal(scrollableInstance.scrollTop(), 0, "scroll top of the main table");
+        assert.equal($fixTable.position().top, 0, "scroll top of the fixed table");
     }
 });
 
@@ -401,7 +404,7 @@ QUnit.test("RowsView - set column width for fixed table when has scroll", functi
 });
 
 // T290161
-QUnit.testInActiveWindow("Reset scrollTop by fixed table for rowsView", function(assert) {
+QUnit.testInActiveWindow("Not reset scrollTop by fixed table for rowsView", function(assert) {
     // arrange
     var that = this,
         done = assert.async(),
@@ -412,12 +415,12 @@ QUnit.testInActiveWindow("Reset scrollTop by fixed table for rowsView", function
     that.rowsView.height(20);
 
     // act
-    that.rowsView._fixedTableElement.parent().scrollTop(100);
+    that.rowsView._fixedTableElement.parent().scrollTop(30);
 
     // assert
     that.clock.restore();
     setTimeout(function() {
-        assert.equal(that.rowsView._fixedTableElement.parent().scrollTop(), 0, "scrollTop by fixed table");
+        assert.equal(that.rowsView._fixedTableElement.parent().scrollTop(), 30, "scrollTop by fixed table");
         done();
     }, 100);
 });
@@ -451,13 +454,11 @@ QUnit.test("Draw fixed table for rowsView with master detail", function(assert) 
     $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
 
     assert.equal($table.find("tbody > tr").first().find("td").length, 6, "count column");
-    assert.equal($table.find("tbody > tr").eq(1).find("td").length, 2, "count column in master detail row");
-    assert.strictEqual($table.find("tbody > tr").eq(1).find("td").first().html(), "", "text column");
-    assert.strictEqual($table.find("tbody > tr").eq(1).find("td").last().html(), "&nbsp;", "text column");
+    assert.equal($table.find("tbody > tr").eq(1).find("td").length, 1, "count column in master detail row");
+    assert.strictEqual($table.find("tbody > tr").eq(1).find("td").first().html(), "&nbsp;", "text column");
     assert.equal($fixTable.find("tbody > tr").first().find("td").length, 4, "count column");
-    assert.equal($fixTable.find("tbody > tr").eq(1).find("td").length, 2, "count column in master detail row");
-    assert.strictEqual($fixTable.find("tbody > tr").eq(1).find("td").first().text(), "", "text column");
-    assert.strictEqual($fixTable.find("tbody > tr").eq(1).find("td").last().text(), "Test", "text column");
+    assert.equal($fixTable.find("tbody > tr").eq(1).find("td").length, 1, "count column in master detail row");
+    assert.strictEqual($fixTable.find("tbody > tr").eq(1).find("td").first().text(), "Test", "text column");
 });
 
 // T363211
@@ -501,8 +502,8 @@ QUnit.test("Draw fixed table for rowsView with group row", function(assert) {
         $testElement = $("#container");
 
     that.items = [{ rowType: 'group', groupIndex: 0, isExpanded: true, values: ["test4"] },
-                    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
+        { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
+        { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
 
     $.extend(that.columns[0], {
         groupIndex: 0,
@@ -549,11 +550,7 @@ QUnit.test("Draw fixed table for rowsView with group row", function(assert) {
     assert.strictEqual($fixTable.find("tbody > .dx-data-row").first().find("td").eq(0).html(), "&nbsp;", "text a first cell in data row");
     assert.strictEqual($fixTable.find("tbody > .dx-data-row").first().find("td").eq(1).html(), "&nbsp;", "text a second cell in data row");
     assert.equal($fixTable.find("tbody > .dx-data-row").first().find("td").eq(1).attr("colspan"), 3, "colspan a second cell in data row");
-    if(browser.mozilla) {
-        assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("display"), "none", "group cell is visible");
-    } else {
-        assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is visible");
-    }
+    assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is visible");
     assert.strictEqual($fixTable.find("tbody > .dx-data-row").first().find("td").eq(2).text(), "test2", "text a third cell in data row");
 });
 
@@ -578,7 +575,7 @@ QUnit.test("Draw fixed table when scrolling mode infinite", function(assert) {
     var $fixedContent = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed");
     assert.equal($content.length, 1, "main content");
     assert.equal($content.find(".dx-datagrid-bottom-load-panel").length, 1, "main content has bottom load panel");
-    assert.equal($fixedContent.find(".dx-datagrid-bottom-load-panel").length, 0, "fix content no has bottom load panel ");
+    assert.equal($fixedContent.find(".dx-datagrid-bottom-load-panel").length, 1, "fixed content has bottom load panel"); // T642937
 });
 
 // T472955
@@ -657,8 +654,8 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed column in group 
             }
         }]]
     },
-                    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
+    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
+    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
 
     $.extend(that.columns[0], {
         groupIndex: 0,
@@ -690,11 +687,7 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed column in group 
     assert.equal($fixTable.find("tbody > .dx-group-row").find("td").length, 3, "count cell in group row");
     assert.ok($fixTable.find("tbody > .dx-group-row").find("td").first().hasClass("dx-datagrid-expand"), "has expand column in group row");
     assert.strictEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).text(), "Column 4: test4", "text second cell in group row");
-    if(browser.mozilla) {
-        assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("display"), "none", "group cell is visible");
-    } else {
-        assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is visible");
-    }
+    assert.notEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is visible");
     assert.equal($fixTable.find("tbody > .dx-group-row").find("td").eq(1).attr("colspan"), 3, "colspan a second cell in group row");
     assert.strictEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(2).text(), "Column2 Count: 2", "summary value");
 });
@@ -718,8 +711,8 @@ QUnit.test("Draw fixed table for rowsView with summary by unfixed column in grou
             }
         }], []]
     },
-                    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
+    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
+    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
 
     $.extend(that.columns[0], {
         groupIndex: 0,
@@ -754,11 +747,7 @@ QUnit.test("Draw fixed table for rowsView with summary by unfixed column in grou
     assert.equal($cellElements.length, 3, "count cell in group row");
     assert.ok($cellElements.first().hasClass("dx-datagrid-expand"), "has expand column in group row");
     assert.strictEqual($cellElements.eq(1).text(), "Column 4: test4", "text second cell in group row");
-    if(browser.mozilla) {
-        assert.equal($cellElements.eq(1).css("display"), "none", "group cell is visible");
-    } else {
-        assert.equal($cellElements.eq(1).css("visibility"), "hidden", "group cell is visible");
-    }
+    assert.equal($cellElements.eq(1).css("visibility"), "hidden", "group cell is visible");
     assert.equal($cellElements.eq(1).attr("colspan"), 3, "colspan a second cell in group row");
 });
 
@@ -789,8 +778,8 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on left side) a
             }
         }], []]
     },
-                    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
+    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
+    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
 
     that.columns[1].fixed = true;
     that.columns[2].fixed = true;
@@ -817,7 +806,7 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on left side) a
     $cellElements = $groupRow.children();
     assert.equal($cellElements.length, 4, "count cell in group row");
     assert.ok($cellElements.eq(0).hasClass("dx-datagrid-expand"), "first cell in group row");
-    assert.strictEqual($cellElements.eq(1).html(), "Column 4: test4", "text second cell in group row");
+    assert.strictEqual($cellElements.eq(1).html(), "&nbsp;", "text second cell in group row"); // T680701
     assert.equal($cellElements.eq(1).attr("colspan"), 2, "colspan a second cell in group row");
     assert.strictEqual($cellElements.eq(2).text(), "Column5 Max: 4", "summary value");
 
@@ -828,11 +817,7 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on left side) a
     assert.equal($cellElements.length, 4, "count cell in group row");
     assert.ok($cellElements.first().hasClass("dx-datagrid-expand"), "has expand column in group row");
     assert.strictEqual($cellElements.eq(1).text(), "Column 4: test4", "text second cell in group row");
-    if(browser.mozilla) {
-        assert.notEqual($cellElements.eq(1).css("display"), "none", "group cell is visible");
-    } else {
-        assert.notEqual($cellElements.eq(1).css("visibility"), "hidden", "group cell is visible");
-    }
+    assert.notEqual($cellElements.eq(1).css("visibility"), "hidden", "group cell is visible");
     assert.equal($cellElements.eq(1).attr("colspan"), 1, "colspan a second cell in group row");
     assert.strictEqual($cellElements.eq(2).text(), "Column3 Count: 2", "summary value");
     assert.ok($cellElements.eq(3).hasClass("dx-pointer-events-none"), "transparent column");
@@ -866,8 +851,8 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on right side) 
             }
         }]]
     },
-                    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
+    { values: [null, "test1", "test3", "test5", "test2"], rowType: "data" },
+    { values: [null, "test6", "test8", "test10", "test7"], rowType: "data" }];
 
     $.extend(that.columns[0], {
         groupIndex: 0,
@@ -893,7 +878,7 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on right side) 
     assert.strictEqual($table.find("tbody > .dx-group-row").find("td").eq(1).text(), "Column 4: test4", "text second cell in group row");
     assert.equal($table.find("tbody > .dx-group-row").find("td").eq(1).attr("colspan"), 2, "colspan a second cell in group row");
     assert.strictEqual($table.find("tbody > .dx-group-row").find("td").eq(2).text(), "Column1 Max: 4", "summary value");
-    assert.strictEqual($table.find("tbody > .dx-group-row").find("td").last().text(), "Column2 Count: 2", "text third cell in group row");
+    assert.strictEqual($table.find("tbody > .dx-group-row").find("td").last().html(), "&nbsp;", "text third cell in group row"); // T680701
 
     $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
     // group row
@@ -901,11 +886,7 @@ QUnit.test("Draw fixed table for rowsView with summary by fixed (on right side) 
     assert.equal($fixTable.find("tbody > .dx-group-row").find("td").length, 3, "count cell in group row");
     assert.ok($fixTable.find("tbody > .dx-group-row").find("td").first().hasClass("dx-datagrid-expand"), "has expand column in group row");
     assert.strictEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(1).text(), "Column 4: test4", "text second cell in group row");
-    if(browser.mozilla) {
-        assert.equal($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("display"), "none", "group cell is not visible");
-    } else {
-        assert.equal($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is not visible");
-    }
+    assert.equal($fixTable.find("tbody > .dx-group-row").find("td").eq(1).css("visibility"), "hidden", "group cell is not visible");
     assert.equal($fixTable.find("tbody > .dx-group-row").find("td").eq(1).attr("colspan"), 3, "colspan a second cell in group row");
     assert.strictEqual($fixTable.find("tbody > .dx-group-row").find("td").eq(2).text(), "Column2 Count: 2", "summary value");
 });
@@ -1191,9 +1172,9 @@ QUnit.test("Synchronize rows for fixed table with master detail", function(asser
 
     assert.equal($table.find("tbody > tr").length, 4, "count rows");
     assert.equal($fixTable.find("tbody > tr").length, 4, "count fixed rows");
-    assert.ok($table.find("tbody > tr").first().outerHeight() === $fixTable.find("tbody > tr").first().outerHeight(), "height first row");
-    assert.ok($table.find("tbody > tr").eq(1).outerHeight() === $fixTable.find("tbody > tr").eq(1).outerHeight(), "height second row");
-    assert.roughEqual($table.find("tbody > tr").eq(2).outerHeight(), $fixTable.find("tbody > tr").eq(2).outerHeight(), 0.1, "height third row");
+    assert.ok($table.find("tbody > tr")[0].getBoundingClientRect().height === $fixTable.find("tbody > tr")[0].getBoundingClientRect().height, "height first row");
+    assert.ok($table.find("tbody > tr")[1].getBoundingClientRect().height === $fixTable.find("tbody > tr")[1].getBoundingClientRect().height, "height second row");
+    assert.roughEqual($table.find("tbody > tr")[2].getBoundingClientRect().height, $fixTable.find("tbody > tr")[2].getBoundingClientRect().height, 0.1, "height third row");
 });
 
 QUnit.test("Synchronize rows with floating-point height", function(assert) {
@@ -1258,11 +1239,11 @@ QUnit.test("Synchronize position fixed table with main table", function(assert) 
         $testElement = $("#container");
 
     that.items = [{ values: ["test4", "test1", "test3", "test5", "test2"], rowType: "data" },
-                    { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
-                    { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
-                    { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
-                    { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
-                    { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
+        { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
+        { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
+        { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
+        { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
+        { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
 
     that.setupDataGrid();
     that.rowsView.render($testElement);
@@ -1333,7 +1314,7 @@ QUnit.test("Synchronize position fixed table with main table when scrolling mode
         // assert
         assert.ok($fixTable.position().top < 0, "position top is defined");
         assert.ok($table.find(".dx-virtual-row").eq(0).height() > 0, "virtual row has height");
-        assert.equal($fixTable.position().top, (-e.top + $table.find(".dx-virtual-row").eq(0).height()), "fixed table - position top");
+        assert.roughEqual($fixTable.position().top, -e.top, 1.01, "fixed table - position top");
         that.rowsView.scrollChanged.remove(scrollChanged);
         done();
     };
@@ -1347,23 +1328,58 @@ QUnit.test("Synchronize position fixed table with main table when scrolling mode
     scrollableInstance.scrollTo({ y: 20000 });
 });
 
+QUnit.test("Check that fixed column has virtual rows (T642937)", function(assert) {
+    // arrange
+    var that = this,
+        $fixTable,
+        $testElement = $("#container"),
+        fixedColumnsCount,
+        notFixedColumnsCount;
+
+    var dataOptions = {
+        virtualItemsCount: {
+            begin: 1,
+            end: 2
+        }
+    };
+
+    that.setupDataGrid(dataOptions);
+    that.options.scrolling = {
+        mode: "virtual"
+    };
+
+    that.rowsView.render($testElement);
+    that.rowsView.height(50);
+    that.rowsView.resize();
+
+    $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
+    fixedColumnsCount = that.columns.filter(function(element) { return element.fixed; }).length;
+    notFixedColumnsCount = that.columns.filter(function(element) { return !element.fixed; }).length;
+
+    // assert
+    assert.equal($fixTable.find(".dx-virtual-row").eq(0).children("td").length, fixedColumnsCount + 1, "fixed table first virtual row columns count");
+    assert.equal($fixTable.find(".dx-virtual-row").eq(1).children("td").length, fixedColumnsCount + 1, "fixed table last virtual row columns count");
+    assert.equal($fixTable.find(".dx-virtual-row td").eq(1).attr("colspan"), notFixedColumnsCount, "colspan for not fixed columns");
+    assert.equal($fixTable.find(".dx-virtual-row").eq(0).height(), 20, "fixed table first virtual row height");
+    assert.equal($fixTable.find(".dx-virtual-row").eq(1).height(), 40, "fixed table last virtual row height");
+});
+
 if(device.deviceType === "desktop") {
     // T241973
     QUnit.test("Synchronize position main table with fixed table", function(assert) {
         // arrange
         var that = this,
             $fixTable,
-            $table,
             scrollableInstance,
             countCallScrollOffsetChanged = 0,
             $testElement = $("#container");
 
         that.items = [{ values: ["test4", "test1", "test3", "test5", "test2"], rowType: "data" },
-                        { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
-                        { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
-                        { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
-                        { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
-                        { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
+            { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
+            { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
+            { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
+            { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
+            { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
 
         that.setupDataGrid();
         that.rowsView.render($testElement);
@@ -1372,7 +1388,6 @@ if(device.deviceType === "desktop") {
 
 
         $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
-        $table = $testElement.find(".dx-datagrid-rowsview").children(".dx-scrollable-wrapper").find("table").first();
         scrollableInstance = that.rowsView.element().dxScrollable("instance");
 
         that.editorFactoryController.focus($fixTable.find("tr").eq(1).find("td").first());
@@ -1411,7 +1426,6 @@ if(device.deviceType === "desktop") {
         // arrange
         var that = this,
             $fixTable,
-            $table,
             scrollableInstance,
             countCallWheelEventOnDocument = 0,
             countCallScrollOffsetChanged = 0,
@@ -1421,11 +1435,11 @@ if(device.deviceType === "desktop") {
             };
 
         that.items = [{ values: ["test4", "test1", "test3", "test5", "test2"], rowType: "data" },
-                        { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
-                        { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
-                        { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
-                        { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
-                        { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
+            { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
+            { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
+            { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
+            { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
+            { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
 
         that.setupDataGrid();
         that.rowsView.render($testElement);
@@ -1433,7 +1447,6 @@ if(device.deviceType === "desktop") {
         that.rowsView.resize();
 
         $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
-        $table = $testElement.find(".dx-datagrid-rowsview").children(".dx-scrollable-wrapper").find("table").first();
         scrollableInstance = that.rowsView.element().dxScrollable("instance");
 
         // assert
@@ -1469,7 +1482,6 @@ if(device.deviceType === "desktop") {
         // arrange
         var that = this,
             $fixTable,
-            $table,
             scrollableInstance,
             countCallWheelEventOnDocument = 0,
             countCallScrollOffsetChanged = 0,
@@ -1479,11 +1491,11 @@ if(device.deviceType === "desktop") {
             };
 
         that.items = [{ values: ["test4", "test1", "test3", "test5", "test2"], rowType: "data" },
-                        { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
-                        { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
-                        { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
-                        { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
-                        { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
+            { values: ["test9", "test6", "test8", "test10", "test7"], rowType: "data" },
+            { values: ["test14", "test11", "test13", "test15", "test12"], rowType: "data" },
+            { values: ["test19", "test16", "test18", "test20", "test17"], rowType: "data" },
+            { values: ["test24", "test21", "test23", "test25", "test22"], rowType: "data" },
+            { values: ["test29", "test26", "test28", "test30", "test27"], rowType: "data" }];
 
         that.setupDataGrid();
         that.rowsView.render($testElement);
@@ -1491,7 +1503,6 @@ if(device.deviceType === "desktop") {
         that.rowsView.resize();
 
         $fixTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
-        $table = $testElement.find(".dx-datagrid-rowsview").children(".dx-scrollable-wrapper").find("table").first();
         scrollableInstance = that.rowsView.element().dxScrollable("instance");
 
         // assert
@@ -1893,7 +1904,7 @@ QUnit.test("Updating position of the fixed table on refresh grid", function(asse
 
         // assert
         $fixedTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
-        assert.equal($fixedTable.css("top"), "-500px", "scroll top of the fixed table");
+        assert.equal($fixedTable.parent().scrollTop(), 500, "scroll top of the fixed table");
         done();
     });
 });
@@ -1923,18 +1934,52 @@ QUnit.testInActiveWindow("Scrolling to focused cell when it is fixed", function(
 
     var scrollChanged = function(e) {
         that.rowsView.scrollChanged.remove(scrollChanged);
-        scrollTop = -parseFloat($fixedTable.css("top"));
+        scrollTop = $fixedTable.parent().scrollTop();
         assert.ok(scrollTop > 500, "scroll top of the fixed table");
         assert.ok(that.rowsView._scrollTop > 500, "scroll top of the main table");
-        assert.equal(scrollTop, that.rowsView._scrollTop, "scroll top of the fixed table equal scroll top of the main table");
         done();
     };
 
     that.rowsView.scrollChanged.add(scrollChanged);
     // act
     that.keyboardNavigationController.focus($cell);
-
 });
+
+if(browser.mozilla) {
+    QUnit.testInActiveWindow("Scrolling should performs with delay if FF and columnFixing.enabled", function(assert) {
+        // arrange
+        var that = this,
+            $cell,
+            $fixedTable,
+            done = assert.async(),
+            $testElement = $("#container");
+
+        that.clock.restore();
+        that.items = generateData(20);
+        that.options.scrolling = {
+            pushBackValue: 0 // for ios devices
+        };
+        that.setupDataGrid();
+        that.rowsView.render($testElement);
+        that.rowsView.height(100);
+        that.rowsView.resize();
+
+        $fixedTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
+        $cell = $fixedTable.find("tbody > tr:not(.dx-freespace-row)").last().children().first();
+
+        var dateStart = new Date(),
+            scrollChanged = function(e) {
+                that.rowsView.scrollChanged.remove(scrollChanged);
+                assert.ok(new Date() - dateStart >= 60, "scrolling has delay");
+                done();
+            };
+
+        that.rowsView.scrollChanged.add(scrollChanged);
+
+        // act
+        that.keyboardNavigationController.focus($cell);
+    });
+}
 
 QUnit.test("getFixedColumnElements", function(assert) {
     // arrange
@@ -1982,7 +2027,7 @@ QUnit.test("Updating position of the fixed table (when scrollbar at the bottom) 
         positionTop = $fixedTable.position().top;
 
         // act
-        $testElement.find(".dx-data-row").eq(1).remove();  // remove second row of the main table
+        $testElement.find(".dx-data-row").eq(1).remove(); // remove second row of the main table
         $testElement.find(".dx-data-row").eq(20).remove(); // remove second row of the fixed table
         that.rowsView.resize();
 
@@ -1990,6 +2035,43 @@ QUnit.test("Updating position of the fixed table (when scrollbar at the bottom) 
         assert.ok($fixedTable.position().top !== positionTop, "scroll top of the fixed table is changed");
         done();
     });
+});
+
+// T722330
+QUnit.test("Elastic scrolling should be applied for fixed table", function(assert) {
+    // arrange
+    var that = this,
+        $fixedTable,
+        $testElement = $("#container");
+
+    that.setupDataGrid();
+    that.rowsView.render($testElement);
+    that.rowsView.resize();
+    that.rowsView.height(50);
+
+    // act
+    that.rowsView._handleScroll({
+        component: that.rowsView.getScrollable(),
+        scrollOffset: {
+            top: 350
+        },
+        reachedBottom: true
+    });
+
+    // assert
+    $fixedTable = $testElement.find(".dx-datagrid-rowsview").children(".dx-datagrid-content-fixed").find("table");
+    assert.roughEqual(translator.getTranslate($fixedTable).y, -330, 10);
+
+    // act
+    that.rowsView._handleScroll({
+        component: that.rowsView.getScrollable(),
+        scrollOffset: {
+            top: 10
+        }
+    });
+
+    // assert
+    assert.ok(!$fixedTable[0].style.transform);
 });
 
 QUnit.module("Headers reordering and resizing with fixed columns", {
@@ -2897,4 +2979,168 @@ QUnit.test("Draw fixed band columns with master detail", function(assert) {
     assert.ok(!$cells.eq(0).hasClass("dx-last-cell"), "transparent column hasn't 'dx-last-cell' class");
     assert.strictEqual($cells.eq(1).text(), "Column 1", "text of the second column");
     assert.strictEqual($cells.eq(2).text(), "Column 2", "text of the third column");
+});
+
+QUnit.module("Fixed columns with real dataController and columnController", {
+    beforeEach: function() {
+        var that = this;
+
+        that.options = {
+            loadingTimeout: undefined,
+            keyExpr: "id",
+            columns: [{ dataField: "field1", fixed: true }, "field2", "field3", "field4"],
+            dataSource: [
+                { id: 1, field1: 1, field2: "test2", field3: 3, field4: 4 },
+                { id: 2, field1: 5, field2: "test6", field3: 7, field4: 8 },
+                { id: 3, field1: 9, field2: "test10", field3: 11, field4: 12 },
+                { id: 4, field1: 13, field2: "test14", field3: 15, field4: 16 },
+                { id: 5, field1: 17, field2: "test18", field3: 19, field4: 20 }
+            ]
+        };
+
+        that.setupDataGrid = function() {
+            setupDataGridModules(that, ["data", "columns", "rows", "columnFixing", "masterDetail", "editorFactory", "grouping"], {
+                initViews: true
+            });
+        };
+    },
+    afterEach: function() {
+        this.dispose();
+    }
+});
+
+// T624538
+QUnit.test("Scroll top should be correct after expanding master detail", function(assert) {
+    // arrange
+    var that = this,
+        scrollable,
+        $testElement = $("#container");
+
+    that.options.scrolling = {
+        useNative: false
+    };
+    that.options.masterDetail = {
+        enabled: true,
+        template: function(container, options) {
+            $(container).append($("<div/>").width(900).height("300"));
+        }
+    };
+
+    that.setupDataGrid();
+    that.rowsView.render($testElement);
+    that.rowsView.height(440);
+    that.rowsView.resize();
+
+    that.expandRow(1); // expand detail of the first row
+
+    that.rowsView.resize();
+
+    scrollable = that.rowsView.getScrollable();
+    scrollable.update();
+    scrollable.scrollTo({ top: 100 }); // scroll down
+
+    // act
+    that.expandRow(4); // expand detail of the fourth row
+    that.rowsView.resize();
+
+    // assert
+    assert.ok(scrollable.scrollTop() > 0, "scroll top");
+});
+
+QUnit.test("'getCellElement' function return group cell from correct table", function(assert) {
+    // arrange
+    var isCellFromFixedTable = function($cell) {
+        return $cell && !!$cell.closest(".dx-datagrid-content-fixed").length;
+    };
+
+    var $testElement = $("#container");
+
+    this.options.columns[0].fixedPosition = "right";
+    this.options.columns[1] = { dataField: "field2", groupIndex: 0 };
+
+    this.setupDataGrid();
+    this.rowsView.render($testElement);
+
+    // act, assert
+    assert.ok(isCellFromFixedTable($(this.getCellElement(0, 0))), "fixed cell");
+    assert.ok(isCellFromFixedTable($(this.getCellElement(0, 1))), "fixed cell");
+});
+
+QUnit.test("Fixed column widths should be correct when the group cell position is specified", function(assert) {
+    // arrange
+    var $testElement = $("#container"),
+        $colElements;
+
+    this.options.grouping = { allowCollapsing: true };
+    this.options.columns[2] = { dataField: "field3", groupIndex: 0 };
+    this.options.columns.splice(1, 0, {
+        type: "groupExpand"
+    });
+
+    this.setupDataGrid();
+    this.rowsView.render($testElement);
+
+    // act
+    this.rowsView.setColumnWidths([100, 30, 150, 100]);
+    this.rowsView.resize();
+
+    // assert
+    $colElements = $testElement.find(".dx-datagrid-rowsview .dx-datagrid-content-fixed col");
+    assert.strictEqual($colElements.length, 4, "col count");
+    assert.strictEqual($colElements[0].style.width, "100px", "width of the first col");
+    assert.strictEqual($colElements[1].style.width, "30px", "width of the second col");
+    assert.strictEqual($colElements[2].style.width, "auto", "width of the third col");
+    assert.strictEqual($colElements[3].style.width, "auto", "width of the fourth col");
+});
+
+QUnit.test("The cells option of row should be correct when there are fixed columns", function(assert) {
+    // arrange
+    var cells,
+        rowElement,
+        cellElements,
+        fixedRowElement,
+        $testElement = $("#container");
+
+    this.setupDataGrid();
+
+    // act
+    this.rowsView.render($testElement);
+
+    // assert
+
+    // Combined cells (fixed + not fixed)
+    cells = this.getVisibleRows()[0].cells;
+    cellElements = this.rowsView.getCellElements(0);
+    assert.strictEqual(cells.length, 4, "cell count");
+    assert.strictEqual(cells[0].column.dataField, "field1", "first cell");
+    assert.deepEqual($(cells[0].cellElement)[0], cellElements[0], "first cell element");
+    assert.strictEqual(cells[1].column.dataField, "field2", "second cell");
+    assert.deepEqual($(cells[1].cellElement)[0], cellElements[1], "second cell element");
+    assert.strictEqual(cells[2].column.dataField, "field3", "third cell");
+    assert.deepEqual($(cells[2].cellElement)[0], cellElements[2], "third cell element");
+    assert.strictEqual(cells[3].column.dataField, "field4", "fourth cell");
+    assert.deepEqual($(cells[3].cellElement)[0], cellElements[3], "fourth cell element");
+
+    // Not fixed cells
+    rowElement = this.getRowElement(0)[0];
+    cells = dataUtils.data(rowElement, "options").cells;
+    cellElements = $(rowElement).children();
+    assert.strictEqual(cells.length, 4, "cell count");
+    assert.strictEqual(cells[0].column.dataField, "field1", "first cell");
+    assert.deepEqual($(cells[0].cellElement)[0], cellElements[0], "first cell element");
+    assert.strictEqual(cells[1].column.dataField, "field2", "second cell");
+    assert.deepEqual($(cells[1].cellElement)[0], cellElements[1], "second cell element");
+    assert.strictEqual(cells[2].column.dataField, "field3", "third cell");
+    assert.deepEqual($(cells[2].cellElement)[0], cellElements[2], "third cell element");
+    assert.strictEqual(cells[3].column.dataField, "field4", "fourth cell");
+    assert.deepEqual($(cells[3].cellElement)[0], cellElements[3], "fourth cell element");
+
+    // Fixed cells
+    fixedRowElement = this.getRowElement(0)[1];
+    cells = dataUtils.data(fixedRowElement, "options").cells;
+    cellElements = $(fixedRowElement).children();
+    assert.strictEqual(cells.length, 2, "cell count");
+    assert.strictEqual(cells[0].column.dataField, "field1", "first cell");
+    assert.deepEqual($(cells[0].cellElement)[0], cellElements[0], "first cell element");
+    assert.strictEqual(cells[1].column.command, "transparent", "transparent cell");
 });

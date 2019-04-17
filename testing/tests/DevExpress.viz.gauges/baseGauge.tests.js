@@ -1,5 +1,3 @@
-"use strict";
-
 /* global currentTest */
 
 var $ = require("jquery"),
@@ -165,7 +163,7 @@ QUnit.test("Components disposing", function(assert) {
 
     this.$container.remove();
 
-    assert.ok(this.renderer.dispose.called, "renderer");    // Should it be tester here?
+    assert.ok(this.renderer.dispose.called, "renderer"); // Should it be tester here?
     assert.deepEqual(this.themeManager.stub("dispose").lastCall.args, [], "theme manager");
     assert.deepEqual(this.tracker.stub("dispose").lastCall.args, [], "tracker");
     assert.deepEqual(this.title.stub("dispose").lastCall.args, [], "title");
@@ -323,19 +321,6 @@ QUnit.test("T305684. Subtitle is single text", function(assert) {
     assert.deepEqual(this.title.update.getCall(0).args[0], { text: "Test", subtitle: { text: "Test2" } });
 });
 
-QUnit.test("T305684. Deprecated subtitle", function(assert) {
-    this.createGauge({
-        subtitle: "Test3",
-        title: {
-            text: "Test",
-            subtitle: "Test2"
-        }
-    });
-    vizMocks.forceThemeOptions(this.themeManager);
-
-    assert.deepEqual(this.title.update.getCall(0).args[0], { text: "Test", subtitle: { text: "Test3" } });
-});
-
 QUnit.test("Title is not rendered when text is empty", function(assert) {
     this.title._boundingRect = null;
     this.createGauge({});
@@ -461,7 +446,7 @@ QUnit.test("no options", function(assert) {
 });
 
 QUnit.test("format and precision", function(assert) {
-    assert.strictEqual(formatValue(0.135467, { format: "fixedPoint", precision: 2 }), "0.14");
+    assert.strictEqual(formatValue(0.135467, { format: { type: "fixedPoint", precision: 2 } }), "0.14");
 });
 
 QUnit.test("customizeText", function(assert) {
@@ -476,7 +461,7 @@ QUnit.test("customizeText is not a function", function(assert) {
 
 QUnit.test("format, precision and customizeText", function(assert) {
     assert.deepEqual(formatValue(0.135467, {
-        format: "fixedPoint", precision: 2,
+        format: { type: "fixedPoint", precision: 2 },
         customizeText: function() { return this.value.toString() + "###" + this.valueText; }
     }), "0.135467###0.14");
 });

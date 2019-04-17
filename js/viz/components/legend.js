@@ -1,5 +1,3 @@
-"use strict";
-
 var vizUtils = require("../core/utils"),
     extend = require("../../core/utils/extend").extend,
     _each = require("../../core/utils/iterator").each,
@@ -403,8 +401,7 @@ extend(legendPrototype, {
             renderer = that._renderer,
             bBox,
             maxBBoxHeight = 0,
-            // "markerType" is not documented but lived long enough so should be considered deprecated.
-            createMarker = getMarkerCreator(options.markerShape || options.markerType /* DEPRECATED_16_1 */);
+            createMarker = getMarkerCreator(options.markerShape);
 
         that._markersId = {};
 
@@ -415,7 +412,7 @@ extend(legendPrototype, {
                 normalState = stateOfDataItem.normal,
                 normalStateFill = normalState.fill,
                 marker = createMarker(renderer, markerSize)
-                    .attr({ fill: normalStateFill || options.markerColor, opacity: normalState.opacity })
+                    .attr({ fill: normalStateFill || options.markerColor || options.defaultColor, opacity: normalState.opacity })
                     .append(group),
                 label = that._createLabel(dataItem, group),
                 states = {
@@ -431,7 +428,7 @@ extend(legendPrototype, {
 
             bBox = getSizeItem(options, markerSize, labelBBox);
             maxBBoxHeight = _max(maxBBoxHeight, bBox.height);
-            that._createHint(dataItem, label);
+            that._createHint(dataItem, label, marker);
 
             return {
                 label: label,
@@ -515,11 +512,12 @@ extend(legendPrototype, {
             .append(group);
     },
 
-    _createHint: function(data, label) {
+    _createHint: function(data, label, marker) {
         var labelFormatObject = this._getCustomizeObject(data),
             text = this._options.customizeHint.call(labelFormatObject, labelFormatObject);
         if(_isDefined(text) && text !== "") {
             label.setTitle(text);
+            marker.setTitle(text);
         }
     },
 

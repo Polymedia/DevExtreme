@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../../core/class"),
     extend = require("../../core/utils/extend").extend,
     typeUtils = require("../../core/utils/type"),
@@ -100,6 +98,10 @@ exports.BaseThemeManager = Class.inherit({// TODO: test hack
 
     createGradientPalette: function(palette) {
         return new paletteModule.GradientPalette(palette, this._defaultPalette);
+    },
+
+    getAccentColor: function(palette) {
+        return paletteModule.getAccentColor(palette, this._defaultPalette);
     },
 
     _initializeTheme: function() {

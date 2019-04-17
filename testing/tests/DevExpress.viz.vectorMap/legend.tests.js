@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     vizMocks = require("../../helpers/vizMocks.js"),
@@ -60,8 +58,8 @@ QUnit.module('Legend', {
         this.legend.dispose();
     },
 
-    updateData: function(values, partition) {
-        this.bind.lastCall.args[2]({ partition: partition || [], values: values });
+    updateData: function(values, partition, color) {
+        this.bind.lastCall.args[2]({ partition: partition || [], values: values, defaultColor: color });
     }
 });
 
@@ -80,7 +78,7 @@ QUnit.test('creation', function(assert) {
 
 QUnit.test('disposing', function(assert) {
     this.legend.dispose();
-    this.legend.dispose = noop;   // To prevent exception on teardown
+    this.legend.dispose = noop; // To prevent exception on teardown
 
     assert.deepEqual(this.removeItem.lastCall.args, [this.legend], 'removed from layout');
     assert.strictEqual(this.unbind.lastCall, null, 'unbind');
@@ -90,7 +88,7 @@ QUnit.test('disposing', function(assert) {
 
 QUnit.test('disposing / with unbinding', function(assert) {
     this.legend.setOptions(this.options).dispose();
-    this.legend.dispose = noop;   // To prevent exception on teardown
+    this.legend.dispose = noop; // To prevent exception on teardown
 
     assert.deepEqual(this.removeItem.lastCall.args, [this.legend], 'removed from layout');
     assert.deepEqual(this.unbind.lastCall.args, ['test-source', 'test-field', this.bind.lastCall.args[2]], 'unbind');
@@ -100,14 +98,6 @@ QUnit.test('setOptions', function(assert) {
     this.legend.setOptions(this.options);
 
     assert.deepEqual(this.bind.lastCall.args, ['test-source', 'test-field', this.bind.lastCall.args[2]], 'bind');
-    assert.deepEqual(this.updateLayout.lastCall.args, [], 'layout');
-});
-
-QUnit.test('setOptions / deprecated', function(assert) {
-    this.options.source = "areacolorgroups";
-    this.legend.setOptions(this.options);
-
-    assert.deepEqual(this.bind.lastCall.args, ['areas', 'color', this.bind.lastCall.args[2]], 'bind');
     assert.deepEqual(this.updateLayout.lastCall.args, [], 'layout');
 });
 
@@ -128,6 +118,15 @@ QUnit.test('data callback', function(assert) {
 
     assert.strictEqual(this.renderer.rect.callCount, 3, 'items');
     assert.deepEqual(this.updateLayout.lastCall.args, [], 'layout');
+});
+
+QUnit.test('Pass default layer color for markers', function(assert) {
+    this.legend.setOptions(this.options);
+
+    this.updateData([1, 2], [], "default color");
+
+    assert.strictEqual(this.renderer.rect.getCall(0).returnValue.attr.getCall(0).args[0].fill, "default color");
+    assert.strictEqual(this.renderer.rect.getCall(1).returnValue.attr.getCall(0).args[0].fill, "default color");
 });
 
 QUnit.test('customizeText format object', function(assert) {
@@ -295,7 +294,7 @@ QUnit.test("dispose", function(assert) {
     this.legendsControl.setOptions(options);
 
     this.legendsControl.dispose();
-    this.legendsControl.dispose = noop;   // To prevent exception on teardown
+    this.legendsControl.dispose = noop; // To prevent exception on teardown
 
     $.each(StubLegend.items, function(i, legend) {
         assert.deepEqual(legend.dispose.lastCall.args, [], 'dispose ' + i);

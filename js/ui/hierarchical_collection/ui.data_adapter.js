@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../../core/class"),
     commonUtils = require("../../core/utils/common"),
     iteratorUtils = require("../../core/utils/iterator"),
@@ -7,6 +5,7 @@ var Class = require("../../core/class"),
     typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
     errors = require("../../ui/widget/ui.errors"),
+    getOperationBySearchMode = require("../../ui/widget/ui.search_box_mixin").getOperationBySearchMode,
     inArray = require("../../core/utils/array").inArray,
     query = require("../../data/query"),
     storeHelper = require("../../data/store_helper"),
@@ -91,7 +90,7 @@ var DataAdapter = Class.inherit({
                 return;
             }
 
-            if(!!node.internalFields[property]) {
+            if(node.internalFields[property]) {
                 if(property === EXPANDED || that.options.multipleSelection) {
                     array.push(node.internalFields.key);
                 } else {
@@ -401,15 +400,22 @@ var DataAdapter = Class.inherit({
         }
 
         var that = this,
+            lastSelectedKey = that._selectedNodesKeys[that._selectedNodesKeys.length - 1],
             dataStructure = that._isSingleModeUnselect(state) ? this._initialDataStructure : this._dataStructure;
-        each(dataStructure, function(_, node) {
+
+        each(dataStructure, function(index, node) {
             if(!that._isNodeVisible(node)) {
                 return;
             }
 
             that._setFieldState(node, SELECTED, state);
         });
+
         that._selectedNodesKeys = that._updateNodesKeysArray(SELECTED);
+
+        if(!state && that.options.selectionRequired) {
+            that.toggleSelection(lastSelectedKey, true);
+        }
     },
 
     isAllSelected: function() {
@@ -448,7 +454,8 @@ var DataAdapter = Class.inherit({
 
     _filterDataStructure: function(filterValue, dataStructure) {
         var selector = this.options.searchExpr || this.options.dataAccessors.getters.display,
-            criteria = this._createCriteria(selector, filterValue, this.options.searchMode);
+            operation = getOperationBySearchMode(this.options.searchMode),
+            criteria = this._createCriteria(selector, filterValue, operation);
 
         dataStructure = dataStructure || this._initialDataStructure;
 

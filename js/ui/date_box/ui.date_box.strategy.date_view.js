@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     window = require("../../core/utils/window").getWindow(),
     DateView = require("./ui.date_view"),
@@ -26,6 +24,8 @@ var DateViewStrategy = DateBoxStrategy.inherit({
     },
 
     popupConfig: function(config) {
+        var themeName = themes.current();
+
         return {
             showTitle: true,
             toolbarItems: this.dateBox._popupToolbarItemsConfig(),
@@ -50,8 +50,7 @@ var DateViewStrategy = DateBoxStrategy.inherit({
                 },
                 {
                     device: function() {
-                        var currentTheme = (themes.current() || "").split(".")[0];
-                        return currentTheme === "win8";
+                        return themes.isWin8(themeName);
                     },
                     options: {
                         fullScreen: true
@@ -94,8 +93,7 @@ var DateViewStrategy = DateBoxStrategy.inherit({
                 },
                 {
                     device: function(device) {
-                        var currentTheme = (themes.current() || "").split(".")[0];
-                        return device.phone && currentTheme === "win10";
+                        return device.phone && themes.isWin10(themeName);
                     },
                     options: {
                         width: 333,
@@ -147,7 +145,7 @@ var DateViewStrategy = DateBoxStrategy.inherit({
         return {
             value: this.dateBoxValue() || new Date(),
             type: this.dateBox.option("type"),
-            minDate: this.dateBox.dateOption("min") || new Date(1900, 1, 1),
+            minDate: this.dateBox.dateOption("min") || new Date(1900, 0, 1),
             maxDate: this.dateBox.dateOption("max") || new Date(Date.now() + 50 * dateUtils.ONE_YEAR),
             onDisposing: (function() {
                 this._widget = null;

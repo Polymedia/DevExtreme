@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     registerComponent = require("../../core/component_registrator"),
     each = require("../../core/utils/iterator").each,
@@ -72,6 +70,8 @@ var ToolbarMenu = List.inherit({
         if(item.widget === "dxButton") {
             itemElement.addClass(TOOLBAR_HIDDEN_BUTTON_CLASS);
         }
+
+        itemElement.addClass(item.cssClass);
 
         return itemElement;
     },

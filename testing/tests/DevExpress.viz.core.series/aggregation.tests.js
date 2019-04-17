@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 
@@ -252,7 +250,6 @@ QUnit.module("Aggregation methods", {
                     }
                 };
             },
-            getViewport() { },
             calculateInterval: function() {
                 return 1;
             }

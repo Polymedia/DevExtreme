@@ -1,53 +1,43 @@
-"use strict";
+import $ from "jquery";
+import { isRenderer } from "core/utils/type";
+import devices from "core/devices";
+import config from "core/config";
+import renderer from "core/renderer";
+import fields from "../../../helpers/filterBuilderTestData.js";
 
-var $ = require("jquery"),
-    isRenderer = require("core/utils/type").isRenderer,
-    devices = require("core/devices"),
-    config = require("core/config"),
-    fields = require("../../../helpers/filterBuilderTestData.js");
+import "ui/filter_builder/filter_builder";
+import "ui/drop_down_box";
+import "ui/button";
 
-require("ui/filter_builder/filter_builder");
-require("ui/drop_down_box");
-require("ui/button");
+import {
+    FILTER_BUILDER_ITEM_FIELD_CLASS,
+    FILTER_BUILDER_ITEM_OPERATION_CLASS,
+    FILTER_BUILDER_ITEM_VALUE_CLASS,
+    FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS,
+    FILTER_BUILDER_OVERLAY_CLASS,
+    FILTER_BUILDER_GROUP_OPERATION_CLASS,
+    FILTER_BUILDER_IMAGE_ADD_CLASS,
+    FILTER_BUILDER_IMAGE_REMOVE_CLASS,
+    FILTER_BUILDER_RANGE_CLASS,
+    FILTER_BUILDER_RANGE_START_CLASS,
+    FILTER_BUILDER_RANGE_END_CLASS,
+    FILTER_BUILDER_RANGE_SEPARATOR_CLASS,
+    ACTIVE_CLASS,
+    FILTER_BUILDER_MENU_CUSTOM_OPERATION_CLASS,
+    TREE_VIEW_CLASS,
+    TREE_VIEW_ITEM_CLASS,
+    DISABLED_STATE_CLASS
+} from "./constants.js";
 
-var
-    FILTER_BUILDER_CLASS = "dx-filterbuilder",
-    FILTER_BUILDER_ITEM_FIELD_CLASS = FILTER_BUILDER_CLASS + "-item-field",
-    FILTER_BUILDER_ITEM_OPERATION_CLASS = FILTER_BUILDER_CLASS + "-item-operation",
-    FILTER_BUILDER_ITEM_VALUE_CLASS = FILTER_BUILDER_CLASS + "-item-value",
-    FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS = FILTER_BUILDER_CLASS + "-item-value-text",
-    FILTER_BUILDER_OVERLAY_CLASS = FILTER_BUILDER_CLASS + "-overlay",
-    FILTER_BUILDER_GROUP_OPERATION_CLASS = FILTER_BUILDER_CLASS + "-group-operation",
-    FILTER_BUILDER_IMAGE_ADD_CLASS = "dx-icon-plus",
-    FILTER_BUILDER_IMAGE_REMOVE_CLASS = "dx-icon-remove",
-    FILTER_BUILDER_RANGE_CLASS = FILTER_BUILDER_CLASS + "-range",
-    FILTER_BUILDER_RANGE_START_CLASS = FILTER_BUILDER_RANGE_CLASS + "-start",
-    FILTER_BUILDER_RANGE_END_CLASS = FILTER_BUILDER_RANGE_CLASS + "-end",
-    FILTER_BUILDER_RANGE_SEPARATOR_CLASS = FILTER_BUILDER_RANGE_CLASS + "-separator",
-    ACTIVE_CLASS = "dx-state-active",
-    FILTER_BUILDER_MENU_CUSTOM_OPERATION_CLASS = FILTER_BUILDER_CLASS + "-menu-custom-operation";
-
-var getSelectedMenuText = function() {
-    return $(".dx-treeview-node.dx-state-selected").text();
-};
-
-var clickByOutside = function() {
-    $("body").trigger("dxpointerdown"); // use dxpointerdown because T600142
-};
-
-var clickByValue = function(index) {
-    $("." + FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS).eq(index || 0).trigger("dxclick");
-};
-
-var selectMenuItem = function(menuItemIndex) {
-    $(".dx-treeview-item").eq(menuItemIndex).trigger("dxclick");
-};
-
-var clickByButtonAndSelectMenuItem = function($button, menuItemIndex) {
-    $button.trigger("dxclick");
-    selectMenuItem(menuItemIndex);
-    $(".dx-treeview-item").eq(menuItemIndex).trigger("dxclick");
-};
+import {
+    getSelectedMenuText,
+    getFilterBuilderGroups,
+    getFilterBuilderItems,
+    clickByOutside,
+    clickByValue,
+    selectMenuItem,
+    clickByButtonAndSelectMenuItem
+} from "./helpers.js";
 
 QUnit.module("Rendering", function() {
     QUnit.test("field menu test", function(assert) {
@@ -68,7 +58,7 @@ QUnit.module("Rendering", function() {
         var $fieldButton = container.find("." + FILTER_BUILDER_ITEM_FIELD_CLASS);
         $fieldButton.trigger("dxclick");
 
-        var $menuItem = $(".dx-treeview-item").eq(1);
+        var $menuItem = $(`.${TREE_VIEW_ITEM_CLASS}`).eq(1);
         assert.equal($menuItem.text(), "Budget");
     });
 
@@ -103,7 +93,7 @@ QUnit.module("Rendering", function() {
         var $fieldButton = container.find("." + FILTER_BUILDER_ITEM_OPERATION_CLASS);
         $fieldButton.trigger("dxclick");
 
-        var $customItems = $(".dx-treeview").find("." + FILTER_BUILDER_MENU_CUSTOM_OPERATION_CLASS);
+        var $customItems = $(`.${TREE_VIEW_CLASS}`).find("." + FILTER_BUILDER_MENU_CUSTOM_OPERATION_CLASS);
         assert.equal($customItems.length, 1, "one custom");
         assert.equal($customItems.text(), "Is between", "between is custom");
     });
@@ -125,7 +115,7 @@ QUnit.module("Rendering", function() {
 
         assert.ok($(".dx-filterbuilder-fields").length > 0);
 
-        var $menuItem = $(".dx-treeview-item").eq(2);
+        var $menuItem = $(`.${TREE_VIEW_ITEM_CLASS}`).eq(2);
         assert.equal($menuItem.text(), "State");
         $menuItem.trigger("dxclick");
         assert.equal($fieldButton.html(), "State");
@@ -168,7 +158,7 @@ QUnit.module("Rendering", function() {
         var $fieldButton = container.find("." + FILTER_BUILDER_ITEM_FIELD_CLASS);
         $fieldButton.trigger("dxclick");
 
-        var $menuItem = $(".dx-treeview-item").eq(5);
+        var $menuItem = $(`.${TREE_VIEW_ITEM_CLASS}`).eq(5);
         $menuItem.trigger("dxclick");
 
         assert.equal($fieldButton.html(), "City");
@@ -245,6 +235,38 @@ QUnit.module("Rendering", function() {
         assert.equal(getSelectedMenuText(), "Is greater than");
     });
 
+    // T704561
+    QUnit.test("check menu correct maxHeight & position", function(assert) {
+        var container = $("#container");
+
+        container.dxFilterBuilder({
+            value: [
+                ["Date", "=", ""]
+            ],
+            fields: fields
+        });
+
+        var scrollTop = sinon.stub(renderer.fn, "scrollTop").returns(100),
+            windowHeight = sinon.stub(renderer.fn, "innerHeight").returns(300),
+            offset = sinon.stub(renderer.fn, "offset").returns({ left: 0, top: 200 });
+
+        var $operationButton = container.find("." + FILTER_BUILDER_ITEM_OPERATION_CLASS);
+        $operationButton.trigger("dxclick");
+
+        try {
+            var popup = container.find(".dx-overlay").dxPopup("instance"),
+                maxHeight = popup.option("maxHeight"),
+                positionCollision = popup.option("position.collision");
+
+            assert.ok(Math.floor(maxHeight()) < windowHeight(), "maxHeight is correct");
+            assert.equal(positionCollision, "flip", "collision is correct");
+        } finally {
+            scrollTop.restore();
+            windowHeight.restore();
+            offset.restore();
+        }
+    });
+
     // T588221
     QUnit.testInActiveWindow("click by dropdownbox specified editorTemplate", function(assert) {
         var container = $("#container"),
@@ -295,27 +317,6 @@ QUnit.module("Rendering", function() {
         clickByOutside();
 
         assert.equal($("." + FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS).text(), VALUE);
-    });
-
-    QUnit.test("Add and remove condition", function(assert) {
-        var container = $("#container"),
-            instance = container.dxFilterBuilder({
-                allowHierarchicalFields: true,
-                value: ["State", "<>", "Test"],
-                fields: fields
-            }).dxFilterBuilder("instance");
-
-        $("." + FILTER_BUILDER_IMAGE_ADD_CLASS).trigger("dxclick");
-
-        assert.ok($(".dx-filterbuilder-add-condition").length > 0);
-
-        selectMenuItem(0);
-
-        assert.ok($(".dx-filterbuilder-add-condition").length === 0);
-        assert.deepEqual(instance.option("value"), [["State", "<>", "Test"], "and", ["CompanyName", "contains", ""]]);
-
-        $("." + FILTER_BUILDER_IMAGE_REMOVE_CLASS).eq(1).trigger("dxclick");
-        assert.deepEqual(instance.option("value"), ["State", "<>", "Test"]);
     });
 
     QUnit.test("Add and remove group", function(assert) {
@@ -600,7 +601,7 @@ QUnit.module("Filter value", function() {
         var $valueButton = $container.find("." + FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS);
         $valueButton.trigger("dxclick");
 
-        var $input = $container.find("." + FILTER_BUILDER_ITEM_VALUE_CLASS).find("input");
+        var $input = $container.find("." + FILTER_BUILDER_ITEM_VALUE_CLASS).find("input.dx-texteditor-input");
         assert.ok($input.is(":focus"));
 
         var selectBoxInstance = $container.find(".dx-selectbox").dxSelectBox("instance");
@@ -996,64 +997,49 @@ QUnit.module("on value changed", function() {
 
     QUnit.test("add/remove group with condition", function(assert) {
         var container = $("#container"),
-            value = [["CompanyName", "K&S Music"]],
-            instance = container.dxFilterBuilder({
-                value: value,
-                fields: fields
-            }).dxFilterBuilder("instance");
+            value = [["CompanyName", "K&S Music"]];
+
+        container.dxFilterBuilder({
+            value: value,
+            fields: fields
+        }).dxFilterBuilder("instance");
+
+        assert.equal(getFilterBuilderGroups(container).length, 1);
 
         // add group
-        value = instance.option("value");
         clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_ADD_CLASS), 1);
-        assert.equal(instance.option("value"), value);
+        assert.equal(getFilterBuilderGroups(container).length, 2);
+        assert.equal(getFilterBuilderItems(container).length, 1);
 
         // add inner condition
-        value = instance.option("value");
         clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_ADD_CLASS).eq(1), 0);
-        assert.notEqual(instance.option("value"), value);
+        assert.equal(getFilterBuilderItems(container).length, 2);
+        assert.equal(getFilterBuilderGroups(container).length, 2);
 
         // remove group
-        value = instance.option("value");
         clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_REMOVE_CLASS).eq(1), 0);
-        assert.notEqual(instance.option("value"), value);
+        assert.equal(getFilterBuilderItems(container).length, 1);
+        assert.equal(getFilterBuilderGroups(container).length, 1);
 
     });
 
     QUnit.test("add/remove conditions", function(assert) {
         var container = $("#container"),
-            value = [["CompanyName", "K&S Music"]],
-            instance = container.dxFilterBuilder({
-                value: value,
-                fields: fields
-            }).dxFilterBuilder("instance");
+            value = [["CompanyName", "K&S Music"]];
+        container.dxFilterBuilder({
+            value: value,
+            fields: fields
+        });
+
+        assert.equal(getFilterBuilderItems(container).length, 1);
 
         // add condition
         clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_ADD_CLASS), 0);
-
-        assert.notEqual(instance.option("value"), value);
+        assert.equal(getFilterBuilderItems(container).length, 2);
 
         // remove condition
-        value = instance.option("value");
         clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_REMOVE_CLASS).eq(1), 0);
-
-        assert.notEqual(instance.option("value"), value);
-    });
-
-    QUnit.test("add/remove condition for field without datatype", function(assert) {
-        var container = $("#container"),
-            instance = container.dxFilterBuilder({
-                fields: [{ dataField: "Field" }]
-            }).dxFilterBuilder("instance");
-
-        // add condition
-        clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_ADD_CLASS), 0);
-
-        assert.deepEqual(instance.option("value"), ["Field", "contains", ""]);
-
-        // remove condition
-        clickByButtonAndSelectMenuItem($("." + FILTER_BUILDER_IMAGE_REMOVE_CLASS).eq(0), 0);
-
-        assert.deepEqual(instance.option("value"), null);
+        assert.equal(getFilterBuilderItems(container).length, 1);
     });
 
     QUnit.test("add/remove not valid conditions", function(assert) {
@@ -1234,5 +1220,94 @@ QUnit.module("Methods", function() {
             "and",
             ["field", "<", 5]
         ]);
+    });
+});
+
+QUnit.module("Group operations", function() {
+    let checkPopupDisabledState = function(assert, container) {
+        let groupButton = container.find("." + FILTER_BUILDER_GROUP_OPERATION_CLASS);
+        groupButton.trigger("dxclick");
+        let popup = container.find(`.${FILTER_BUILDER_OVERLAY_CLASS}`);
+
+        assert.ok(groupButton.hasClass(DISABLED_STATE_CLASS));
+        assert.equal(popup.length, 0);
+    };
+
+    QUnit.test("change groupOperation array", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            groupOperations: ["and", "or"]
+        });
+        container.find("." + FILTER_BUILDER_GROUP_OPERATION_CLASS).trigger("dxclick");
+        let items = $(`.${TREE_VIEW_ITEM_CLASS}`);
+
+        assert.equal(items.length, 2);
+        assert.equal(items.eq(0).text(), "And");
+        assert.equal(items.eq(1).text(), "Or");
+    });
+
+    QUnit.test("group operation contains 1 item", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            groupOperations: ["and"]
+        });
+
+        checkPopupDisabledState(assert, container);
+    });
+
+    QUnit.test("group operation does not contain items", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            groupOperations: []
+        });
+
+        checkPopupDisabledState(assert, container);
+    });
+
+    QUnit.test("group operation is undefined", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            groupOperations: undefined
+        });
+
+        checkPopupDisabledState(assert, container);
+    });
+
+    QUnit.test("adding of groups is disabled", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            maxGroupLevel: 0,
+            groupOperations: undefined
+        }).dxFilterBuilder("instance");
+
+        $("." + FILTER_BUILDER_IMAGE_ADD_CLASS).trigger("dxclick");
+        let popup = container.find(`.${FILTER_BUILDER_OVERLAY_CLASS}`);
+
+        assert.equal(popup.length, 0);
+    });
+
+    QUnit.test("nested level of groups = 1", function(assert) {
+        let container = $("#container");
+        container.dxFilterBuilder({
+            fields: fields,
+            maxGroupLevel: 1,
+            groupOperations: undefined
+        });
+
+        $("." + FILTER_BUILDER_IMAGE_ADD_CLASS).trigger("dxclick");
+        let popup = container.find(`.${FILTER_BUILDER_OVERLAY_CLASS}`);
+        assert.equal(popup.length, 1);
+
+        selectMenuItem(1);
+
+        $("." + FILTER_BUILDER_IMAGE_ADD_CLASS).eq(1).trigger("dxclick");
+
+        popup = container.find(`.${FILTER_BUILDER_OVERLAY_CLASS}`);
+        assert.equal(popup.length, 0);
     });
 });

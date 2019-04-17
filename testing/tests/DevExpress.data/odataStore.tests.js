@@ -1,12 +1,11 @@
-"use strict";
-
-var $ = require("jquery"),
-    EdmLiteral = require("data/odata/utils").EdmLiteral,
-    ODataStore = require("data/odata/store"),
-    ODataContext = require("data/odata/context"),
-    Guid = require("core/guid"),
-    ErrorHandlingHelper = require("../../helpers/data.errorHandlingHelper.js"),
-    ajaxMock = require("../../helpers/ajaxMock.js");
+import $ from "jquery";
+import { EdmLiteral } from "data/odata/utils";
+import ODataStore from "data/odata/store";
+import ODataContext from "data/odata/context";
+import Guid from "core/guid";
+import config from "core/config";
+import ErrorHandlingHelper from "../../helpers/data.errorHandlingHelper.js";
+import ajaxMock from "../../helpers/ajaxMock.js";
 
 var MUST_NOT_REACH_MESSAGE = "Shouldn't reach this point";
 
@@ -495,7 +494,9 @@ QUnit.test("with expand", function(assert) {
 
         new ODataStore({ version: 4, url: "odata4.org" })
             .byKey(42, { expand: ["prop1.subprop", "prop2"] })
-            .done(assertFunc)
+            .done((value) => {
+                assert.deepEqual(value, { expandClause: "prop1($expand=subprop),prop2" });
+            })
     ];
 
     $.when.apply($, promises)
@@ -617,6 +618,49 @@ QUnit.test("Guid as key", function(assert) {
                 assert.ok(r.url.indexOf("(guid'" + guid + "')") === -1);
                 assert.ok(r.url.indexOf(guid) > 1);
             })
+    ];
+
+    $.when.apply($, promises)
+        .fail(function() {
+            assert.ok(false, MUST_NOT_REACH_MESSAGE);
+        })
+        .always(done);
+});
+
+QUnit.test("string as key", function(assert) {
+    var done = assert.async();
+
+    ajaxMock.setup({
+        url: "odata2.org*",
+        callback: function(bag) {
+            this.responseText = { d: { url: bag.url } };
+        }
+    });
+
+    ajaxMock.setup({
+        url: "odata4.org*",
+        callback: function(bag) {
+            this.responseText = { value: { url: bag.url } };
+        }
+    });
+
+    var assertFunc = function(r) {
+        var url = decodeURIComponent(r.url);
+        assert.equal(url.indexOf("('abc')"), 10);
+    };
+
+    var promises = [
+        new ODataStore({ url: "odata2.org" })
+            .byKey("abc")
+            .done(assertFunc),
+
+        new ODataStore({ version: 3, url: "odata2.org" })
+            .byKey("abc")
+            .done(assertFunc),
+
+        new ODataStore({ version: 4, url: "odata4.org" })
+            .byKey("abc")
+            .done(assertFunc)
     ];
 
     $.when.apply($, promises)
@@ -937,6 +981,58 @@ QUnit.test("works", function(assert) {
         .always(done);
 });
 
+QUnit.test("works with useLegacyStoreResult", function(assert) {
+    var done = assert.async();
+
+    ajaxMock.setup({
+        url: "odata.org",
+        // NOTE:
+        // A request returns 204 No Content if the requested resource has the null value, or if the service applies a return=minimal preference.
+        // In this case, the response body MUST be empty.
+        responseText: { id: 1, foo: "bar" }
+    });
+
+    var oldUseLegacyStoreResult = config().useLegacyStoreResult;
+
+    config({ useLegacyStoreResult: true });
+
+    var logger = [];
+    var store = new ODataStore({
+        key: "id",
+        url: "odata.org",
+
+        beforeSend: function(request) {
+            assert.equal(request.url, "odata.org");
+            assert.equal(request.method.toLowerCase(), "post");
+        },
+
+        onInserting: function(data) { logger.push(["onInserting", data]); },
+        onInserted: function(data, key) { logger.push(["onInserted", data, key]); }
+    });
+
+    store.on("inserting", function(data) { logger.push(["inserting", data]); });
+    store.on("inserted", function(data, key) { logger.push(["inserted", data, key]); });
+
+    store.insert({ id: 1, foo: "bar" })
+        .fail(function() { assert.fail(false, MUST_NOT_REACH_MESSAGE); })
+        .done(function(data, key) { logger.push(["done", data, key]); })
+        .done(function() {
+            assert.deepEqual(logger, [
+                ["onInserting", { id: 1, foo: "bar" }],
+                ["inserting", { id: 1, foo: "bar" }],
+
+                ["onInserted", { id: 1, foo: "bar" }, 1],
+                ["inserted", { id: 1, foo: "bar" }, 1],
+
+                ["done", { id: 1, foo: "bar" }, 1]
+            ]);
+        })
+        .always(function() {
+            config({ useLegacyStoreResult: oldUseLegacyStoreResult });
+        })
+        .always(done);
+});
+
 QUnit.test("insert with compound key", function(assert) {
     var done = assert.async();
 
@@ -987,6 +1083,148 @@ QUnit.test("with 201 status", function(assert) {
 QUnit.module("update", moduleConfig);
 
 QUnit.test("works", function(assert) {
+    assert.expect(17);
+
+    var done = assert.async();
+
+    var log = [];
+    var compileLoggerFor = function(eventName) {
+        return function(key, values) {
+            log.push([eventName, key, values]);
+        };
+    };
+
+    ajaxMock.setup({
+        url: "odata.org/DataSet*",
+        status: 204,
+        responseText: { foo: "bar" }
+    });
+
+    ajaxMock.setup({
+        url: "odata2.org/DataSet*",
+        status: 204,
+        responseText: "OK"
+    });
+
+    var promises = [
+        new ODataStore({
+            url: "odata.org/DataSet",
+
+            beforeSend: function(request) {
+                assert.equal(request.url, "odata.org/DataSet(1)");
+                assert.equal(request.method.toLowerCase(), "merge");
+
+                assert.deepEqual(request.params, {});
+                assert.deepEqual(request.payload, { foo: "bar" });
+            },
+
+            onUpdating: compileLoggerFor("onUpdating"),
+            onUpdated: compileLoggerFor("onUpdated")
+
+        }).on("updating", compileLoggerFor("updating"))
+            .on("updated", compileLoggerFor("updated"))
+            .update(1, { foo: "bar" })
+            .done(compileLoggerFor("done")),
+
+        new ODataStore({
+            version: 3,
+            url: "odata.org/DataSet",
+
+            beforeSend: function(request) {
+                assert.equal(request.url, "odata.org/DataSet(1)");
+                assert.equal(request.method.toLowerCase(), "patch");
+
+                assert.deepEqual(request.params, {});
+                assert.deepEqual(request.payload, { foo: "bar" });
+            },
+
+            onUpdating: compileLoggerFor("onUpdating"),
+            onUpdated: compileLoggerFor("onUpdated")
+
+        }).on("updating", compileLoggerFor("updating"))
+            .on("updated", compileLoggerFor("updated"))
+            .update(1, { foo: "bar" })
+            .done(compileLoggerFor("done")),
+
+        new ODataStore({
+            version: 4,
+            url: "odata.org/DataSet",
+
+            beforeSend: function(request) {
+                assert.equal(request.url, "odata.org/DataSet(1)");
+                assert.equal(request.method.toLowerCase(), "patch");
+
+                assert.deepEqual(request.params, {});
+                assert.deepEqual(request.payload, { foo: "bar" });
+            },
+
+            onUpdating: compileLoggerFor("onUpdating"),
+            onUpdated: compileLoggerFor("onUpdated")
+
+        }).on("updating", compileLoggerFor("updating"))
+            .on("updated", compileLoggerFor("updated"))
+            .update(1, { foo: "bar" })
+            .done(compileLoggerFor("done")),
+
+        new ODataStore({
+            version: 4,
+            url: "odata2.org/DataSet",
+
+            beforeSend: function(request) {
+                assert.equal(request.url, "odata2.org/DataSet(1)");
+                assert.equal(request.method.toLowerCase(), "patch");
+
+                assert.deepEqual(request.params, {});
+                assert.deepEqual(request.payload, { foo: "bar" });
+            },
+
+            onUpdating: compileLoggerFor("onUpdating"),
+            onUpdated: compileLoggerFor("onUpdated")
+
+        }).on("updating", compileLoggerFor("updating"))
+            .on("updated", compileLoggerFor("updated"))
+            .update(1, { foo: "bar" })
+            .done(compileLoggerFor("done"))
+    ];
+
+    $.when.apply($, promises)
+        .fail(function() { assert.ok(false, MUST_NOT_REACH_MESSAGE); })
+        .done(function() {
+            assert.deepEqual(log, [
+                ["onUpdating", 1, { foo: "bar" }],
+                ["updating", 1, { foo: "bar" }],
+
+                ["onUpdating", 1, { foo: "bar" }],
+                ["updating", 1, { foo: "bar" }],
+
+                ["onUpdating", 1, { foo: "bar" }],
+                ["updating", 1, { foo: "bar" }],
+
+                ["onUpdating", 1, { foo: "bar" }],
+                ["updating", 1, { foo: "bar" }],
+
+                ["onUpdated", 1, { foo: "bar" }],
+                ["updated", 1, { foo: "bar" }],
+                ["done", { foo: "bar" }, 1],
+
+                ["onUpdated", 1, { foo: "bar" }],
+                ["updated", 1, { foo: "bar" }],
+                ["done", { foo: "bar" }, 1],
+
+                ["onUpdated", 1, { foo: "bar" }],
+                ["updated", 1, { foo: "bar" }],
+                ["done", { foo: "bar" }, 1],
+
+                ["onUpdated", 1, { foo: "bar" }],
+                ["updated", 1, { foo: "bar" }],
+                ["done", "OK", 1]
+
+            ]);
+        })
+        .always(done);
+});
+
+QUnit.test("works with useLegacyStoreResult", function(assert) {
     assert.expect(13);
 
     var done = assert.async();
@@ -1001,8 +1239,12 @@ QUnit.test("works", function(assert) {
     ajaxMock.setup({
         url: "odata.org/DataSet*",
         status: 204,
-        responseText: {}
+        responseText: "OK"
     });
+
+    var oldUseLegacyStoreResult = config().useLegacyStoreResult;
+
+    config({ useLegacyStoreResult: true });
 
     var promises = [
         new ODataStore({
@@ -1091,6 +1333,9 @@ QUnit.test("works", function(assert) {
                 ["done", 1, { foo: "bar" }]
             ]);
         })
+        .always(function() {
+            config({ useLegacyStoreResult: oldUseLegacyStoreResult });
+        })
         .always(done);
 });
 
@@ -1178,7 +1423,7 @@ QUnit.test("Dates, on loading", function(assert) {
     ajaxMock.setup({
         url: "odata2.org",
         callback: function(bag) {
-            assert.equal(bag.data.$filter, "date eq datetime'1945-05-09T14:25:01.1'", "timezoneless iso8601 for second version");
+            assert.equal(bag.data.$filter, "date eq datetime'1945-05-09T14:25:01.001'", "timezoneless iso8601 for second version");
         }
     });
 
@@ -1186,7 +1431,7 @@ QUnit.test("Dates, on loading", function(assert) {
         url: "odata2.org/methodToGet",
         responseText: {},
         callback: function(bag) {
-            assert.equal(bag.data.date, "datetime'1945-05-09T14:25:01.1'", "timezoneless iso8601 for second version");
+            assert.equal(bag.data.date, "datetime'1945-05-09T14:25:01.001'", "timezoneless iso8601 for second version");
         }
     });
 
@@ -1194,21 +1439,22 @@ QUnit.test("Dates, on loading", function(assert) {
         url: "odata2.org/methodToInvoke*",
         responseText: {},
         callback: function(bag) {
-            assert.equal(decodeURIComponent(bag.url), "odata2.org/methodToInvoke?date=datetime'1945-05-09T14:25:01.1'");
+            assert.equal(decodeURIComponent(bag.url), "odata2.org/methodToInvoke?date=datetime'1945-05-09T14:25:01.001'");
         }
     });
 
+    // NOTE: OData 3 ABNF
     ajaxMock.setup({
         url: "odata3.org",
         callback: function(bag) {
-            assert.equal(bag.data.$filter, "date eq datetime'1945-05-09T14:25:01.1'", "timezoneless iso8601 for third version");
+            assert.equal(bag.data.$filter, "date eq datetime'1945-05-09T14:25:01.001'", "timezoneless iso8601 for third version");
         }
     });
 
     ajaxMock.setup({
         url: "odata4.org",
         callback: function(bag) {
-            assert.equal(bag.data.$filter, "date eq 1945-05-09T14:25:01.1Z", "timezoneful iso8601 for fourth version");
+            assert.equal(bag.data.$filter, "date eq 1945-05-09T14:25:01.001Z", "timezoneful iso8601 for fourth version");
         }
     });
 
@@ -1216,7 +1462,7 @@ QUnit.test("Dates, on loading", function(assert) {
         url: "odata4.org/function*",
         responseText: {},
         callback: function(bag) {
-            assert.equal(bag.url, "odata4.org/function(date=1945-05-09T14:25:01.1Z)", "timezoneful iso8601 for fourth version");
+            assert.equal(bag.url, "odata4.org/function(date=1945-05-09T14:25:01.001Z)", "timezoneful iso8601 for fourth version");
         }
     });
 
@@ -1224,7 +1470,7 @@ QUnit.test("Dates, on loading", function(assert) {
         url: "odata4.org/action",
         responseText: {},
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1Z"}', "timezoneful iso8601 for fourth version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001Z"}', "timezoneful iso8601 for fourth version");
         }
     });
 
@@ -1267,21 +1513,21 @@ QUnit.test("Dates, on inserting", function(assert) {
     ajaxMock.setup({
         url: "odata2.org",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1"}', "timezoneless iso8601 for second version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001"}', "timezoneless iso8601 for second version");
         }
     });
 
     ajaxMock.setup({
         url: "odata3.org",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1Z"}', "timezoneful iso8601 for third version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001Z"}', "timezoneful iso8601 for third version");
         }
     });
 
     ajaxMock.setup({
         url: "odata4.org",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1Z"}', "timezoneful iso8601 for fourth version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001Z"}', "timezoneful iso8601 for fourth version");
         }
     });
 
@@ -1307,21 +1553,21 @@ QUnit.test("Dates, on updating", function(assert) {
     ajaxMock.setup({
         url: "odata2.org(1)",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1"}', "timezoneless iso8601 for second version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001"}', "timezoneless iso8601 for second version");
         }
     });
 
     ajaxMock.setup({
         url: "odata3.org(1)",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1Z"}', "timezoneful iso8601 for third version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001Z"}', "timezoneful iso8601 for third version");
         }
     });
 
     ajaxMock.setup({
         url: "odata4.org(1)",
         callback: function(bag) {
-            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.1Z"}', "timezoneful iso8601 for fourth version");
+            assert.equal(bag.data, '{"date":"1945-05-09T14:25:01.001Z"}', "timezoneful iso8601 for fourth version");
         }
     });
 
@@ -1542,6 +1788,26 @@ QUnit.test("unexpected server response with 200 status", function(assert) {
             assert.ok(false, MUST_NOT_REACH_MESSAGE);
         })
         .always(done);
+});
+
+QUnit.test("error handlers (check params)", function(assert) {
+    var done = assert.async();
+
+    var helper = new ErrorHandlingHelper();
+
+    var store = new ODataStore({
+        url: "odata.org",
+        errorHandler: helper.optionalHandler
+    });
+
+    helper.extraChecker = function(error) {
+        assert.equal(error.requestOptions.url, "odata.org");
+        assert.equal(error.httpStatus, 404);
+    };
+
+    helper.run(function() {
+        return store.load();
+    }, done, assert);
 });
 
 QUnit.test("error handlers (query evaluation)", function(assert) {
@@ -2016,7 +2282,7 @@ QUnit.test("array value for odata 4", function(assert) {
     var guid = "3f17117f-63b1-ee7d-2b64-a7f717177773";
 
     var value = [1, "'1", new Date(1945, 4, 9, 14, 25, 1, 1), new Guid(guid), new EdmLiteral("123L")],
-        expectedUrl = "odata4.org(customName=[1,'''1',1945-05-09T14:25:01.1Z," + guid + ",123L])";
+        expectedUrl = "odata4.org(customName=[1,'''1',1945-05-09T14:25:01.001Z," + guid + ",123L])";
 
     ajaxMock.setup({
         url: expectedUrl,
@@ -2076,13 +2342,13 @@ QUnit.test("T226529", function(assert) {
                     keyProperty: 0,
 
                     collectionProperty1: [
-                            { keyProperty: 0 },
-                            { keyProperty: 1 }
+                        { keyProperty: 0 },
+                        { keyProperty: 1 }
                     ],
 
                     collectionProperty2: [
-                            { keyProperty: 0 },
-                            { keyProperty: 1 }
+                        { keyProperty: 0 },
+                        { keyProperty: 1 }
                     ]
                 }
             ]);
@@ -2231,6 +2497,105 @@ QUnit.test("withCredentials is set", function(assert) {
 
     new ODataStore({ url: "odata.org", withCredentials: true })
         .load();
+});
+
+QUnit.test("filterToLower equal false", function(assert) {
+    ajaxMock.setup({
+        url: "odata.org",
+        responseText: { d: { results: [] } },
+        callback: function(request) {
+            assert.equal(request.data.$filter, "substringof('O',B)");
+        }
+    });
+
+    new ODataStore({ url: "odata.org", filterToLower: false })
+        .load({ filter: ["B", "contains", "O"] });
+});
+
+QUnit.test("filterToLower equal false for ODataContext", function(assert) {
+    assert.expect(2);
+
+    var done = assert.async();
+
+    ajaxMock.setup({
+        url: "odata.org/name",
+        callback: function(bag) {
+            this.responseText = { value: [bag] };
+        }
+    });
+
+    var ctx = new ODataContext({
+        version: 4,
+        url: "odata.org",
+        filterToLower: false,
+        entities: {
+            "X": { name: "name", filterToLower: true },
+            "Y": { name: "name" }
+        }
+    });
+
+    var promises = [
+        ctx.X.load({ filter: ["B", "contains", "O"] })
+            .done(function(request) {
+                assert.equal(request[0].data.$filter, "contains(tolower(B),'o')");
+            }),
+
+        ctx.Y.load({ filter: ["B", "contains", "O"] })
+            .done(function(request) {
+                assert.equal(request[0].data.$filter, "contains(B,'O')");
+            })
+    ];
+
+    $.when.apply($, promises)
+        .fail(function() { assert.ok(false, MUST_NOT_REACH_MESSAGE); })
+        .always(done);
+});
+
+QUnit.test("oDataFilterToLower equal false for ODataContext", function(assert) {
+    assert.expect(3);
+
+    var done = assert.async();
+
+    config({ oDataFilterToLower: false });
+
+    ajaxMock.setup({
+        url: "odata.org/name",
+        callback: function(bag) {
+            this.responseText = { value: [bag] };
+        }
+    });
+
+    var ctx = new ODataContext({
+        version: 4,
+        url: "odata.org",
+        filterToLower: true,
+        entities: {
+            "X": { name: "name" },
+            "Y": { name: "name", filterToLower: false },
+            "Z": { name: "name", filterToLower: true }
+        }
+    });
+
+    var promises = [
+        ctx.X.load({ filter: ["B", "contains", "O"] })
+            .done(function(request) {
+                assert.equal(request[0].data.$filter, "contains(tolower(B),'o')");
+            }),
+
+        ctx.Y.load({ filter: ["B", "contains", "O"] })
+            .done(function(request) {
+                assert.equal(request[0].data.$filter, "contains(B,'O')");
+            }),
+
+        ctx.Z.load({ filter: ["B", "contains", "O"] })
+            .done(function(request) {
+                assert.equal(request[0].data.$filter, "contains(tolower(B),'o')");
+            })
+    ];
+
+    $.when.apply($, promises)
+        .fail(function() { assert.ok(false, MUST_NOT_REACH_MESSAGE); })
+        .always(done);
 });
 
 QUnit.test("verbose MIME specifier is used", function(assert) {

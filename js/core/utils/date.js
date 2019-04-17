@@ -1,5 +1,3 @@
-"use strict";
-
 var typeUtils = require("./type"),
     adjust = require("./math").adjust,
     each = require("./iterator").each,
@@ -160,6 +158,7 @@ var correctDateWithUnitBeginning = function(date, dateInterval, withCorrection, 
     date = new Date(date.getTime());
     var oldDate = new Date(date.getTime()),
         firstQuarterMonth,
+        month,
         dateUnitInterval = getDateUnitInterval(dateInterval);
 
     switch(dateUnitInterval) {
@@ -187,11 +186,13 @@ var correctDateWithUnitBeginning = function(date, dateInterval, withCorrection, 
             break;
         case 'quarter':
             firstQuarterMonth = getFirstQuarterMonth(date.getMonth());
-            if(date.getMonth() !== firstQuarterMonth) {
-                date.setMonth(firstQuarterMonth);
-            }
+            month = date.getMonth();
+
             date.setDate(1);
             date.setHours(0, 0, 0, 0);
+            if(month !== firstQuarterMonth) {
+                date.setMonth(firstQuarterMonth);
+            }
             break;
     }
 
@@ -204,6 +205,14 @@ var correctDateWithUnitBeginning = function(date, dateInterval, withCorrection, 
 var trimTime = function(date) {
     return dateUtils.correctDateWithUnitBeginning(date, "day");
 };
+
+var setToDayEnd = function(date) {
+    let result = dateUtils.trimTime(date);
+
+    result.setDate(result.getDate() + 1);
+    return new Date(result.getTime() - 1);
+};
+
 
 var getDatesDifferences = function(date1, date2) {
     var differences,
@@ -235,7 +244,9 @@ var getDatesDifferences = function(date1, date2) {
 
 function addDateInterval(value, interval, dir) {
     var result = new Date(value.getTime()),
-        intervalObject = isString(interval) ? getDateIntervalByString(interval.toLowerCase()) : interval;
+        intervalObject = isString(interval) ? getDateIntervalByString(interval.toLowerCase())
+            : typeUtils.isNumeric(interval) ? convertMillisecondsToDateUnits(interval)
+                : interval;
     if(intervalObject.years) {
         result.setFullYear(result.getFullYear() + intervalObject.years * dir);
     }
@@ -323,7 +334,8 @@ var getViewMinBoundaryDate = function(viewType, date) {
 };
 
 var getViewMaxBoundaryDate = function(viewType, date) {
-    var resultDate = new Date(date.getFullYear(), date.getMonth(), getLastMonthDay(date));
+    var resultDate = new Date(date);
+    resultDate.setDate(getLastMonthDay(date));
 
     if(viewType === "month") {
         return resultDate;
@@ -519,6 +531,27 @@ var dateInRange = function(date, min, max, format) {
     return normalizeDate(date, min, max) === date;
 };
 
+var dateTimeFromDecimal = function(number) {
+    var hours = Math.floor(number),
+        minutes = (number % 1) * 60;
+
+    return {
+        hours: hours,
+        minutes: minutes
+    };
+};
+
+var roundDateByStartDayHour = function(date, startDayHour) {
+    var startTime = this.dateTimeFromDecimal(startDayHour),
+        result = new Date(date);
+
+    if(date.getHours() === startTime.hours && date.getMinutes() < startTime.minutes || date.getHours() < startTime.hours) {
+        result.setHours(startTime.hours, startTime.minutes, 0, 0);
+    }
+
+    return result;
+};
+
 var normalizeDate = function(date, min, max) {
     var normalizedDate = date;
 
@@ -575,6 +608,19 @@ var makeDate = function(date) {
     return new Date(date);
 };
 
+var getDatesOfInterval = function(startDate, endDate, step) {
+    var currentDate = new Date(startDate.getTime()),
+        result = [];
+
+    while(currentDate < endDate) {
+        result.push(new Date(currentDate.getTime()));
+
+        currentDate = this.addInterval(currentDate, step);
+    }
+
+    return result;
+};
+
 var dateUtils = {
     dateUnitIntervals: dateUnitIntervals,
 
@@ -583,10 +629,14 @@ var dateUtils = {
     getNextDateUnit: getNextDateUnit,
     convertDateUnitToMilliseconds: convertDateUnitToMilliseconds,
     getDateUnitInterval: getDateUnitInterval,
-    getDateFormatByTickInterval: getDateFormatByTickInterval,   // T375972
+    getDateFormatByTickInterval: getDateFormatByTickInterval, // T375972
     getDatesDifferences: getDatesDifferences,
     correctDateWithUnitBeginning: correctDateWithUnitBeginning,
     trimTime: trimTime,
+    setToDayEnd: setToDayEnd,
+
+    dateTimeFromDecimal: dateTimeFromDecimal,
+    roundDateByStartDayHour: roundDateByStartDayHour,
 
     addDateInterval: addDateInterval,
     addInterval: addInterval,
@@ -626,7 +676,9 @@ var dateUtils = {
 
     makeDate: makeDate,
 
-    getDatesInterval: getDatesInterval
+    getDatesInterval: getDatesInterval,
+
+    getDatesOfInterval: getDatesOfInterval
 };
 
 module.exports = dateUtils;

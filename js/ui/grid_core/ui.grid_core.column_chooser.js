@@ -1,18 +1,17 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    modules = require("./ui.grid_core.modules"),
-    columnsView = require("./ui.grid_core.columns_view"),
-    noop = require("../../core/utils/common").noop,
-    isDefined = require("../../core/utils/type").isDefined,
-    extend = require("../../core/utils/extend").extend,
-    each = require("../../core/utils/iterator").each,
-    messageLocalization = require("../../localization/message"),
-    themes = require("../themes"),
-    Button = require("../button"),
-    TreeView = require("../tree_view"),
-    devices = require("../../core/devices"),
-    Popup = require("../popup");
+import $ from "../../core/renderer";
+import { deferUpdate } from "../../core/utils/common";
+import modules from "./ui.grid_core.modules";
+import columnsView from "./ui.grid_core.columns_view";
+import messageLocalization from "../../localization/message";
+import themes from "../themes";
+import Button from "../button";
+import TreeView from "../tree_view";
+import devices from "../../core/devices";
+import Popup from "../popup";
+import { noop } from "../../core/utils/common";
+import { isDefined } from "../../core/utils/type";
+import { extend } from "../../core/utils/extend";
+import { each } from "../../core/utils/iterator";
 
 var COLUMN_CHOOSER_CLASS = "column-chooser",
     COLUMN_CHOOSER_BUTTON_CLASS = "column-chooser-button",
@@ -105,13 +104,22 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         return !!devices.real().win;
     },
 
-    _updateList: function(allowUpdate) {
+    _updateList: function(change) {
         var items,
             $popupContent = this._popupContainer.$content(),
             isSelectMode = this.option("columnChooser.mode") === "select",
+            columnChooserList = this._columnChooserList,
             chooserColumns = this._columnsController.getChooserColumns(isSelectMode);
 
-        if(!isSelectMode || !this._columnChooserList || allowUpdate) {
+        // T726413
+        if(isSelectMode && columnChooserList && change && change.changeType === "selection") {
+            items = processItems(this, chooserColumns);
+            for(var i = 0; i < items.length; i++) {
+                if(items[i].id === change.columnIndex) {
+                    columnChooserList.option("items[" + i + "].selected", items[i].selected);
+                }
+            }
+        } else if(!isSelectMode || !columnChooserList || change === "full") {
             this._popupContainer._wrapper()
                 .toggleClass(this.addWidgetPrefix(COLUMN_CHOOSER_DRAG_CLASS), !isSelectMode)
                 .toggleClass(this.addWidgetPrefix(COLUMN_CHOOSER_SELECT_CLASS), isSelectMode);
@@ -125,10 +133,10 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         var that = this,
             $element = that.element().addClass(that.addWidgetPrefix(COLUMN_CHOOSER_CLASS)),
             columnChooserOptions = that.option("columnChooser"),
-            theme = themes.current(),
-            isGenericTheme = theme && theme.indexOf("generic") > -1,
-            isAndroid5Theme = theme && theme.indexOf("android5") > -1,
-            isMaterial = themes.isMaterial(),
+            themeName = themes.current(),
+            isGenericTheme = themes.isGeneric(themeName),
+            isAndroid5Theme = themes.isAndroid5(themeName),
+            isMaterial = themes.isMaterial(themeName),
             dxPopupOptions = {
                 visible: false,
                 shading: false,
@@ -169,9 +177,9 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         }
     },
 
-    _renderCore: function(allowUpdate) {
+    _renderCore: function(change) {
         if(this._popupContainer) {
-            this._updateList(allowUpdate);
+            this._updateList(change);
         }
     },
 
@@ -202,12 +210,14 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         }
 
         treeViewConfig.onContentReady = function(e) {
-            if(scrollTop) {
-                var scrollable = $(e.element).find(".dx-scrollable").data("dxScrollable");
-                scrollable && scrollable.scrollTo({ y: scrollTop });
-            }
+            deferUpdate(function() {
+                if(scrollTop) {
+                    var scrollable = $(e.element).find(".dx-scrollable").data("dxScrollable");
+                    scrollable && scrollable.scrollTo({ y: scrollTop });
+                }
 
-            that.renderCompleted.fire();
+                that.renderCompleted.fire();
+            });
         };
 
 
@@ -276,8 +286,13 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         this.callBase(e);
 
         if(isSelectMode) {
-            if(optionNames.showInColumnChooser || optionNames.visible || changeTypes.columns && optionNames.all) {
-                this.render(null, true);
+            if(optionNames.visible && optionNames.length === 1 && e.columnIndex !== undefined) {
+                this.render(null, {
+                    changeType: "selection",
+                    columnIndex: e.columnIndex
+                });
+            } else if(optionNames.showInColumnChooser || optionNames.visible || changeTypes.columns && optionNames.all) {
+                this.render(null, "full");
             }
         }
     },
@@ -286,7 +301,7 @@ var ColumnChooserView = columnsView.ColumnsView.inherit({
         switch(args.name) {
             case "columnChooser":
                 this._initializePopupContainer();
-                this.render(null, true);
+                this.render(null, "full");
                 break;
             default:
                 this.callBase(args);

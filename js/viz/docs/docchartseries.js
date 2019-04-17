@@ -1,4 +1,31 @@
 /**
+ * @name ChartSeries
+ * @type object
+ * @inherits dxChartSeriesTypes.CommonSeries
+ * @hidden
+ */
+var chartSeries = {
+    /**
+    * @name ChartSeries.name
+    * @type string
+    * @default undefined
+    */
+    name: undefined,
+    /**
+    * @name ChartSeries.tag
+    * @type any
+    * @default undefined
+    */
+    tag: undefined,
+    /**
+    * @name ChartSeries.type
+    * @type Enums.SeriesType
+    * @default 'line'
+    */
+    type: 'line'
+};
+
+/**
 * @name dxChartSeriesTypes
 * @type object
 */
@@ -737,28 +764,10 @@ var commonSeries = {
         */
         format: '',
         /**
-        * @name dxChartSeriesTypes.CommonSeries.label.precision
-        * @extends CommonVizPrecision
-        */
-        precision: 0,
-        /**
         * @name dxChartSeriesTypes.CommonSeries.label.argumentFormat
         * @extends CommonVizFormat
         */
         argumentFormat: '',
-        /**
-        * @name dxChartSeriesTypes.CommonSeries.label.argumentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        */
-        argumentPrecision: 0,
-        /**
-        * @name dxChartSeriesTypes.CommonSeries.label.percentPrecision
-        * @extends CommonVizPrecision
-        * @deprecated
-        * @propertyOf dxChartSeriesTypes.FullStackedAreaSeries,dxChartSeriesTypes.FullStackedBarSeries,dxChartSeriesTypes.FullStackedLineSeries,dxChartSeriesTypes. FullStackedSplineAreaSeries,dxChartSeriesTypes. FullStackedLineSeries
-        */
-        percentPrecision: 0,
         /**
         * @name dxChartSeriesTypes.CommonSeries.label.position
         * @type Enums.RelativePosition
@@ -768,38 +777,15 @@ var commonSeries = {
         position: 'outside',
         /**
         * @name dxChartSeriesTypes.CommonSeries.label.font
-        * @type object
+        * @type Font
+        * @default '#FFFFFF' @prop color
+        * @default 14 @prop size
         */
         font: {
-            /**
-            * @name dxChartSeriesTypes.CommonSeries.label.font.family
-            * @type string
-            * @default "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana"
-            */
-            family: "'Segoe UI', 'Helvetica Neue', 'Trebuchet MS', Verdana",
-            /**
-            * @name dxChartSeriesTypes.CommonSeries.label.font.weight
-            * @type number
-            * @default 400
-            */
+            family: undefined,
             weight: 400,
-            /**
-            * @name dxChartSeriesTypes.CommonSeries.label.font.color
-            * @type string
-            * @default '#FFFFFF'
-            */
             color: '#FFFFFF',
-            /**
-            * @name dxChartSeriesTypes.CommonSeries.label.font.size
-            * @type number|string
-            * @default 14
-            */
             size: 14,
-            /**
-            * @name dxChartSeriesTypes.CommonSeries.label.font.opacity
-            * @type number
-            * @default undefined
-            */
             opacity: undefined
         },
         /**

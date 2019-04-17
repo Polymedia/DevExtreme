@@ -1,5 +1,3 @@
-"use strict";
-
 require("../../helpers/frameworkMocks.js");
 require("../../helpers/htmlFrameworkMocks.js");
 require("../../helpers/qunitPerformanceExtension.js");
@@ -100,7 +98,7 @@ QUnit.performanceTest("layout navigation performance test", function(assert) {
         });
     };
 
-    assert.measureStyleRecalculation(measureFunction, 5);
+    assert.measureStyleRecalculation(measureFunction, 9);
 });
 
 QUnit.performanceTest("change command visibility performance test", function(assert) {
@@ -137,7 +135,7 @@ QUnit.performanceTest("layout recreate navigation performance test", function(as
                 },
                 initOptions: {
                     navigation: [
-                    { title: "c1", id: "c1" }
+                        { title: "c1", id: "c1" }
                     ]
                 }
             }),
@@ -150,7 +148,7 @@ QUnit.performanceTest("layout recreate navigation performance test", function(as
         layoutController.renderNavigation(newNavigation);
     };
 
-    assert.measureStyleRecalculation(measureFunction, 8);
+    assert.measureStyleRecalculation(measureFunction, 14);
 });
 
 QUnit.performanceTest("show view", function(assert) {

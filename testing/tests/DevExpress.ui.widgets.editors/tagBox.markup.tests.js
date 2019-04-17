@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     TagBox = require("ui/tag_box"),
     fx = require("animation/fx"),
@@ -98,6 +96,43 @@ QUnit.test("tag container should have native click class", function(assert) {
         .find("." + TAGBOX_TAG_CONTAINER_CLASS);
 
     assert.ok($tagContainer.hasClass("dx-native-click"));
+});
+
+QUnit.test("tagBox should render tags with the custom displayExpr for simple items", function(assert) {
+    var $tagBox = $("#tagBox").dxTagBox({
+            items: [1, 2, 3],
+            displayExpr: function(item) {
+                if(item === 1) {
+                    return "one";
+                }
+                return item;
+            },
+            value: [1, 2]
+        }),
+        $tags = $tagBox.find("." + TAGBOX_TAG_CLASS);
+
+    assert.equal($tags.length, 2, "two tags should be rendered");
+    assert.equal($tags.eq(0).text(), "one", "Check value of the first tag");
+    assert.equal($tags.eq(1).text(), "2", "Check value of the second tag");
+});
+
+QUnit.test("tagBox should render tags with the custom displayExpr for object items", function(assert) {
+    var $tagBox = $("#tagBox").dxTagBox({
+            items: [{ value: 1 }, { value: 2 }, { value: 3 }],
+            displayExpr: function(item) {
+                if(item.value === 1) {
+                    return "one";
+                }
+                return item.value;
+            },
+            valueExpr: "value",
+            value: [1, 2]
+        }),
+        $tags = $tagBox.find("." + TAGBOX_TAG_CLASS);
+
+    assert.equal($tags.length, 2, "two tags should be rendered");
+    assert.equal($tags.eq(0).text(), "one", "Check value of the first tag");
+    assert.equal($tags.eq(1).text(), "2", "Check value of the second tag");
 });
 
 QUnit.test("tagBox should not render an empty tag when item is not found in the dataSource", function(assert) {

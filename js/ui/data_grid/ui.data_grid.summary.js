@@ -1,20 +1,18 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    noop = require("../../core/utils/common").noop,
-    typeUtils = require("../../core/utils/type"),
-    iteratorUtils = require("../../core/utils/iterator"),
-    extend = require("../../core/utils/extend").extend,
-    compileGetter = require("../../core/utils/data").compileGetter,
-    errors = require("../widget/ui.errors"),
-    gridCore = require("./ui.data_grid.core"),
-    messageLocalization = require("../../localization/message"),
-    dataSourceAdapter = require("./ui.data_grid.data_source_adapter"),
-    columnsView = require("../grid_core/ui.grid_core.columns_view"),
-    AggregateCalculator = require("./aggregate_calculator"),
-    dataQuery = require("../../data/query"),
-    storeHelper = require("../../data/store_helper"),
-    dataUtils = require("../../data/utils");
+import $ from "../../core/renderer";
+import { noop } from "../../core/utils/common";
+import { isDefined, isPlainObject, isEmptyObject, isString, isFunction } from "../../core/utils/type";
+import { each, map } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import { compileGetter } from "../../core/utils/data";
+import errors from "../widget/ui.errors";
+import gridCore from "./ui.data_grid.core";
+import messageLocalization from "../../localization/message";
+import dataSourceAdapter from "./ui.data_grid.data_source_adapter";
+import columnsView from "../grid_core/ui.grid_core.columns_view";
+import AggregateCalculator from "./aggregate_calculator";
+import dataQuery from "../../data/query";
+import { multiLevelGroup } from "../../data/store_helper";
+import { normalizeSortingInfo } from "../../data/utils";
 
 var DATAGRID_TOTAL_FOOTER_CLASS = "dx-datagrid-total-footer",
     DATAGRID_SUMMARY_ITEM_CLASS = "dx-datagrid-summary-item",
@@ -61,6 +59,9 @@ var getGroupAggregates = function(data) {
     return data.summary || data.aggregates || [];
 };
 
+var recalculateWhileEditing = function(that) {
+    return that.option("summary.recalculateWhileEditing");
+};
 
 exports.FooterView = columnsView.ColumnsView.inherit((function() {
     return {
@@ -77,16 +78,29 @@ exports.FooterView = columnsView.ColumnsView.inherit((function() {
             this.callBase($cell, options);
         },
 
-        _renderCore: function() {
+        _renderCore: function(change) {
             var totalItem = this._dataController.footerItems()[0];
 
-            this.element()
-                .empty()
-                .addClass(DATAGRID_TOTAL_FOOTER_CLASS)
-                .toggleClass(DATAGRID_NOWRAP_CLASS, !this.option("wordWrapEnabled"));
+            if(!change || !change.columnIndices) {
+                this.element()
+                    .empty()
+                    .addClass(DATAGRID_TOTAL_FOOTER_CLASS)
+                    .toggleClass(DATAGRID_NOWRAP_CLASS, !this.option("wordWrapEnabled"));
+            }
 
             if(totalItem && totalItem.summaryCells && totalItem.summaryCells.length) {
-                this._updateContent(this._renderTable());
+                this._updateContent(this._renderTable({ change: change }), change);
+            }
+        },
+
+        _updateContent: function($newTable, change) {
+            if(change && change.changeType === "update" && change.columnIndices) {
+                var $row = this._getTableElement().find(".dx-row"),
+                    $newRow = $newTable.find(".dx-row");
+
+                this._updateCells($row, $newRow, change.columnIndices[0]);
+            } else {
+                return this.callBase.apply(this, arguments);
             }
         },
 
@@ -107,7 +121,14 @@ exports.FooterView = columnsView.ColumnsView.inherit((function() {
 
         _handleDataChanged: function(e) {
             var changeType = e.changeType;
-            if(changeType === "refresh" || changeType === "append" || changeType === "prepend") {
+
+            if(e.changeType === "update" && e.repaintChangesOnly) {
+                if(!e.totalColumnIndices) {
+                    this.render();
+                } else if(e.totalColumnIndices.length) {
+                    this.render(null, { changeType: "update", columnIndices: [e.totalColumnIndices] });
+                }
+            } else if(changeType === "refresh" || changeType === "append" || changeType === "prepend") {
                 this.render();
             }
         },
@@ -148,7 +169,7 @@ var SummaryDataSourceAdapterExtender = (function() {
                 return this._summaryGetter;
             }
 
-            if(typeUtils.isFunction(summaryGetter)) {
+            if(isFunction(summaryGetter)) {
                 this._summaryGetter = summaryGetter;
             }
         },
@@ -169,7 +190,7 @@ var SummaryDataSourceAdapterExtender = (function() {
             return sortByGroupsInfo && sortByGroupsInfo.length;
         },
         sortLastLevelGroupItems: function(items, groups, paths) {
-            var groupedItems = storeHelper.multiLevelGroup(dataQuery(items), groups).toArray(),
+            var groupedItems = multiLevelGroup(dataQuery(items), groups).toArray(),
                 result = [];
 
             paths.forEach(function(path) {
@@ -186,8 +207,53 @@ var SummaryDataSourceAdapterExtender = (function() {
 })();
 
 var SummaryDataSourceAdapterClientExtender = (function() {
+    var applyAddedData = function(data, insertedData, groupLevel) {
+        if(groupLevel) {
+            return applyAddedData(data, insertedData.map(item => {
+                return { items: [item] };
+            }, groupLevel - 1));
+        }
+
+        return data.concat(insertedData);
+    };
+
+    var applyRemovedData = function(data, removedData, groupLevel) {
+        if(groupLevel) {
+            return data.map(data => {
+                var updatedData = {},
+                    updatedItems = applyRemovedData(data.items || [], removedData, groupLevel - 1);
+
+                Object.defineProperty(updatedData, 'aggregates', {
+                    get: () => data.aggregates,
+                    set: value => {
+                        data.aggregates = value;
+                    }
+                });
+
+                return extend(updatedData, data, { items: updatedItems });
+            });
+        }
+
+        return data.filter(data => removedData.indexOf(data) < 0);
+    };
+
     var calculateAggregates = function(that, summary, data, groupLevel) {
         var calculator;
+
+        if(recalculateWhileEditing(that)) {
+            var editingController = that.getController("editing");
+            if(editingController) {
+                var insertedData = editingController.getInsertedData();
+                if(insertedData.length) {
+                    data = applyAddedData(data, insertedData, groupLevel);
+                }
+
+                var removedData = editingController.getRemovedData();
+                if(removedData.length) {
+                    data = applyRemovedData(data, removedData, groupLevel);
+                }
+            }
+        }
 
         if(summary) {
             calculator = new AggregateCalculator({
@@ -211,7 +277,7 @@ var SummaryDataSourceAdapterClientExtender = (function() {
 
         if(group && sorts && sorts.length) {
             query = dataQuery(items);
-            iteratorUtils.each(sorts, function(index) {
+            each(sorts, function(index) {
                 if(index === 0) {
                     query = query.sortBy(this.selector, this.desc);
                 } else {
@@ -226,7 +292,7 @@ var SummaryDataSourceAdapterClientExtender = (function() {
         groups = groups.slice(1);
         sortByGroups = sortByGroups.slice(1);
         if(groups.length && sortByGroups.length) {
-            iteratorUtils.each(items, function() {
+            each(items, function() {
                 this.items = sortGroupsBySummaryCore(this.items, groups, sortByGroups);
             });
         }
@@ -273,24 +339,26 @@ var SummaryDataSourceAdapterClientExtender = (function() {
         },
         _handleDataLoadedCore: function(options) {
             var that = this,
-                groups = dataUtils.normalizeSortingInfo(options.storeLoadOptions.group || options.loadOptions.group || []),
+                groups = normalizeSortingInfo(options.storeLoadOptions.group || options.loadOptions.group || []),
                 remoteOperations = options.remoteOperations || {},
                 summary = that.summaryGetter()(remoteOperations),
                 totalAggregates;
 
-            if(remoteOperations.summary) {
-                if(!remoteOperations.paging && groups.length && summary) {
-                    if(!remoteOperations.grouping) {
-                        calculateAggregates(that, { groupAggregates: summary.groupAggregates }, options.data, groups.length);
+            if(!options.isCustomLoading || options.storeLoadOptions.isLoadingAll) {
+                if(remoteOperations.summary) {
+                    if(!remoteOperations.paging && groups.length && summary) {
+                        if(!remoteOperations.grouping) {
+                            calculateAggregates(that, { groupAggregates: summary.groupAggregates }, options.data, groups.length);
+                        }
+                        options.data = sortGroupsBySummary(options.data, groups, summary);
                     }
-                    options.data = sortGroupsBySummary(options.data, groups, summary);
-                }
-            } else if(!remoteOperations.paging) {
-                totalAggregates = calculateAggregates(that, summary, options.data, groups.length);
+                } else if(!remoteOperations.paging) {
+                    totalAggregates = calculateAggregates(that, summary, options.data, groups.length);
 
-                options.data = sortGroupsBySummary(options.data, groups, summary);
-                options.extra = typeUtils.isPlainObject(options.extra) ? options.extra : {};
-                options.extra.summary = totalAggregates;
+                    options.data = sortGroupsBySummary(options.data, groups, summary);
+                    options.extra = isPlainObject(options.extra) ? options.extra : {};
+                    options.extra.summary = totalAggregates;
+                }
             }
 
             if(!options.isCustomLoading) {
@@ -333,19 +401,13 @@ gridCore.registerModule("summary", {
                  */
                 /**
                  * @name dxDataGridOptions.summary.groupItems.summaryType
-                 * @type Enums.SummaryType
+                 * @type Enums.SummaryType|string
                  * @default undefined
                  */
                 /**
                  * @name dxDataGridOptions.summary.groupItems.valueFormat
                  * @type format
                  * @default undefined
-                 */
-                /**
-                 * @name dxDataGridOptions.summary.groupItems.precision
-                 * @type number
-                 * @default undefined
-                 * @deprecated
                  */
                 /**
                  * @name dxDataGridOptions.summary.groupItems.displayFormat
@@ -402,19 +464,13 @@ gridCore.registerModule("summary", {
                  */
                 /**
                  * @name dxDataGridOptions.summary.totalItems.summaryType
-                 * @type Enums.SummaryType
+                 * @type Enums.SummaryType|string
                  * @default undefined
                  */
                 /**
                  * @name dxDataGridOptions.summary.totalItems.valueFormat
                  * @type format
                  * @default undefined
-                 */
-                /**
-                 * @name dxDataGridOptions.summary.totalItems.precision
-                 * @type number
-                 * @default undefined
-                 * @deprecated
                  */
                 /**
                  * @name dxDataGridOptions.summary.totalItems.displayFormat
@@ -452,6 +508,7 @@ gridCore.registerModule("summary", {
                  * @type_function_param1_field3 summaryProcess:string
                  * @type_function_param1_field4 value:any
                  * @type_function_param1_field5 totalValue:any
+                 * @type_function_param1_field6 groupIndex:number
                  */
                 calculateCustomSummary: undefined,
                 /**
@@ -460,6 +517,12 @@ gridCore.registerModule("summary", {
                  * @default true
                  */
                 skipEmptyValues: true,
+                /**
+                 * @name dxDataGridOptions.summary.recalculateWhileEditing
+                 * @type boolean
+                 * @default false
+                 */
+                recalculateWhileEditing: false,
                 /**
                  * @name dxDataGridOptions.summary.texts
                  * @type object
@@ -553,7 +616,7 @@ gridCore.registerModule("summary", {
             data: (function() {
                 return {
                     _isDataColumn: function(column) {
-                        return column && (!typeUtils.isDefined(column.groupIndex) || column.showWhenGrouped);
+                        return column && (!isDefined(column.groupIndex) || column.showWhenGrouped);
                     },
 
                     _isGroupFooterVisible: function() {
@@ -585,6 +648,7 @@ gridCore.registerModule("summary", {
                             if(data && data.items && options.isGroupFooterVisible && (options.collectContinuationItems || !data.isContinuationOnNextPage)) {
                                 result.push({
                                     rowType: DATAGRID_GROUP_FOOTER_ROW_TYPE,
+                                    key: options.path.slice(),
                                     data: data,
                                     groupIndex: options.path.length - 1,
                                     values: []
@@ -604,7 +668,7 @@ gridCore.registerModule("summary", {
                             var groupColumnIndex = -1,
                                 afterGroupColumnIndex = -1;
 
-                            iteratorUtils.each(options.visibleColumns, function(visibleIndex) {
+                            each(options.visibleColumns, function(visibleIndex) {
                                 var prevColumn = options.visibleColumns[visibleIndex - 1];
 
                                 if(groupItem.groupIndex === this.groupIndex) {
@@ -621,7 +685,7 @@ gridCore.registerModule("summary", {
                                     return -1;
                                 }
 
-                                if(summaryItem.alignByColumn && column && !typeUtils.isDefined(column.groupIndex) && (column.index !== afterGroupColumnIndex)) {
+                                if(summaryItem.alignByColumn && column && !isDefined(column.groupIndex) && (column.index !== afterGroupColumnIndex)) {
                                     return column.index;
                                 } else {
                                     return groupColumnIndex;
@@ -642,7 +706,7 @@ gridCore.registerModule("summary", {
                             summaryCells = [],
                             summaryCellsByColumns = {};
 
-                        iteratorUtils.each(summaryItems, function(summaryIndex, summaryItem) {
+                        each(summaryItems, function(summaryIndex, summaryItem) {
                             var column = that._columnsController.columnOption(summaryItem.column),
                                 showInColumn = summaryItem.showInColumn && that._columnsController.columnOption(summaryItem.showInColumn) || column,
                                 columnIndex = calculateTargetColumnIndex(summaryItem, showInColumn),
@@ -655,16 +719,22 @@ gridCore.registerModule("summary", {
 
                                 aggregate = aggregates[summaryIndex];
                                 if(aggregate === aggregate) {
+                                    var valueFormat;
+                                    if(isDefined(summaryItem.valueFormat)) {
+                                        valueFormat = summaryItem.valueFormat;
+                                    } else if(summaryItem.summaryType !== "count") {
+                                        valueFormat = gridCore.getFormatByDataType(column && column.dataType);
+                                    }
                                     summaryCellsByColumns[columnIndex].push(extend({}, summaryItem, {
-                                        value: typeUtils.isString(aggregate) && column && column.deserializeValue ? column.deserializeValue(aggregate) : aggregate,
-                                        valueFormat: !typeUtils.isDefined(summaryItem.valueFormat) ? gridCore.getFormatByDataType(column && column.dataType) : summaryItem.valueFormat,
+                                        value: isString(aggregate) && column && column.deserializeValue ? column.deserializeValue(aggregate) : aggregate,
+                                        valueFormat: valueFormat,
                                         columnCaption: (column && column.index !== columnIndex) ? column.caption : undefined
                                     }));
                                 }
                             }
                         });
-                        if(!typeUtils.isEmptyObject(summaryCellsByColumns)) {
-                            iteratorUtils.each(visibleColumns, function() {
+                        if(!isEmptyObject(summaryCellsByColumns)) {
+                            each(visibleColumns, function() {
                                 summaryCells.push(summaryCellsByColumns[this.index] || []);
                             });
                         }
@@ -686,12 +756,23 @@ gridCore.registerModule("summary", {
                             summaryCells,
                             totalAggregates,
                             dataSource = that._dataSource,
+                            footerItems = that._footerItems,
+                            oldSummaryCells = footerItems && footerItems[0] && footerItems[0].summaryCells,
                             summaryTotalItems = that.option("summary.totalItems");
 
                         that._footerItems = [];
                         if(dataSource && summaryTotalItems && summaryTotalItems.length) {
                             totalAggregates = dataSource.totalAggregates();
                             summaryCells = that._getSummaryCells(summaryTotalItems, totalAggregates);
+
+                            if(change && change.repaintChangesOnly && oldSummaryCells) {
+                                change.totalColumnIndices = summaryCells.map(function(summaryCell, index) {
+                                    if(JSON.stringify(summaryCell) !== JSON.stringify(oldSummaryCells[index])) {
+                                        return index;
+                                    }
+                                    return -1;
+                                }).filter(index => index >= 0);
+                            }
 
                             if(summaryCells.length) {
                                 that._footerItems.push({
@@ -703,19 +784,48 @@ gridCore.registerModule("summary", {
                         that.callBase(change);
                     },
 
+                    _prepareUnsavedDataSelector: function(selector) {
+                        var that = this;
+
+                        if(recalculateWhileEditing(that)) {
+                            var editingController = that.getController("editing");
+                            if(editingController) {
+                                return function(data) {
+                                    data = editingController.getUpdatedData(data);
+                                    return selector(data);
+                                };
+                            }
+                        }
+
+                        return selector;
+                    },
+
+                    _prepareAggregateSelector: function(selector, aggregator) {
+                        selector = this._prepareUnsavedDataSelector(selector);
+
+                        if(aggregator === "avg" || aggregator === "sum") {
+                            return function(data) {
+                                var value = selector(data);
+                                return isDefined(value) ? Number(value) : value;
+                            };
+                        }
+
+                        return selector;
+                    },
+
                     _getAggregates: function(summaryItems, remoteOperations) {
                         var that = this,
                             columnsController = that.getController("columns"),
                             calculateCustomSummary = that.option("summary.calculateCustomSummary"),
                             commonSkipEmptyValues = that.option("summary.skipEmptyValues");
 
-                        return iteratorUtils.map(summaryItems || [], function(summaryItem) {
+                        return map(summaryItems || [], function(summaryItem) {
 
                             var column = columnsController.columnOption(summaryItem.column),
                                 calculateCellValue = (column && column.calculateCellValue) ? column.calculateCellValue.bind(column) : compileGetter(column ? column.dataField : summaryItem.column),
                                 aggregator = summaryItem.summaryType || "count",
                                 selector = summaryItem.column,
-                                skipEmptyValues = typeUtils.isDefined(summaryItem.skipEmptyValues) ? summaryItem.skipEmptyValues : commonSkipEmptyValues,
+                                skipEmptyValues = isDefined(summaryItem.skipEmptyValues) ? summaryItem.skipEmptyValues : commonSkipEmptyValues,
                                 options;
 
                             if(remoteOperations) {
@@ -724,14 +834,7 @@ gridCore.registerModule("summary", {
                                     summaryType: aggregator
                                 };
                             } else {
-                                if(aggregator === "avg" || aggregator === "sum") {
-                                    selector = function(data) {
-                                        var value = calculateCellValue(data);
-                                        return typeUtils.isDefined(value) ? Number(value) : value;
-                                    };
-                                } else {
-                                    selector = calculateCellValue;
-                                }
+                                selector = that._prepareAggregateSelector(calculateCellValue, aggregator);
 
                                 if(aggregator === "custom") {
                                     if(!calculateCustomSummary) {
@@ -745,9 +848,10 @@ gridCore.registerModule("summary", {
                                     calculateCustomSummary(options);
                                     options.summaryProcess = "calculate";
                                     aggregator = {
-                                        seed: function() {
+                                        seed: function(groupIndex) {
                                             options.summaryProcess = "start";
                                             options.totalValue = undefined;
+                                            options.groupIndex = groupIndex;
                                             delete options.value;
                                             calculateCustomSummary(options);
                                             return options.totalValue;
@@ -782,7 +886,7 @@ gridCore.registerModule("summary", {
                         if(groupColumn) {
                             groupIndex = groupColumn.groupIndex;
                             sortOrder = sortOrder || groupColumn.sortOrder;
-                            if(typeUtils.isDefined(groupIndex)) {
+                            if(isDefined(groupIndex)) {
                                 sortByGroups[groupIndex] = sortByGroups[groupIndex] || [];
                                 sortByGroups[groupIndex].push({
                                     selector: selector,
@@ -802,8 +906,8 @@ gridCore.registerModule("summary", {
                             return summaryType && column && summaryType + "_" + column;
                         };
 
-                        if(typeUtils.isDefined(name)) {
-                            iteratorUtils.each(summaryItems || [], function(index) {
+                        if(isDefined(name)) {
+                            each(summaryItems || [], function(index) {
                                 if(this.name === name || index === name || this.summaryType === name || this.column === name || getFullName(this) === name) {
                                     summaryItemIndex = index;
                                     return false;
@@ -821,7 +925,7 @@ gridCore.registerModule("summary", {
 
                         if(!groupSummaryItems || !groupSummaryItems.length) return;
 
-                        iteratorUtils.each(sortByGroupSummaryInfo || [], function() {
+                        each(sortByGroupSummaryInfo || [], function() {
                             var sortOrder = this.sortOrder,
                                 groupColumn = this.groupColumn,
                                 summaryItemIndex = that._findSummaryItem(groupSummaryItems, this.summaryItem);
@@ -832,11 +936,11 @@ gridCore.registerModule("summary", {
                                 return getGroupAggregates(data)[summaryItemIndex];
                             };
 
-                            if(typeUtils.isDefined(groupColumn)) {
+                            if(isDefined(groupColumn)) {
                                 groupColumn = columnsController.columnOption(groupColumn);
                                 that._addSortInfo(sortByGroups, groupColumn, selector, sortOrder);
                             } else {
-                                iteratorUtils.each(groupColumns, function(groupIndex, groupColumn) {
+                                each(groupColumns, function(groupIndex, groupColumn) {
                                     that._addSortInfo(sortByGroups, groupColumn, selector, sortOrder);
                                 });
                             }
@@ -912,6 +1016,41 @@ gridCore.registerModule("summary", {
                         return this._footerItems;
                     }
                 };
+            })(),
+            editing: (function() {
+                return {
+                    _refreshSummary: function() {
+                        if(recalculateWhileEditing(this)) {
+                            this._dataController.refresh({
+                                load: true,
+                                changesOnly: true
+                            });
+                        }
+                    },
+                    _addEditData: function(params) {
+                        var result = this.callBase.apply(this, arguments);
+
+                        if(params.type) {
+                            this._refreshSummary();
+                        }
+
+                        return result;
+                    },
+                    _removeEditDataItem: function() {
+                        var result = this.callBase.apply(this, arguments);
+
+                        this._refreshSummary();
+
+                        return result;
+                    },
+                    cancelEditData: function() {
+                        var result = this.callBase.apply(this, arguments);
+
+                        this._refreshSummary();
+
+                        return result;
+                    }
+                };
             })()
         },
         views: {
@@ -933,7 +1072,7 @@ gridCore.registerModule("summary", {
                     },
 
                     _hasAlignByColumnSummaryItems: function(columnIndex, options) {
-                        return !typeUtils.isDefined(options.columns[columnIndex].groupIndex) && options.row.summaryCells[columnIndex].length;
+                        return !isDefined(options.columns[columnIndex].groupIndex) && options.row.summaryCells[columnIndex].length;
                     },
 
                     _getAlignByColumnCellCount: function(groupCellColSpan, options) {
@@ -973,7 +1112,7 @@ gridCore.registerModule("summary", {
                     },
 
                     _getCellTemplate: function(options) {
-                        if(!options.column.command && !typeUtils.isDefined(options.column.groupIndex) && options.summaryItems && options.summaryItems.length) {
+                        if(!options.column.command && !isDefined(options.column.groupIndex) && options.summaryItems && options.summaryItems.length) {
                             return renderSummaryCell;
                         } else {
                             return this.callBase(options);

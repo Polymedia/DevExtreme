@@ -1,5 +1,3 @@
-"use strict";
-
 var Callbacks = require("../../core/utils/callbacks"),
     deferredUtils = require("../../core/utils/deferred"),
     when = deferredUtils.when,
@@ -185,7 +183,7 @@ exports.DataController = Class.inherit((function() {
             when(viewHeaderItems).done(function(viewHeaderItems) {
                 options.notifyProgress(0.5);
 
-                if(options.showGrandTotals || headerDescriptions.length === 0) {
+                if(options.showGrandTotals) {
                     viewHeaderItems[!options.showTotalsPrior ? "push" : "unshift"]({
                         type: GRAND_TOTAL_TYPE,
                         isEmpty: options.isEmptyGrandTotal
@@ -508,12 +506,11 @@ exports.DataController = Class.inherit((function() {
                         * @type string
                         */
                         text: formatCellValue(cellValue, dataField, errorText),
-                       /**
+                        /**
                        * @name dxPivotGridPivotGridCell.value
                        */
                         value: cellValue,
                         format: dataField.format,
-                        precision: dataField.precision,
                         dataType: dataField.dataType,
 
                         /**

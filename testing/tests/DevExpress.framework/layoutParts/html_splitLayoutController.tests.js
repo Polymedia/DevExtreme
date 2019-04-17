@@ -1,5 +1,3 @@
-"use strict";
-
 /* global jQuery, ko, includeLayout */
 
 (function(root, factory) {
@@ -44,7 +42,7 @@
             DevExpress.layouts.EmptyLayout,
             DevExpress.layouts.SimpleLayout,
             DevExpress.layouts.SplitLayout
-         );
+        );
     }
 }(this, function($, ko, Router, domUtils, HtmlApplication, ViewEngine, CommandManager, dxCommand, fx, MemoryKeyValueStorage,
     frameworkMocks, htmlFrameworkMocks, createLayoutController, emptyLayoutControllerModule, SimpleLayoutControllerModule, splitLayoutControllerModule) {
@@ -140,7 +138,7 @@
     function objectKeysLength(obj) {
         var length = 0;
 
-        for(var key in obj) { // jshint ignore:line
+        for(var key in obj) { // eslint-disable-line no-unused-vars
             length++;
         }
 

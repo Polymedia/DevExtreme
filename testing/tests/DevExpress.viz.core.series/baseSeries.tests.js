@@ -1,11 +1,11 @@
-"use strict";
-
 import $ from "jquery";
 import vizMocks from "../../helpers/vizMocks.js";
 import commonUtils from "core/utils/common";
 import typeUtils from "core/utils/type";
 import pointModule from "viz/series/points/base_point";
-import { Series, mixins } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
+const mixins = SeriesModule.mixins;
 import { insertMockFactory, MockTranslator, MockAxis, restoreMockFactory } from "../../helpers/chartMocks.js";
 
 const originalPoint = pointModule.Point;
@@ -48,7 +48,8 @@ var createSeries = function(options, settings) {
         labelsGroup: labelsGroup,
         commonSeriesModes: {},
         eventPipe: commonUtils.noop,
-        eventTrigger: commonUtils.noop
+        eventTrigger: commonUtils.noop,
+        incidentOccurred: commonUtils.noop
     }, settings);
 
     return new Series(settings, options);
@@ -198,7 +199,6 @@ var environmentWithSinonStubPoint = {
             stub.visibleTopMarker = true;
             stub.visibleBottomMarker = true;
             stub.hide.reset();
-            stub.applyStyle.reset();
             stub.isHovered.returns(false);
             stub.isSelected.returns(false);
             stub.coordsIn.returns(false);
@@ -554,13 +554,12 @@ QUnit.test("Update series data when points are not empty. Old points length > ne
     var options = { type: "mockType", argumentField: "arg", valueField: "val", label: { visible: false } },
         series = createSeries(options),
         data = [{ arg: 1, val: 10 }, { arg: 2, val: 11 }],
-        newData = [{ arg: 3, val: 4 }],
-        points;
+        newData = [{ arg: 3, val: 4 }];
 
     series.updateData(data);
     series.createPoints();
 
-    points = series.getAllPoints().slice();
+    series.getAllPoints().slice();
     series._points = [];
     series.updateData(newData);
     series.createPoints();
@@ -573,7 +572,7 @@ QUnit.test("Update series data when points are not empty. Old points length > ne
 });
 
 QUnit.test("Create points for dataItems with coresponding series (series template)", function(assert) {
-    var options = { type: "mockType", argumentField: "arg", valueField: "val", nameField: "series", name: "1", label: { visible: false } },
+    var options = { type: "mockType", argumentField: "arg", valueField: "val", nameField: "series", name: "1", nameFieldValue: "1", label: { visible: false } },
         series = createSeries(options),
         data = [{ arg: 1, val: 10, series: "1" }, { arg: 2, val: 20, series: "2" }];
 
@@ -585,6 +584,17 @@ QUnit.test("Create points for dataItems with coresponding series (series templat
     assert.equal(series.getAllPoints()[0].mockOptions.argument, 1, "Arg");
     assert.equal(series.getAllPoints()[0].mockOptions.value, 10, "Val");
     assert.ok(series.canRenderCompleteHandle());
+});
+
+// T688232
+QUnit.test("Create points when series' name and value of value nameField are different", function(assert) {
+    var options = { type: "mockType", argumentField: "arg", valueField: "val", nameField: "series", name: "customName", nameFieldValue: "1", label: { visible: false } },
+        series = createSeries(options);
+
+    series.updateData([{ arg: 1, val: 10, series: "1" }]);
+    series.createPoints();
+
+    assert.equal(series.getAllPoints().length, 1, "Series should have 1 point");
 });
 
 QUnit.test("Update series data when points are not empty. Old points length < new points length", function(assert) {
@@ -662,6 +672,33 @@ QUnit.test("Update points when series has several points at the same argument", 
     assert.equal(this.pointsCreatingCount, 3);
 });
 
+QUnit.test("IncidentOccurred was not called with empty data", function(assert) {
+    const data = [];
+    const incidentOccurred = sinon.spy();
+    const options = { type: "mockType", argumentField: "arg", valueField: "val", label: { visible: false } };
+    const series = createSeries(options, {
+        incidentOccurred: incidentOccurred
+    });
+
+    series.updateData(data);
+
+    assert.strictEqual(incidentOccurred.callCount, 0);
+});
+
+QUnit.test("IncidentOccurred. Data without argument field", function(assert) {
+    const data = [{ val: 1 }, { val: 2 }, { val: 3 }, { val: 4 }, { val: 5 }];
+    const incidentOccurred = sinon.spy();
+    const options = { type: "mockType", argumentField: "arg", valueField: "val", label: { visible: false } };
+    const series = createSeries(options, {
+        incidentOccurred: incidentOccurred
+    });
+
+    series.updateData(data);
+
+    assert.strictEqual(incidentOccurred.callCount, 1);
+    assert.strictEqual(incidentOccurred.lastCall.args[0], "W2002");
+});
+
 QUnit.module("ErrorBars", environmentWithSinonStubPoint);
 
 QUnit.test("Pass errorBars options to point (on creation). ErrorBars are not visible", function(assert) {
@@ -672,15 +709,14 @@ QUnit.test("Pass errorBars options to point (on creation). ErrorBars are not vis
                 someErrorBarsProperty: true
             }
         }),
-        data = [{ arg: 1, val: 2 }],
-        points;
+        data = [{ arg: 1, val: 2 }];
 
     series.areErrorBarsVisible = function() { return false; };
     // act
     series.updateData(data);
     series.createPoints();
     // assert
-    points = series.getPoints();
+    series.getPoints();
 
     assert.equal(this.createPoint.callCount, 1);
     assert.deepEqual(this.createPoint.firstCall.args[2].errorBars, undefined, "error bars options do not passed to point");
@@ -694,14 +730,13 @@ QUnit.test("Pass errorBars options to point (on creation). ErrorBars are visible
                 someErrorBarsProperty: true
             }
         }),
-        data = [{ arg: 1, val: 2 }],
-        points;
+        data = [{ arg: 1, val: 2 }];
     series.areErrorBarsVisible = function() { return true; };
     // act
     series.updateData(data);
     series.createPoints();
     // assert
-    points = series.getPoints();
+    series.getPoints();
 
     assert.equal(this.createPoint.callCount, 1);
     assert.deepEqual(this.createPoint.firstCall.args[2].errorBars, { someErrorBarsProperty: true }, "error bars options passed to point");
@@ -2687,8 +2722,8 @@ QUnit.test("select hovered series - selectionMode is excludePoints", function(as
 
 
     $.each(series.getPoints(), function(i, p) {
-        if(p.applyStyle.called) {
-            assert.strictEqual(p.applyStyle.lastCall.args[0], "normal");
+        if(p.resetView.called) {
+            assert.strictEqual(p.resetView.lastCall.args[0], "hover");
         }
     });
 });
@@ -2717,8 +2752,8 @@ QUnit.test("select hovered series - selectionMode is includePoints", function(as
 
 
     $.each(series.getPoints(), function(i, p) {
-        if(p.applyStyle.called) {
-            assert.strictEqual(p.applyStyle.lastCall.args[0], "selection");
+        if(p.setView.called) {
+            assert.strictEqual(p.setView.lastCall.args[0], "selection");
         }
     });
 });
@@ -2749,8 +2784,8 @@ QUnit.test("select hovered series - release selected series, update hover", func
     assert.strictEqual(series.stylesHistory[2], "hover");
 
     $.each(series.getPoints(), function(i, p) {
-        if(p.applyStyle.called) {
-            assert.strictEqual(p.applyStyle.lastCall.args[0], "hover");
+        if(p.setView.called) {
+            assert.strictEqual(p.setView.lastCall.args[0], "hover");
         }
     });
 });
@@ -3689,16 +3724,6 @@ QUnit.test("Set Hover point with point.selected. ", function(assert) {
     assert.ok(this.point.applyView.callCount, 2, "Point style");
 });
 
-QUnit.test("Set Hover point with point.selected. ", function(assert) {
-    this.series.selectPoint(this.point);
-    this.point.isSelected.returns(true);
-    // act
-    this.series.hoverPoint(this.point);
-
-    assert.equal(this.point.fullState, 2 | 1, "fullState");
-    assert.ok(this.point.applyView.callCount, 2, "Point style");
-});
-
 QUnit.test("Set Hover point view without change state with point.selected. ", function(assert) {
     this.series.selectPoint(this.point);
     this.point.isSelected.returns(true);
@@ -4418,7 +4443,7 @@ QUnit.test("notification of series. allSeriesPoints. multiply mode", function(as
     target2 = series.getAllPoints()[1];
     target1.getOptions.returns({ selectionMode: "allSeriesPoints" });
     target2.getOptions.returns({ selectionMode: "allSeriesPoints" });
-    target1.isSelected.returns(true);   // emulation multiple mode
+    target1.isSelected.returns(true); // emulation multiple mode
     series.notify({
         action: "pointSelect",
         target: target1
@@ -4769,7 +4794,7 @@ QUnit.test("point hover. allSeriesPoints. apply hover style only points target s
         target: series2.getAllPoints()[0]
     });
     // assert
-    assert.equal(series1.getAllPoints()[0].applyStyle.callCount, 0);
+    assert.equal(series1.getAllPoints()[0].setView.callCount, 0);
 });
 
 QUnit.test("point clear hover. allArgumentPoints", function(assert) {

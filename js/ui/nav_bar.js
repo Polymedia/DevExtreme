@@ -1,5 +1,3 @@
-"use strict";
-
 var registerComponent = require("../core/component_registrator"),
     extend = require("../core/utils/extend").extend,
     NavBarItem = require("./nav_bar/item"),
@@ -62,12 +60,12 @@ var NavBar = Tabs.inherit({
     }
 });
 /**
-* @name dxNavBarItemTemplate
-* @inherits dxTabsItemTemplate
+* @name dxNavBarItem
+* @inherits dxTabsItem
 * @type object
 */
 /**
-* @name dxNavBarItemTemplate.badge
+* @name dxNavBarItem.badge
 * @type String
 */
 NavBar.ItemClass = NavBarItem;

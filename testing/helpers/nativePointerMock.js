@@ -1,5 +1,3 @@
-"use strict";
-
 (function(root, factory) {
     /* global jQuery */
     if(typeof define === 'function' && define.amd) {
@@ -34,6 +32,10 @@
             result.chrome = version[0];
         }
 
+        if(/edge|trident/ig.test(ua)) {
+            result.msie = true;
+        }
+
         return result;
     })();
 
@@ -54,17 +56,9 @@
                 "contextmenu": 1
             },
 
-            MS_POINTER_EVENTS = {
-                MSPointerOver: 1,
-                MSPointerOut: 1,
-                MSPointerDown: 1,
-                MSPointerUp: 1,
-                MSPointerMove: 1
-            },
-
             POINTER_EVENTS = {
                 "pointerover": 1,
-                "pointerOut": 1,
+                "pointerout": 1,
                 "pointerdown": 1,
                 "pointerup": 1,
                 "pointermove": 1
@@ -212,7 +206,7 @@
 
 
             if(isString(type)) {
-                if(!MOUSE_EVENTS[type.toLowerCase()] && !MS_POINTER_EVENTS[type] && !POINTER_EVENTS[type]) {
+                if(!MOUSE_EVENTS[type.toLowerCase()] && !POINTER_EVENTS[type]) {
                     throw Error("Event type '" + type + "' not supported.");
                 }
             } else {
@@ -459,14 +453,13 @@
                     customEvent = document.createEvent("TouchEvent");
 
                     var createTouchByOptions = function(options) {
-                        return document.createTouch(
-                            options.view || window,
-                            options.target,
-                            options.identifier || $.now(),
-                            options.pageX || 0,
-                            options.pageY || 0,
-                            options.screenX || 0,
-                            options.screenY || 0
+                        return new window.Touch({
+                            target: options.target || document.body,
+                            identifier: options.identifier || $.now(),
+                            pageX: options.pageX || 0,
+                            pageY: options.pageY || 0,
+                            screenX: options.screenX || 0,
+                            screenY: options.screenY || 0 }
                         );
                     };
 
@@ -483,22 +476,20 @@
                     targetTouches = createTouchListByArray(targetTouches);
                     changedTouches = createTouchListByArray(changedTouches);
 
-                    customEvent.initTouchEvent(type, bubbles, cancelable, view, detail,
-                        screenX, screenY, clientX, clientY,
-                        ctrlKey, altKey, shiftKey, metaKey,
-                        touches, targetTouches, changedTouches,
-                        scale, rotation);
+                    customEvent = new window.TouchEvent(type, {
+                        cancelable: cancelable,
+                        bubbles: bubbles,
+                        touches: touches,
+                        targetTouches: targetTouches,
+                        changedTouches: changedTouches
+                    });
 
                 } else {
                     throw Error('No touch event simulation framework present for iOS, ' + UA.ios + '.');
                 }
             } else if(UA.chrome && ('ontouchstart' in window)) {
-                customEvent = document.createEvent("UIEvent");
+                customEvent = new window.UIEvent(type, { view: view, detail: detail, bubbles: bubbles, cancelable: cancelable, target: target });
 
-                customEvent.initEvent(type, bubbles, cancelable);
-
-                customEvent.view = view;
-                customEvent.detail = detail;
                 customEvent.screenX = screenX;
                 customEvent.screenY = screenY;
                 customEvent.clientX = clientX;
@@ -507,7 +498,6 @@
                 customEvent.altKey = altKey;
                 customEvent.metaKey = metaKey;
                 customEvent.shiftKey = shiftKey;
-                customEvent.target = target;
                 customEvent.touches = touches || [];
                 customEvent.targetTouches = targetTouches || [];
                 customEvent.changedTouches = changedTouches || [];
@@ -521,7 +511,7 @@
         return function(target, type, options) {
             options = options || {};
 
-            if(MOUSE_EVENTS[type] || MS_POINTER_EVENTS[type] || POINTER_EVENTS[type]) {
+            if(MOUSE_EVENTS[type] || POINTER_EVENTS[type]) {
                 simulateMouseEvent(target, type, options.bubbles,
                     options.cancelable, options.view, options.detail, options.screenX,
                     options.screenY, options.clientX, options.clientY, options.ctrlKey,
@@ -560,20 +550,16 @@
         };
     })();
 
-    var pointerEventsSupport = navigator.pointerEnabled,
-        msPointerEventsSupport = !!window.MSPointerEvent && !pointerEventsSupport;
+    var pointerEventsSupport = !!window.PointerEvent && UA.msie;
 
-    var simulatePointerEvent = function($element, type, options) {
-        options = $.extend({
-            canBubble: true,
-            cancelable: true,
-            type: type
-        }, options);
+    var createEvent = function(type, options) {
+        if(typeof window.PointerEvent === "function") {
+            return new PointerEvent(type, options);
+        }
 
-        var event = document.createEvent(msPointerEventsSupport ? "MSPointerEvent" : "pointerEvent");
-
+        var event = document.createEvent("pointerEvent");
         var args = [];
-        $.each(["type", "canBubble", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey",
+        $.each(["type", "bubbles", "cancelable", "view", "detail", "screenX", "screenY", "clientX", "clientY", "ctrlKey", "altKey",
             "shiftKey", "metaKey", "button", "relatedTarget", "offsetX", "offsetY", "width", "height", "pressure", "rotation", "tiltX",
             "tiltY", "pointerId", "pointerType", "hwTimestamp", "isPrimary"], function(i, name) {
             if(name in options) {
@@ -583,6 +569,18 @@
             }
         });
         event.initPointerEvent.apply(event, args);
+
+        return event;
+    };
+
+    var simulatePointerEvent = function($element, type, options) {
+        options = $.extend({
+            bubbles: true,
+            cancelable: true,
+            type: type
+        }, options);
+
+        var event = createEvent(type, options);
 
         $element[0].dispatchEvent(event);
     };
@@ -602,10 +600,10 @@
             // NOTE: All parameters are optional.
             options = $.extend({
                 // values: window
-                view: window,             // The window in which the touch occurred
+                view: window, // The window in which the touch occurred
 
                 // values: DOMNode || document || window || etc.
-                target: null,           // The EventTarget for the touch
+                target: null, // The EventTarget for the touch
 
                 // Returns a value uniquely identifying this point of contact
                 // with the touch surface. This value remains consistent for every
@@ -613,31 +611,31 @@
                 // on the surface until it is lifted off the surface.
                 //
                 // values: unique ID of the Touch object
-                identifier: $.now(),       // The value for Touch.identifier
+                identifier: $.now(), // The value for Touch.identifier
 
                 // Coordinates of the touch point relative to the viewport,
                 // including any scroll offset.
-                pageX: null,            // The value for Touch.pageX
-                pageY: null,            // The value for Touch.pageY
+                pageX: null, // The value for Touch.pageX
+                pageY: null, // The value for Touch.pageY
 
                 // Coordinates coordinate of the touch point relative to the screen,
                 // not including any scroll offset.
-                screenX: null,          // The value for Touch.screenX
-                screenY: null,          // The value for Touch.screenY
+                screenX: null, // The value for Touch.screenX
+                screenY: null, // The value for Touch.screenY
 
                 // Coordinates of the touch point relative to the viewport,
                 // not including any scroll offset.
-                clientX: null,          // The value for Touch.clientX
-                clientY: null,          // The value for Touch.clientY
+                clientX: null, // The value for Touch.clientX
+                clientY: null, // The value for Touch.clientY
 
                 // Radiuses of the ellipse that most closely circumscribes the area
                 // of contact with the screen. The value is in pixels of the same scale as screenX/screenY.
-                radiusX: null,          // The value for Touch.radiusX.
-                radiusY: null,          // The value for Touch.radiusY.
+                radiusX: null, // The value for Touch.radiusX.
+                radiusY: null, // The value for Touch.radiusY.
 
                 // The rotation angle, in degrees, of the contact area ellipse defined by Touch.radiusX and Touch.radiusY.
                 // values: [ 0 .. 90 ]
-                rotationAngle: null,    // The value for Touch.rotationAngle.
+                rotationAngle: null, // The value for Touch.rotationAngle.
 
                 // The amount of pressure the user is applying to the touch surface for this
                 // values: [ 0.0 .. 1.0 ] - no pressure and the maximum amount of pressure respectively.
@@ -652,10 +650,10 @@
                 type: "",
 
                 // values: window
-                view: window,             // The window in which the touch occurred
+                view: window, // The window in which the touch occurred
 
                 // values: DOMNode || document || window || etc.
-                target: null,           // The EventTarget for the touch
+                target: null, // The EventTarget for the touch
 
                 // Returns a value uniquely identifying this point of contact
                 // with the touch surface. This value remains consistent for every
@@ -663,35 +661,37 @@
                 // on the surface until it is lifted off the surface.
                 //
                 // values: unique ID of the Touch object
-                identifier: null,       // The value for Touch.identifier
+                identifier: null, // The value for Touch.identifier
 
                 // Coordinates of the touch point relative to the viewport,
                 // including any scroll offset.
-                pageX: null,            // The value for Touch.pageX
-                pageY: null,            // The value for Touch.pageY
+                pageX: null, // The value for Touch.pageX
+                pageY: null, // The value for Touch.pageY
 
                 // Coordinates coordinate of the touch point relative to the screen,
                 // not including any scroll offset.
-                screenX: null,          // The value for Touch.screenX
-                screenY: null,          // The value for Touch.screenY
+                screenX: null, // The value for Touch.screenX
+                screenY: null, // The value for Touch.screenY
 
                 // Coordinates of the touch point relative to the viewport,
                 // not including any scroll offset.
-                clientX: null,          // The value for Touch.clientX
-                clientY: null,          // The value for Touch.clientY
+                clientX: null, // The value for Touch.clientX
+                clientY: null, // The value for Touch.clientY
 
                 // Radiuses of the ellipse that most closely circumscribes the area
                 // of contact with the screen. The value is in pixels of the same scale as screenX/screenY.
-                radiusX: null,          // The value for Touch.radiusX.
-                radiusY: null,          // The value for Touch.radiusY.
+                radiusX: null, // The value for Touch.radiusX.
+                radiusY: null, // The value for Touch.radiusY.
 
                 // The rotation angle, in degrees, of the contact area ellipse defined by Touch.radiusX and Touch.radiusY.
                 // values: [ 0 .. 90 ]
-                rotationAngle: null,    // The value for Touch.rotationAngle.
+                rotationAngle: null, // The value for Touch.rotationAngle.
 
                 // The amount of pressure the user is applying to the touch surface for this
                 // values: [ 0.0 .. 1.0 ] - no pressure and the maximum amount of pressure respectively.
                 force: null,
+
+                cancelable: true, // whether or not the event's default action can be prevented. Sets the value of event.cancelable.
 
                 touches: [],
                 targetTouches: [],
@@ -713,27 +713,27 @@
 
         var createMouseEventMock = function(options) {
             options = $.extend({
-                type: null,         // click, mousedown, mouseup, mouseover, mousemove, mouseout.
+                type: null, // click, mousedown, mouseup, mouseover, mousemove, mouseout.
 
-                canBubble: true,    // whether or not the event can bubble. Sets the value of
-                cancelable: true,   // whether or not the event's default action can be prevented. Sets the value of event.cancelable.
+                bubbles: true, // whether or not the event can bubble. Sets the value of
+                cancelable: true, // whether or not the event's default action can be prevented. Sets the value of event.cancelable.
 
-                view: window,         // the Event's AbstractView. You should pass the window object here. Sets the value of event.view.
-                detail: 0,       // the Event's mouse click count. Sets the value of event.detail
+                view: window, // the Event's AbstractView. You should pass the window object here. Sets the value of event.view.
+                detail: 0, // the Event's mouse click count. Sets the value of event.detail
 
-                screenX: 0,          // the Event's screen x coordinate. Sets the value of event.screenX.
-                screenY: 0,          // the Event's screen y coordinate. Sets the value of event.screenY.
+                screenX: 0, // the Event's screen x coordinate. Sets the value of event.screenX.
+                screenY: 0, // the Event's screen y coordinate. Sets the value of event.screenY.
 
-                clientX: 0,          // the Event's client x coordinate. Sets the value of event.clientX.
-                clientY: 0,          // whether or not control key was depressed during the Event. Sets the value of event.ctrlKey.
+                clientX: 0, // the Event's client x coordinate. Sets the value of event.clientX.
+                clientY: 0, // whether or not control key was depressed during the Event. Sets the value of event.ctrlKey.
 
-                ctrlKey: false,          // whether or not alt key was depressed during the Event. Sets the value of event.altKey.
-                altKey: false,           // whether or not shift key was depressed during the Event. Sets the value of event.shiftKey.
-                shiftKey: false,         // whether or not meta key was depressed during the Event. Sets the value of event.metaKey.
-                metaKey: false,          // the Event's mouse event.button.
-                button: 0,              // Indicates which mouse button caused the event: 0 || 1 || 2
+                ctrlKey: false, // whether or not alt key was depressed during the Event. Sets the value of event.altKey.
+                altKey: false, // whether or not shift key was depressed during the Event. Sets the value of event.shiftKey.
+                shiftKey: false, // whether or not meta key was depressed during the Event. Sets the value of event.metaKey.
+                metaKey: false, // the Event's mouse event.button.
+                button: 0, // Indicates which mouse button caused the event: 0 || 1 || 2
 
-                relatedTarget: null    // the Event's related EventTarget. Only used with some event types (e.g. mouseover and mouseout). In other cases, pass null.
+                relatedTarget: null // the Event's related EventTarget. Only used with some event types (e.g. mouseover and mouseout). In other cases, pass null.
             }, options);
 
             return options;
@@ -836,7 +836,7 @@
             },
 
             pointerDown: function() {
-                var eventName = msPointerEventsSupport ? "MSPointerDown" : "pointerdown";
+                var eventName = "pointerdown";
                 try {
                     simulatePointerEvent($element, eventName, { clientX: _x, clientY: _y, pointerType: "mouse", pointerId: 1 });
                 } catch(e) {
@@ -846,7 +846,7 @@
             },
 
             pointerMove: function(deltaX, deltaY) {
-                var eventName = msPointerEventsSupport ? "MSPointerMove" : "pointermove";
+                var eventName = "pointermove";
 
                 _x += deltaX || 0;
                 _y += deltaY || 0;
@@ -859,7 +859,7 @@
             },
 
             pointerUp: function() {
-                var eventName = msPointerEventsSupport ? "MSPointerUp" : "pointerup";
+                var eventName = "pointerup";
                 try {
                     simulatePointerEvent($element, eventName, { clientX: _x, clientY: _y, pointerType: "mouse", pointerId: 1 });
                 } catch(e) {
@@ -869,7 +869,7 @@
             },
 
             pointerCancel: function() {
-                var eventName = msPointerEventsSupport ? "MSPointerCancel" : "pointercancel";
+                var eventName = "pointercancel";
                 try {
                     simulatePointerEvent($element, eventName, { clientX: _x, clientY: _y, pointerType: "mouse", pointerId: 1 });
                 } catch(e) {
@@ -918,7 +918,7 @@
             down: function(x, y) {
                 _x = x || _x;
                 _y = y || _y;
-                pointerEventsSupport || msPointerEventsSupport ? this.pointerDown() : this.touchStart();
+                pointerEventsSupport ? this.pointerDown() : this.touchStart();
                 this.mouseDown();
                 return this;
             },
@@ -927,14 +927,14 @@
                 if($.isArray(x)) {
                     this.move.apply(this, x);
                 } else {
-                    pointerEventsSupport || msPointerEventsSupport ? this.pointerMove(x, y) : this.touchMove(x, y);
+                    pointerEventsSupport ? this.pointerMove(x, y) : this.touchMove(x, y);
                     this.mouseMove();
                 }
                 return this;
             },
 
             up: function() {
-                pointerEventsSupport || msPointerEventsSupport ? this.pointerUp() : this.touchEnd();
+                pointerEventsSupport ? this.pointerUp() : this.touchEnd();
                 this.mouseUp();
                 this.click(true);
                 return this;

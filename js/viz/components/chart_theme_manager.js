@@ -1,5 +1,3 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
@@ -71,12 +69,6 @@ var ThemeManager = BaseThemeManager.inherit((function() {
             if(axisOptions.label.alignment) {
                 axisOptions.label["userAlignment"] = true;
             }
-            if(_isString(axisOptions.label.overlappingBehavior)) {
-                axisOptions.label.overlappingBehavior = { mode: axisOptions.label.overlappingBehavior };
-            }
-            if(!axisOptions.label.overlappingBehavior || !axisOptions.label.overlappingBehavior.mode) {
-                axisOptions.label.overlappingBehavior = axisOptions.label.overlappingBehavior || {};
-            }
         }
         return axisOptions;
     };
@@ -89,6 +81,7 @@ var ThemeManager = BaseThemeManager.inherit((function() {
             mergeOptions = extend(true, {}, theme.commonAxisSettings, theme[position], theme[name], commonAxisSettings, processedUserOptions);
 
         mergeOptions.workWeek = processedUserOptions.workWeek || theme[name].workWeek;
+        mergeOptions.forceUserTickInterval |= _isDefined(processedUserOptions.tickInterval) && !_isDefined(processedUserOptions.axisDivisionFactor);
         return mergeOptions;
     };
 
@@ -185,6 +178,50 @@ var ThemeManager = BaseThemeManager.inherit((function() {
                 value.nameField = value.nameField || "series";
             }
             return value;
+        },
+        zoomAndPan() {
+            function parseOption(option) {
+                option = _normalizeEnum(option);
+                const pan = option === "pan" || option === "both",
+                    zoom = option === "zoom" || option === "both";
+
+                return {
+                    pan: pan,
+                    zoom: zoom,
+                    none: !pan && !zoom
+                };
+            }
+
+            let userOptions = this._userOptions.zoomAndPan;
+
+            if(!_isDefined(userOptions)) {
+                const zoomingMode = _normalizeEnum(this.getOptions("zoomingMode"));
+                const scrollingMode = _normalizeEnum(this.getOptions("scrollingMode"));
+                const allowZoom = ['all', 'mouse', 'touch'].indexOf(zoomingMode) !== -1;
+                const allowScroll = ['all', 'mouse', 'touch'].indexOf(scrollingMode) !== -1;
+
+                userOptions = {
+                    argumentAxis: (allowZoom && allowScroll) ? "both" : (allowZoom ? "zoom" : (allowScroll ? "pan" : "none")),
+                    allowMouseWheel: zoomingMode === "all" || zoomingMode === "mouse",
+                    allowTouchGestures: zoomingMode === "all" || zoomingMode === "touch" || scrollingMode === "all" || scrollingMode === "touch"
+                };
+            }
+
+            let options = mergeOptions.call(this, "zoomAndPan", userOptions);
+
+            return {
+                valueAxis: parseOption(options.valueAxis),
+                argumentAxis: parseOption(options.argumentAxis),
+                dragToZoom: !!options.dragToZoom,
+                dragBoxStyle: {
+                    class: "dxc-shutter",
+                    fill: options.dragBoxStyle.color,
+                    opacity: options.dragBoxStyle.opacity
+                },
+                panKey: options.panKey,
+                allowMouseWheel: !!options.allowMouseWheel,
+                allowTouchGestures: !!options.allowTouchGestures
+            };
         }
     };
 

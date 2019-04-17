@@ -1,19 +1,18 @@
-"use strict";
+import $ from "jquery";
+import keyboardMock from "../../../helpers/keyboardMock.js";
+import fields from "../../../helpers/filterBuilderTestData.js";
 
-var $ = require("jquery"),
-    utils = require("ui/filter_builder/utils"),
-    keyboardMock = require("../../../helpers/keyboardMock.js"),
-    fields = require("../../../helpers/filterBuilderTestData.js");
+import "ui/filter_builder/filter_builder";
 
-require("ui/filter_builder/filter_builder");
+import {
+    FILTER_BUILDER_ITEM_OPERATION_CLASS,
+    FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS
+} from "./constants.js";
 
-var FILTER_BUILDER_ITEM_OPERATION_CLASS = "dx-filterbuilder-item-operation",
-    FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS = "dx-filterbuilder-item-value-text",
-
-    TAB_KEY = 9,
-    ENTER_KEY = 13,
-    ESCAPE_KEY = 27,
-    DOWN_ARROW_KEY = 40;
+const TAB_KEY = "Tab";
+const ENTER_KEY = "Enter";
+const ESCAPE_KEY = "Escape";
+const DOWN_ARROW_KEY = "ArrowDown";
 
 QUnit.module("Keyboard navigation", {
     beforeEach: function() {
@@ -23,10 +22,6 @@ QUnit.module("Keyboard navigation", {
             value: [["State", "=", ""]],
             fields: fields
         }).dxFilterBuilder("instance");
-
-        this.triggerEvent = function(element, eventType, keyCode) {
-            element.trigger($.Event(eventType, { keyCode: keyCode }));
-        };
 
         this.getValueButtonElement = function() {
             return this.container.find("." + FILTER_BUILDER_ITEM_VALUE_TEXT_CLASS);
@@ -52,21 +47,68 @@ QUnit.module("Keyboard navigation", {
 
             keyboardMock(this.getTextEditorElement()).keyUp(key);
         };
+
+        this.showTextEditor = function() {
+            keyboardMock(this.getValueButtonElement()).keyUp(ENTER_KEY);
+        };
+
+        this.setFocusToBody = function() {
+            if(document.activeElement && document.activeElement.nodeName.toLowerCase() !== "body") {
+                document.activeElement.blur();
+            }
+        };
     }
 }, function() {
     QUnit.test("show editor on keyup event", function(assert) {
         this.instance.option("value", ["Zipcode", "<>", 123]);
 
-        keyboardMock(this.getValueButtonElement()).keyUp(ENTER_KEY);
+        this.showTextEditor();
 
         assert.notOk(this.getValueButtonElement().length);
         assert.ok(this.getTextEditorElement().length);
     });
 
+    // T697525
+    QUnit.test("keyup for enter key should not fired between compositionstart & compositionend events", function(assert) {
+        this.instance.option("value", ["State", "<>", "State"]);
+        this.showTextEditor();
+        var textEditorElement = this.getTextEditorElement();
+        textEditorElement.find("input").trigger("compositionstart");
+
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.ok(this.getTextEditorElement().length, "skip keyup while composition");
+
+        textEditorElement.find("input").trigger("compositionend");
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.ok(this.getTextEditorElement().length, "skip first keyup after composition");
+
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.notOk(this.getTextEditorElement().length, "keyup fired");
+    });
+
+    // T697525
+    QUnit.test("keyup for enter key shouled fired after compositionend on safari", function(assert) {
+        this.instance.option("value", ["State", "<>", "State"]);
+        this.showTextEditor();
+        var textEditorElement = this.getTextEditorElement();
+        textEditorElement.find("input").trigger("compositionstart");
+
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.ok(this.getTextEditorElement().length, "skip keyup while composition");
+
+        textEditorElement.find("input").trigger("compositionend");
+        keyboardMock(textEditorElement).keyDown(229);
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.ok(this.getTextEditorElement().length, "wait for keydown != 229 after composition");
+
+        keyboardMock(textEditorElement).keyUp(ENTER_KEY);
+        assert.notOk(this.getTextEditorElement().length, "keyup fired");
+    });
+
     QUnit.test("enter keyup for value button and editor", function(assert) {
         this.instance.option("value", ["Zipcode", "<>", 123]);
 
-        keyboardMock(this.getValueButtonElement()).keyUp(ENTER_KEY);
+        this.showTextEditor();
 
         assert.ok(this.getTextEditorElement().length);
 
@@ -90,7 +132,7 @@ QUnit.module("Keyboard navigation", {
 
         var textEditorElement = this.getTextEditorElement();
         textEditorElement.dxTextBox("instance").option("value", "Test");
-        utils.setFocusToBody();
+        this.setFocusToBody();
 
         keyboardMock(this.getTextEditorElement()).keyUp(TAB_KEY);
 
@@ -100,7 +142,7 @@ QUnit.module("Keyboard navigation", {
     QUnit.test("tab press without change a condition", function(assert) {
         this.getValueButtonElement().trigger("dxclick");
 
-        utils.setFocusToBody();
+        this.setFocusToBody();
         keyboardMock(this.getTextEditorElement().find("input")).keyUp(TAB_KEY);
 
         assert.equal(this.getValueButtonElement().text(), "<enter a value>");
@@ -166,5 +208,25 @@ QUnit.module("Keyboard navigation", {
 
         assert.ok(this.getOperationButtonElement().is(":focus"));
         assert.equal(this.getOperationButtonElement().text(), "Contains");
+    });
+
+    // T653968
+    QUnit.testInActiveWindow("editor.value is changed after 'keyup' and saved in filterBulder.value by outer click (T653968)", function(assert) {
+        this.showTextEditor();
+
+        var textEditorElement = this.getTextEditorElement(),
+            textEditorInput = textEditorElement.find("input"),
+            textEditorInstance = textEditorElement.dxTextBox("instance");
+
+        textEditorInput.focus();
+        textEditorInput.val("Test");
+        assert.equal(textEditorInput.val(), "Test");
+        assert.equal(textEditorInstance.option("value"), "");
+
+        $("body").trigger("dxpointerdown");
+
+        assert.deepEqual(this.instance.option("value"), ["State", "=", "Test"]);
+        assert.equal(textEditorInstance.option("value"), "Test");
+        assert.equal(textEditorInput.val(), "Test");
     });
 });

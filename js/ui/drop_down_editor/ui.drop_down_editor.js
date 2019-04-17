@@ -1,6 +1,5 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
+    AsyncTemplateMixin = require("../shared/async_template_mixin"),
     eventsEngine = require("../../events/core/events_engine"),
     Guid = require("../../core/guid"),
     registerComponent = require("../../core/component_registrator"),
@@ -180,9 +179,21 @@ var DropDownEditor = TextBox.inherit({
             fieldTemplate: null,
             contentTemplate: null,
 
+            /**
+             * @name dxDropDownEditorOptions.openOnFieldClick
+             * @type boolean
+             * @default false
+             */
             openOnFieldClick: false,
 
+            /**
+             * @name dxDropDownEditorOptions.showDropDownButton
+             * @type boolean
+             * @default true
+             */
             showDropDownButton: true,
+
+            dropDownOptions: {},
             popupPosition: this._getDefaultPopupPosition(),
             onPopupInitialized: null,
             applyButtonText: messageLocalization.format("OK"),
@@ -268,6 +279,7 @@ var DropDownEditor = TextBox.inherit({
         this.callBase();
         this._initVisibilityActions();
         this._initPopupInitializedAction();
+        this._initInnerOptionCache("dropDownOptions");
     },
 
     _initVisibilityActions: function() {
@@ -331,21 +343,29 @@ var DropDownEditor = TextBox.inherit({
         }
     },
 
+    _getFieldTemplate: function() {
+        return this.option("fieldTemplate") && this._getTemplateByOption("fieldTemplate");
+    },
+
     _renderField: function() {
-        var fieldTemplate = this._getTemplateByOption("fieldTemplate");
+        const fieldTemplate = this._getFieldTemplate();
 
-        if(!(fieldTemplate && this.option("fieldTemplate"))) {
-            return;
+        fieldTemplate && this._renderTemplatedField(fieldTemplate, this._fieldRenderData());
+    },
+
+    _renderPlaceholder: function() {
+        const hasFieldTemplate = !!this._getFieldTemplate();
+
+        if(!hasFieldTemplate) {
+            this.callBase();
         }
-
-        this._renderTemplatedField(fieldTemplate, this._fieldRenderData());
     },
 
     _renderTemplatedField: function(fieldTemplate, data) {
         var isFocused = focused(this._input());
-        this._resetFocus(isFocused);
-
         var $container = this._$container;
+
+        this._disposeKeyboardProcessor();
 
         $container.empty();
         this._$dropDownButton = null;
@@ -353,25 +373,20 @@ var DropDownEditor = TextBox.inherit({
 
         fieldTemplate.render({
             model: data,
-            container: domUtils.getPublicElement($container)
+            container: domUtils.getPublicElement($container),
+            onRendered: () => {
+                if(!this._input().length) {
+                    throw errors.Error("E1010");
+                }
+
+                this._refreshEvents();
+                this._refreshValueChangeEvent();
+                this._renderFocusState();
+
+                isFocused && eventsEngine.trigger(this._input(), "focus");
+            }
         });
-
-        if(!this._input().length) {
-            throw errors.Error("E1010");
-        }
-
-        this._refreshEvents();
-        this._refreshValueChangeEvent();
-        this._renderFocusState();
-
-        isFocused && eventsEngine.trigger(this._input(), "focus");
     },
-
-    _resetFocus: function(isFocused) {
-        this._cleanFocusState();
-        isFocused && eventsEngine.trigger(this._input(), "focusout");
-    },
-
 
     _fieldRenderData: function() {
         return this.option("value");
@@ -480,7 +495,7 @@ var DropDownEditor = TextBox.inherit({
             return false;
         }
 
-        if(!focused(this._input())) {
+        if(this.option("focusStateEnabled") && !focused(this._input())) {
             eventsEngine.trigger(this._input(), "focus");
         }
 
@@ -527,7 +542,7 @@ var DropDownEditor = TextBox.inherit({
     },
 
     _renderPopup: function() {
-        this._popup = this._createComponent(this._$popup, Popup, this._popupConfig());
+        this._popup = this._createComponent(this._$popup, Popup, extend(this._popupConfig(), this._getInnerOptionsCache("dropDownOptions")));
 
         this._popup.on({
             "showing": this._popupShowingHandler.bind(this),
@@ -541,6 +556,8 @@ var DropDownEditor = TextBox.inherit({
 
         this._popupContentId = "dx-" + new Guid();
         this.setAria("id", this._popupContentId, this._popup.$content());
+
+        this._bindInnerWidgetOptions(this._popup, "dropDownOptions");
     },
 
     _contentReadyHandler: commonUtils.noop,
@@ -762,6 +779,18 @@ var DropDownEditor = TextBox.inherit({
         this._$dropDownButton && this._$dropDownButton.dxButton("option", "disabled", this.option("readOnly"));
     },
 
+    _updatePopupWidth: commonUtils.noop,
+
+    _popupOptionChanged: function(args) {
+        var options = this._getOptionsFromContainer(args);
+
+        this._setPopupOption(options);
+
+        if(Object.keys(options).indexOf("width") !== -1 && options["width"] === undefined) {
+            this._updatePopupWidth();
+        }
+    },
+
     _optionChanged: function(args) {
         switch(args.name) {
             case "opened":
@@ -789,6 +818,10 @@ var DropDownEditor = TextBox.inherit({
                 break;
             case "dropDownButtonTemplate":
                 this._renderDropDownButton();
+                break;
+            case "dropDownOptions":
+                this._popupOptionChanged(args);
+                this._cacheInnerOptions("dropDownOptions", args.value);
                 break;
             case "popupPosition":
             case "deferRendering":
@@ -827,10 +860,6 @@ var DropDownEditor = TextBox.inherit({
     * @name dxDropDownEditorMethods.reset
     * @publicName reset()
     */
-    reset: function() {
-        this.option("value", null);
-        this._input().val("");
-    },
 
     /**
     * @name dxDropDownEditorMethods.field
@@ -849,7 +878,7 @@ var DropDownEditor = TextBox.inherit({
     content: function() {
         return this._popup ? this._popup.content() : null;
     }
-});
+}).include(AsyncTemplateMixin);
 
 registerComponent("dxDropDownEditor", DropDownEditor);
 

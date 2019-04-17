@@ -1,5 +1,3 @@
-"use strict";
-
 var Config = require("./config"),
     domAdapter = require("./dom_adapter"),
     extend = require("./utils/extend").extend,
@@ -9,7 +7,9 @@ var Config = require("./config"),
     coreDataUtils = require("./utils/data"),
     commonUtils = require("./utils/common"),
     typeUtils = require("./utils/type"),
-    map = require("../core/utils/iterator").map,
+    deferredUtils = require("../core/utils/deferred"),
+    Deferred = deferredUtils.Deferred,
+    when = deferredUtils.when,
     Callbacks = require("./utils/callbacks"),
     EventsMixin = require("./events_mixin"),
     publicComponentUtils = require("./utils/public_component"),
@@ -29,6 +29,43 @@ var cachedSetters = {};
 * @namespace DevExpress
 * @hidden
 */
+
+class PostponedOperations {
+    constructor() {
+        this._postponedOperations = {};
+    }
+
+    add(key, fn, postponedPromise) {
+        if(key in this._postponedOperations) {
+            postponedPromise && this._postponedOperations[key].promises.push(postponedPromise);
+        } else {
+            var completePromise = new Deferred();
+            this._postponedOperations[key] = {
+                fn: fn,
+                completePromise: completePromise,
+                promises: postponedPromise ? [postponedPromise] : []
+            };
+        }
+
+        return this._postponedOperations[key].completePromise.promise();
+    }
+
+    callPostponedOperations() {
+        for(var key in this._postponedOperations) {
+            var operation = this._postponedOperations[key];
+
+            if(typeUtils.isDefined(operation)) {
+                if(operation.promises && operation.promises.length) {
+                    when(...operation.promises).done(operation.fn).then(operation.completePromise.resolve);
+                } else {
+                    operation.fn().done(operation.completePromise.resolve);
+                }
+            }
+        }
+        this._postponedOperations = {};
+    }
+}
+
 var Component = Class.inherit({
 
     _setDeprecatedOptions: function() {
@@ -40,8 +77,8 @@ var Component = Class.inherit({
     },
 
     _getOptionAliasesByName: function(optionName) {
-        return map(this._deprecatedOptions, function(deprecate, aliasName) {
-            return optionName === deprecate.alias ? aliasName : undefined;
+        return Object.keys(this._deprecatedOptions).filter(aliasName => {
+            return optionName === this._deprecatedOptions[aliasName].alias;
         });
     },
 
@@ -51,7 +88,7 @@ var Component = Class.inherit({
             * @name ComponentOptions.onInitialized
             * @type function
             * @type_function_param1 e:object
-            * @type_function_param1_field1 component:Component
+            * @type_function_param1_field1 component:this
             * @type_function_param1_field2 element:dxElement
             * @default null
             * @action
@@ -61,7 +98,7 @@ var Component = Class.inherit({
             * @name ComponentOptions.onOptionChanged
             * @type function
             * @type_function_param1 e:object
-            * @type_function_param1_field1 component:Component
+            * @type_function_param1_field1 component:this
             * @type_function_param1_field4 name:string
             * @type_function_param1_field5 fullName:string
             * @type_function_param1_field6 value:any
@@ -73,7 +110,7 @@ var Component = Class.inherit({
             * @name ComponentOptions.onDisposing
             * @type function
             * @type_function_param1 e:object
-            * @type_function_param1_field1 component:Component
+            * @type_function_param1_field1 component:this
             * @default null
             * @action
             */
@@ -173,6 +210,7 @@ var Component = Class.inherit({
 
         this._optionChangedCallbacks = options._optionChangedCallbacks || Callbacks();
         this._disposingCallbacks = options._disposingCallbacks || Callbacks();
+        this.postponedOperations = new PostponedOperations();
 
         this.beginUpdate();
 
@@ -258,7 +296,7 @@ var Component = Class.inherit({
     /**
      * @name componentmethods.instance
      * @publicName instance()
-     * @return Component
+     * @return this
      */
     instance: function() {
         return this;
@@ -279,6 +317,7 @@ var Component = Class.inherit({
     endUpdate: function() {
         this._updateLockCount = Math.max(this._updateLockCount - 1, 0);
         if(!this._updateLockCount) {
+            this.postponedOperations.callPostponedOperations();
             if(!this._initializing && !this._initialized) {
                 this._initializing = true;
                 try {
@@ -327,7 +366,7 @@ var Component = Class.inherit({
             for(var i = 0; i < optionNames.length; i++) {
                 var name = optionNames[i],
                     args = {
-                        name: name.split(/[.\[]/)[0],
+                        name: name.split(/[.[]/)[0],
                         fullName: name,
                         value: value,
                         previousValue: previousValue
@@ -592,7 +631,7 @@ var Component = Class.inherit({
                 cachedSetters[name] = coreDataUtils.compileSetter(name);
             }
 
-            var path = name.split(/[.\[]/);
+            var path = name.split(/[.[]/);
 
             cachedSetters[name](that._options, value, {
                 functionsAsIs: true,
@@ -658,3 +697,4 @@ var Component = Class.inherit({
 }).include(EventsMixin);
 
 module.exports = Component;
+module.exports.PostponedOperations = PostponedOperations;

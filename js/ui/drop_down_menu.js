@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     window = require("../core/utils/window").getWindow(),
     devices = require("../core/devices"),
@@ -22,7 +20,8 @@ var DROP_DOWN_MENU_CLASS = "dx-dropdownmenu",
 var POPUP_OPTION_MAP = {
     "popupWidth": "width",
     "popupHeight": "height",
-    "popupMaxHeight": "maxHeight"
+    "popupMaxHeight": "maxHeight",
+    "popupAutoResizeEnabled": "autoResizeEnabled"
 };
 
 var BUTTON_OPTION_MAP = {
@@ -71,6 +70,7 @@ var DropDownMenu = Widget.inherit({
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number
+            * @type_function_param1_field7 event:event
             * @action
             */
             onItemClick: null,
@@ -173,7 +173,9 @@ var DropDownMenu = Widget.inherit({
             menuWidget: List,
             popupMaxHeight: undefined,
             closeOnClick: true,
-            useInkRipple: false
+            useInkRipple: false,
+            container: undefined,
+            popupAutoResizeEnabled: false
         });
     },
 
@@ -380,7 +382,9 @@ var DropDownMenu = Widget.inherit({
             target: this.$element(),
             height: this.option("popupHeight"),
             width: this.option("popupWidth"),
-            maxHeight: this.option("popupMaxHeight")
+            maxHeight: this.option("popupMaxHeight"),
+            container: this.option("container"),
+            autoResizeEnabled: this.option("popupAutoResizeEnabled")
         };
     },
 
@@ -489,6 +493,7 @@ var DropDownMenu = Widget.inherit({
             case "popupWidth":
             case "popupHeight":
             case "popupMaxHeight":
+            case "popupAutoResizeEnabled":
                 this._popup.option(POPUP_OPTION_MAP[name], value);
                 break;
             case "usePopover":
@@ -518,6 +523,9 @@ var DropDownMenu = Widget.inherit({
             case "deferRendering":
             case "popupPosition":
             case "closeOnClick":
+                break;
+            case "container":
+                this._popup && this._popup.option(args.name, args.value);
                 break;
             default:
                 this.callBase(args);

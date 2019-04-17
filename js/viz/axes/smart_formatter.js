@@ -1,12 +1,10 @@
-"use strict";
-
-import _format from "../core/format";
 import formatHelper from "../../format_helper";
 import { isDefined, isFunction, isExponential, isObject } from "../../core/utils/type";
 import dateUtils from "../../core/utils/date";
 import { adjust, getPrecision, getExponent } from "../../core/utils/math";
 import { getAdjustedLog10 as log10 } from "../core/utils";
 
+const _format = formatHelper.format;
 const floor = Math.floor;
 const abs = Math.abs;
 const EXPONENTIAL = "exponential";
@@ -133,7 +131,7 @@ function createFormat(type) {
         formatter = type;
         type = null;
     }
-    return { format: { type, formatter } };
+    return { type, formatter };
 }
 
 export function smartFormatter(tick, options) {
@@ -156,8 +154,12 @@ export function smartFormatter(tick, options) {
         nextDateIndex,
         isLogarithmic = options.type === "logarithmic";
 
-    if(!isDefined(format) && isDefined(tickInterval) && options.type !== "discrete" && tick && (options.logarithmBase === 10 || !isLogarithmic)) {
-        if(options.dataType !== "datetime") {
+    if(ticks.length === 1 && ticks.indexOf(tick) === 0 && !isDefined(tickInterval)) {
+        tickInterval = abs(tick) >= 1 ? 1 : adjust(1 - abs(tick), tick);
+    }
+
+    if(!isDefined(format) && options.type !== "discrete" && tick && (options.logarithmBase === 10 || !isLogarithmic)) {
+        if(options.dataType !== "datetime" && isDefined(tickInterval)) {
             if(ticks.length && ticks.indexOf(tick) === -1) {
                 indexOfTick = getTransitionTickIndex(ticks, tick);
                 tickInterval = adjust(abs(tick - ticks[indexOfTick]), tick);
@@ -221,11 +223,13 @@ export function smartFormatter(tick, options) {
                 }
             }
 
-            format = {
-                type: typeFormat,
-                precision: precision
-            };
-        } else {
+            if(typeFormat !== undefined || precision !== undefined) {
+                format = {
+                    type: typeFormat,
+                    precision: precision
+                };
+            }
+        } else if(options.dataType === "datetime") {
             typeFormat = dateUtils.getDateFormatByTickInterval(tickInterval);
             if(options.showTransition && ticks.length) {
                 indexOfTick = ticks.map(Number).indexOf(+tick);
@@ -242,11 +246,11 @@ export function smartFormatter(tick, options) {
                     typeFormat = formatHelper.getDateFormatByDifferences(datesDifferences, typeFormat);
                 }
             }
-            format = createFormat(typeFormat).format;
+            format = createFormat(typeFormat);
         }
     }
 
-    return _format(tick, { format: format, precision: options.labelOptions.precision });
+    return _format(tick, format);
 }
 
 function getHighDiffFormat(diff) {

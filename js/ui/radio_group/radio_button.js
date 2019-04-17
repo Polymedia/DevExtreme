@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     devices = require("../../core/devices"),
@@ -14,7 +12,8 @@ var $ = require("../../core/renderer"),
 var RADIO_BUTTON_CLASS = "dx-radiobutton",
     RADIO_BUTTON_ICON_CLASS = "dx-radiobutton-icon",
     RADIO_BUTTON_ICON_DOT_CLASS = "dx-radiobutton-icon-dot",
-    RADIO_BUTTON_CHECKED_CLASS = "dx-radiobutton-checked";
+    RADIO_BUTTON_CHECKED_CLASS = "dx-radiobutton-checked",
+    RADIO_BUTTON_ICON_CHECKED_CLASS = "dx-radiobutton-icon-checked";
 
 /**
 * @name dxRadioButton
@@ -42,6 +41,10 @@ var RadioButton = Editor.inherit({
         });
     },
 
+    _canValueBeChangedByClick: function() {
+        return true;
+    },
+
     _defaultOptionsRules: function() {
         return this.callBase().concat([
             {
@@ -54,7 +57,7 @@ var RadioButton = Editor.inherit({
             },
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5();
                 },
                 options: {
                     useInkRipple: true
@@ -124,7 +127,10 @@ var RadioButton = Editor.inherit({
     },
 
     _renderCheckedState: function(checked) {
-        this.$element().toggleClass(RADIO_BUTTON_CHECKED_CLASS, checked);
+        this.$element()
+            .toggleClass(RADIO_BUTTON_CHECKED_CLASS, checked)
+            .find("." + RADIO_BUTTON_ICON_CLASS)
+            .toggleClass(RADIO_BUTTON_ICON_CHECKED_CLASS, checked);
         this.setAria("checked", checked);
     },
 
@@ -159,6 +165,11 @@ var RadioButton = Editor.inherit({
             default:
                 this.callBase(args);
         }
+    },
+
+    _clean: function() {
+        delete this._inkRipple;
+        this.callBase();
     }
 });
 

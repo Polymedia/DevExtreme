@@ -1,13 +1,20 @@
-"use strict";
-
 var jQuery = require("jquery");
 var eventsEngine = require("../../events/core/events_engine");
 var useJQuery = require("./use_jquery")();
 var registerEventCallbacks = require("../../events/core/event_registrator_callbacks");
+var domAdapter = require("../../core/dom_adapter");
 
 if(useJQuery) {
     registerEventCallbacks.add(function(name, eventObject) {
         jQuery.event.special[name] = eventObject;
+    });
+
+    eventsEngine.forcePassiveFalseEventNames.forEach(function(eventName) {
+        jQuery.event.special[eventName] = {
+            setup: function(data, namespaces, handler) {
+                domAdapter.listen(this, eventName, handler, { passive: false });
+            }
+        };
     });
 
     eventsEngine.set({

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     Color = require("../../color"),
@@ -98,6 +96,17 @@ var ColorBox = DropDownEditor.inherit({
             * @hidden true
             * @action
             */
+
+            /**
+             * @name dxColorBoxOptions.showDropDownButton
+             * @inheritdoc
+             * @hidden
+             */
+
+            /**
+             * @name dxColorBoxOptions.openOnFieldClick
+             * @hidden
+             */
 
             /**
             * @name dxColorBoxOptions.cancelButtonText
@@ -229,9 +238,11 @@ var ColorBox = DropDownEditor.inherit({
 
         return {
             value: that.option("value"),
+            matchValue: that.option("value"),
             editAlphaChannel: that.option("editAlphaChannel"),
             applyValueMode: that.option("applyValueMode"),
             focusStateEnabled: that.option("focusStateEnabled"),
+            stylingMode: this.option("stylingMode"),
             onEnterKeyPressed: function() {
                 that._colorViewEnterKeyPressed = true;
                 if(that._colorView.option("value") !== that.option("value")) {
@@ -241,6 +252,10 @@ var ColorBox = DropDownEditor.inherit({
             },
 
             onValueChanged: function(args) {
+                if(colorUtils.makeRgba(args.value) === args.previousValue) {
+                    return;
+                }
+
                 var instantlyMode = that.option("applyValueMode") === "instantly";
 
                 if(!instantlyMode && !that._colorViewEnterKeyPressed) {
@@ -353,7 +368,16 @@ var ColorBox = DropDownEditor.inherit({
             value = this.option("value");
 
         $input.val(value);
-        this._colorView && this._colorView.option("value", value);
+        this._updateColorViewValue(value);
+    },
+
+    _updateColorViewValue: function(value) {
+        if(this._colorView) {
+            this._colorView.option({
+                "value": value,
+                "matchValue": value
+            });
+        }
     },
 
     _valueChangeEventHandler: function(e) {
@@ -362,7 +386,7 @@ var ColorBox = DropDownEditor.inherit({
         if(value) {
             value = this._applyColorFromInput(value);
 
-            this._colorView && this._colorView.option("value", value);
+            this._updateColorViewValue(value);
         }
         this.callBase(e, value);
     },
@@ -392,10 +416,7 @@ var ColorBox = DropDownEditor.inherit({
                     this._$colorResultPreview.removeAttr("style");
                 }
 
-                if(this._colorView) {
-                    this._colorView.option("value", value);
-                }
-
+                this._updateColorViewValue(value);
                 this.callBase(args);
                 break;
             case "applyButtonText":

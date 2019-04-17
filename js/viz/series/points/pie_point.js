@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../../core/utils/extend").extend,
     symbolPoint = require("./symbol_point"),
 
@@ -17,10 +15,13 @@ var extend = require("../../../core/utils/extend").extend,
     RADIAL_LABEL_INDENT = require("../../components/consts").radialLabelIndent;
 
 module.exports = _extend({}, symbolPoint, {
-    _updateData: function(data) {
+    _updateData: function(data, argumentChanged) {
         var that = this;
         symbolPoint._updateData.call(this, data);
-        that._visible = true;
+        if(argumentChanged || !_isDefined(that._visible)) {
+            that._visible = true;
+        }
+
         that.minValue = that.initialMinValue = that.originalMinValue = _isDefined(data.minValue) ? data.minValue : 0;
     },
 
@@ -300,7 +301,7 @@ module.exports = _extend({}, symbolPoint, {
 
     },
 
-    _getMarkerVisibility: function() {
+    getMarkerVisibility: function() {
         return true;
     },
 
@@ -335,7 +336,7 @@ module.exports = _extend({}, symbolPoint, {
         if(that._visible) {
             that._visible = false;
             that.hideTooltip();
-            that._options.visibilityChanged(that);
+            that._options.visibilityChanged();
         }
     },
 
@@ -343,7 +344,7 @@ module.exports = _extend({}, symbolPoint, {
         var that = this;
         if(!that._visible) {
             that._visible = true;
-            that._options.visibilityChanged(that);
+            that._options.visibilityChanged();
         }
     },
 

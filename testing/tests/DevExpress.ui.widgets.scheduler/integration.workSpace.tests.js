@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     themes = require("ui/themes"),
     dateLocalization = require("localization/date");
@@ -15,14 +13,12 @@ require("common.css!");
 require("generic_light.css!");
 
 
-var $ = require("jquery"),
-    eventsEngine = require("events/core/events_engine"),
+var eventsEngine = require("events/core/events_engine"),
     renderer = require("core/renderer"),
     fx = require("animation/fx"),
     pointerMock = require("../../helpers/pointerMock.js"),
     dragEvents = require("events/drag"),
     CustomStore = require("data/custom_store"),
-    dateLocalization = require("localization/date"),
     isRenderer = require("core/utils/type").isRenderer,
     config = require("core/config");
 
@@ -68,7 +64,6 @@ QUnit.test("Work space should have correct currentDate option", function(assert)
 
     assert.deepEqual($element.find(".dx-scheduler-work-space").dxSchedulerWorkSpaceDay("instance").option("currentDate"), new Date(2015, 1, 28), "Work space has a right currentDate option");
 });
-
 
 QUnit.test("Work space should have correct min option", function(assert) {
     this.createInstance({
@@ -612,8 +607,40 @@ QUnit.test("Cell data should be applied when resources are loaded", function(ass
             done();
         }
     });
+});
 
+QUnit.test("Duplicated elements should not be rendered when resources are loaded asynchronously (T661335)", function(assert) {
+    this.clock = sinon.useFakeTimers();
+    this.createInstance({
+        currentView: "day",
+        groups: ["owner"],
+        resources: [
+            {
+                fieldExpr: "owner",
+                dataSource: [{ id: 1 }]
+            },
+            {
+                fieldExpr: "room",
+                dataSource: new CustomStore({
+                    load: function() {
+                        var d = $.Deferred();
+                        setTimeout(function() {
+                            d.resolve([{ id: 1 }]);
+                        }, 100);
+                        return d.promise();
+                    }
+                })
+            }
+        ],
+        dataSource: []
+    });
 
+    this.instance.option("groups", ["room"]);
+    this.instance.repaint();
+    this.clock.tick(100);
+
+    var $workspace = this.instance.$element().find(".dx-scheduler-work-space");
+    assert.equal($workspace.length, 1, "Duplicated workSpace wasn't rendered");
 });
 
 QUnit.test("Cell data should be updated after view changing", function(assert) {
@@ -759,8 +786,8 @@ QUnit.test("dataCellTemplate should take cellElement with correct geometry(T4535
         dataSource: [],
         dataCellTemplate: function(cellData, cellIndex, cellElement) {
             if(!cellData.allDay && !cellIndex) {
-                assert.roughEqual($(cellElement).outerWidth(), 85, 1.001, "Data cell width is OK");
-                assert.equal($(cellElement).outerHeight(), 50, "Data cell height is OK");
+                assert.roughEqual($(cellElement).get(0).getBoundingClientRect().width, 85, 1.001, "Data cell width is OK");
+                assert.equal($(cellElement).get(0).getBoundingClientRect().height, 50, "Data cell height is OK");
             }
         }
     });
@@ -813,7 +840,7 @@ QUnit.test("timeCellTemplate should take cellElement with correct geometry(T4535
         timeCellTemplate: function(cellData, cellIndex, cellElement) {
             if(!cellIndex) {
                 assert.equal(isRenderer(cellElement), !!config().useJQuery, "element is correct");
-                assert.equal($(cellElement).outerHeight(), 50, "Time cell height is OK");
+                assert.equal($(cellElement).get(0).getBoundingClientRect().height, 50, "Time cell height is OK");
                 assert.equal($(cellElement).outerWidth(), 100, "Time cell width is OK");
             }
         }
@@ -861,7 +888,7 @@ QUnit.test("resourceCellTemplate should take cellElement with correct geometry i
             if(!cellIndex) {
                 var $cell = $(cellElement).parent();
                 assert.equal($cell.outerWidth(), 99, "Resource cell width is OK");
-                assert.roughEqual($cell.outerHeight(), 275, 1.001, "Resource cell height is OK");
+                assert.roughEqual($cell.outerHeight(), 276, 1.001, "Resource cell height is OK");
             }
         }
     });
@@ -882,6 +909,71 @@ QUnit.test("timeCellTemplate should have correct options", function(assert) {
     });
 
     assert.equal(templateOptions.text, "3:00 AM", "text options is ok");
+});
+
+QUnit.test("timeCellTemplate should contains the date field of data parameter in the Day view", function(assert) {
+    var resultDates = [];
+    this.createInstance({
+        currentView: "day",
+        views: ["day"],
+        currentDate: new Date(2016, 8, 5),
+        startDayHour: 0,
+        endDayHour: 4,
+        cellDuration: 60,
+        timeCellTemplate: function(itemData) {
+            resultDates.push(itemData.date);
+        }
+    });
+
+    assert.equal(resultDates.length, 4);
+    assert.deepEqual(resultDates[0], new Date(2016, 8, 5), "date parameter for the first time cell");
+    assert.deepEqual(resultDates[1], new Date(2016, 8, 5, 1), "date parameter for the second time cell");
+    assert.deepEqual(resultDates[2], new Date(2016, 8, 5, 2), "date parameter for the third time cell");
+    assert.deepEqual(resultDates[3], new Date(2016, 8, 5, 3), "date parameter for the fourth time cell");
+});
+
+QUnit.test("timeCellTemplate should contains the date field of data parameter in Week view", function(assert) {
+    var resultDates = [];
+    this.createInstance({
+        currentView: "week",
+        views: ["week"],
+        currentDate: new Date(2016, 8, 5),
+        firstDayOfWeek: 0,
+        startDayHour: 0,
+        endDayHour: 4,
+        cellDuration: 60,
+        timeCellTemplate: function(itemData) {
+            resultDates.push(itemData.date);
+        }
+    });
+
+    assert.equal(resultDates.length, 4);
+    assert.deepEqual(resultDates[0], new Date(2016, 8, 4), "date parameter for the first time cell");
+    assert.deepEqual(resultDates[1], new Date(2016, 8, 4, 1), "date parameter for the second time cell");
+    assert.deepEqual(resultDates[2], new Date(2016, 8, 4, 2), "date parameter for the third time cell");
+    assert.deepEqual(resultDates[3], new Date(2016, 8, 4, 3), "date parameter for the fourth time cell");
+});
+
+QUnit.test("timeCellTemplate should contains the date field of data parameter in workWeek view", function(assert) {
+    var resultDates = [];
+    this.createInstance({
+        currentView: "workWeek",
+        views: ["workWeek"],
+        currentDate: new Date(2016, 8, 5),
+        firstDayOfWeek: 0,
+        startDayHour: 0,
+        endDayHour: 4,
+        cellDuration: 60,
+        timeCellTemplate: function(itemData) {
+            resultDates.push(itemData.date);
+        }
+    });
+
+    assert.equal(resultDates.length, 4);
+    assert.deepEqual(resultDates[0], new Date(2016, 8, 5), "date parameter for the first time cell");
+    assert.deepEqual(resultDates[1], new Date(2016, 8, 5, 1), "date parameter for the second time cell");
+    assert.deepEqual(resultDates[2], new Date(2016, 8, 5, 2), "date parameter for the third time cell");
+    assert.deepEqual(resultDates[3], new Date(2016, 8, 5, 3), "date parameter for the fourth time cell");
 });
 
 QUnit.test("resourceCellTemplate should have correct options", function(assert) {
@@ -1146,7 +1238,6 @@ QUnit.test("dateCellTemplate should have correct options in agenda view", functi
 
 });
 
-
 QUnit.test("Agenda has right arguments in resourceCellTemplate arguments", function(assert) {
     var params;
 
@@ -1183,7 +1274,6 @@ QUnit.test("Agenda has right arguments in resourceCellTemplate arguments", funct
 
     assert.deepEqual(params, { id: 1, text: "John", color: "#A2a" }, "Cell text is OK");
 });
-
 
 QUnit.test("workSpace recalculation after render cellTemplates", function(assert) {
     this.createInstance({
@@ -1287,7 +1377,7 @@ QUnit.test("WorkSpace recalculation works fine after render dateCellTemplate if 
 });
 
 QUnit.test("Timepanel text should be calculated correctly if DST makes sense (T442904)", function(assert) {
-        // can be reproduced in PST timezone
+    // can be reproduced in PST timezone
     this.createInstance({
         dataSource: [],
         views: ["week"],
@@ -1320,7 +1410,7 @@ QUnit.test("DateTimeIndicator should show correct time in current time zone", fu
     });
 
     var indicatorPositionBefore = this.instance.$element().find(".dx-scheduler-date-time-indicator").position(),
-        cellHeight = $(this.instance.$element()).find(".dx-scheduler-date-table td").eq(0).outerHeight();
+        cellHeight = $(this.instance.$element()).find(".dx-scheduler-date-table td").eq(0).get(0).getBoundingClientRect().height;
 
     this.instance.option("timeZone", "Asia/Yekaterinburg");
 
@@ -1593,6 +1683,28 @@ QUnit.test("SelectedCellData option should have rigth data of focused cell", fun
     assert.deepEqual(this.instance.option("selectedCellData"), [{ startDate: new Date(2018, 3, 8), endDate: new Date(2018, 3, 8, 0, 30), allDay: false }], "option has right value");
 });
 
+QUnit.test("SelectedCellData option should be applied correctly in ungrouped workspace", function(assert) {
+    this.createInstance({
+        dataSource: [],
+        views: ["week"],
+        currentView: "week",
+        showAllDayPanel: true,
+        groups: undefined,
+        currentDate: new Date(2018, 3, 11),
+        height: 600,
+        selectedCellData: [{
+            allDay: false,
+            startDate: new Date(2018, 3, 8),
+            endDate: new Date(2018, 3, 8, 0, 30),
+            groups: {
+                groupId: 1
+            }
+        }]
+    });
+
+    assert.ok(true, "WorkSpace works correctly");
+});
+
 QUnit.test("SelectedCellData option should make cell in focused state", function(assert) {
     this.createInstance({
         dataSource: [],
@@ -1654,4 +1766,21 @@ QUnit.test("Scheduler timeline workweek should contain two spans in header panel
         assert.ok($cell.find("span").last().hasClass("dx-scheduler-header-panel-cell-date"), "second span has correct class");
     }
     themes.isMaterial = origIsMaterial;
+});
+
+QUnit.test("Vertical scrollable should work after switching currentDate if allDayPanel and crossScrollingEnabled are turned on", function(assert) {
+    this.createInstance({
+        dataSource: [],
+        views: ["day"],
+        currentView: "day",
+        showAllDayPanel: true,
+        crossScrollingEnabled: true,
+        currentDate: new Date(2018, 5, 14),
+        height: 600
+    });
+
+    this.instance.option("currentDate", new Date(2018, 5, 15));
+    var $scroll = this.instance.$element().find(".dx-scrollbar-vertical").eq(1);
+
+    assert.notEqual($scroll.css("display"), "none", "ok");
 });

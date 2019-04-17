@@ -1,22 +1,25 @@
-"use strict";
+import $ from "../../core/renderer";
+import array from "../../core/utils/array";
+import recurrenceUtils from "./utils.recurrence";
+import typeUtils from "../../core/utils/type";
+import dateUtils from "../../core/utils/date";
+import { each } from "../../core/utils/iterator";
+import translator from "../../animation/translator";
+import { grep } from "../../core/utils/common";
+import { extend } from "../../core/utils/extend";
+import { inArray } from "../../core/utils/array";
+import dateLocalization from "../../localization/date";
+import SchedulerTimezones from "./timezones/ui.scheduler.timezones";
+import { Deferred } from "../../core/utils/deferred";
 
-var $ = require("../../core/renderer"),
-    array = require("../../core/utils/array"),
-    recurrenceUtils = require("./utils.recurrence"),
-    dateUtils = require("../../core/utils/date"),
-    each = require("../../core/utils/iterator").each,
-    translator = require("../../animation/translator"),
-    grep = require("../../core/utils/common").grep,
-    typeUtils = require("../../core/utils/type"),
-    extend = require("../../core/utils/extend").extend,
-    inArray = require("../../core/utils/array").inArray,
-    dateLocalization = require("../../localization/date"),
-    SchedulerTimezones = require("./ui.scheduler.timezones"),
-    Deferred = require("../../core/utils/deferred").Deferred;
+const MINUTES_IN_HOUR = 60;
+const toMs = dateUtils.dateToMilliseconds;
 
-var toMs = dateUtils.dateToMilliseconds;
+const subscribes = {
+    isCurrentViewAgenda: function() {
+        return this.option("currentView") === "agenda";
+    },
 
-var subscribes = {
     currentViewUpdated: function(currentView) {
         this.option("currentView", currentView);
     },
@@ -30,16 +33,18 @@ var subscribes = {
     },
 
     needCoordinates: function(options) {
-        var appointmentData = options.appointmentData,
+        let appointmentData = options.appointmentData,
             startDate = options.startDate,
             endDate = this._getEndDate(appointmentData),
             recurrenceRule = this.fire("getField", "recurrenceRule", appointmentData),
             recurrenceException = this._getRecurrenceException(appointmentData),
             dateRange = this._workSpace.getDateRange(),
+            allDay = this.appointmentTakesAllDay(appointmentData),
             startViewDate = this.appointmentTakesAllDay(appointmentData) ? dateUtils.trimTime(new Date(dateRange[0])) : dateRange[0],
-            originalStartDate = options.originalStartDate || startDate;
+            originalStartDate = options.originalStartDate || startDate,
+            renderingStrategy = this.getLayoutManager().getRenderingStrategyInstance();
 
-        var recurrenceOptions = {
+        let recurrenceOptions = {
             rule: recurrenceRule,
             exception: recurrenceException,
             start: originalStartDate,
@@ -48,22 +53,50 @@ var subscribes = {
             max: dateRange[1]
         };
 
-        var dates = recurrenceUtils.getDatesByRecurrence(recurrenceOptions);
+        let dates = recurrenceUtils.getDatesByRecurrence(recurrenceOptions);
 
         if(!dates.length) {
             dates.push(startDate);
+        } else {
+            dates = dates.map((date) => {
+                return dateUtils.roundDateByStartDayHour(date, this._getCurrentViewOption("startDayHour"));
+            });
         }
 
-        var itemResources = this._resourcesManager.getResourcesFromItem(appointmentData),
-            allDay = this.appointmentTakesAllDay(appointmentData) && this._workSpace.supportAllDayRow();
+        if(renderingStrategy.needSeparateAppointment(allDay)) {
+            let datesLength = dates.length,
+                longParts = [],
+                resultDates = [];
+
+            for(let i = 0; i < datesLength; i++) {
+                let endDateOfPart = renderingStrategy.endDate(appointmentData, {
+                    startDate: dates[i]
+                }, !!recurrenceRule);
+
+                longParts = dateUtils.getDatesOfInterval(dates[i], endDateOfPart, {
+                    milliseconds: this.getWorkSpace().getIntervalDuration(allDay)
+                });
+
+                resultDates = resultDates.concat(longParts);
+            }
+
+            dates = resultDates;
+        }
+
+        let itemResources = this._resourcesManager.getResourcesFromItem(appointmentData);
+        allDay = this.appointmentTakesAllDay(appointmentData) && this._workSpace.supportAllDayRow();
 
         options.callback(this._getCoordinates(dates, itemResources, allDay));
+    },
+
+    isGroupedByDate: function() {
+        return this.getWorkSpace().isGroupedByDate();
     },
 
     showAppointmentTooltip: function(options) {
         options.skipDateCalculation = true;
         options.$appointment = $(options.target);
-        var appointmentData = options.data,
+        let appointmentData = options.data,
             singleAppointmentData = this._getSingleAppointmentData(appointmentData, options);
 
         this.showAppointmentTooltip(appointmentData, options.target, singleAppointmentData);
@@ -74,7 +107,7 @@ var subscribes = {
     },
 
     showAddAppointmentPopup: function(appointmentData) {
-        var processedData = {};
+        let processedData = {};
 
         each(["startDate", "endDate", "allDay"], (function(_, field) {
             if(appointmentData[field] !== undefined) {
@@ -87,19 +120,19 @@ var subscribes = {
     },
 
     showEditAppointmentPopup: function(options) {
-        var appointmentData = options.data;
+        let appointmentData = options.data;
 
         options.$appointment = $(options.target);
         options.skipHoursProcessing = true;
 
-        var singleAppointmentData = this._getSingleAppointmentData(appointmentData, options),
+        let singleAppointmentData = this._getSingleAppointmentData(appointmentData, options),
             startDate = this.fire("getField", "startDate", singleAppointmentData);
 
         this.showAppointmentPopup(appointmentData, false, singleAppointmentData, startDate);
     },
 
     updateAppointmentAfterResize: function(options) {
-        var targetAppointment = options.target,
+        let targetAppointment = options.target,
             singleAppointment = this._getSingleAppointmentData(targetAppointment, options),
             startDate = this.fire("getField", "startDate", singleAppointment),
             updatedData = extend(true, {}, options.data);
@@ -114,16 +147,16 @@ var subscribes = {
     },
 
     updateAppointmentAfterDrag: function(options) {
-        var target = options.data,
+        let target = options.data,
             updatedData = this._getUpdatedData(options),
             newCellIndex = this._workSpace.getDroppableCellIndex(),
             oldCellIndex = this._workSpace.getCellIndexByCoordinates(options.coordinates),
             becomeAllDay = this.fire("getField", "allDay", updatedData),
             wasAllDay = this.fire("getField", "allDay", target);
 
-        var appointment = extend({}, target, updatedData);
+        let appointment = extend({}, target, updatedData);
 
-        var movedToAllDay = this._workSpace.supportAllDayRow() && becomeAllDay,
+        let movedToAllDay = this._workSpace.supportAllDayRow() && becomeAllDay,
             cellData = this._workSpace.getCellDataByCoordinates(options.coordinates, movedToAllDay),
             movedBetweenAllDayAndSimple = this._workSpace.supportAllDayRow() && (wasAllDay && !becomeAllDay || !wasAllDay && becomeAllDay);
 
@@ -144,7 +177,7 @@ var subscribes = {
     deleteAppointment: function(options) {
         options.$appointment = $(options.target);
 
-        var appointmentData = options.data,
+        let appointmentData = options.data,
             singleAppointmentData = this._getSingleAppointmentData(appointmentData, options),
             startDate = this.fire("getField", "startDate", singleAppointmentData);
 
@@ -158,18 +191,18 @@ var subscribes = {
     },
 
     getAppointmentColor: function(options) {
-        var resourcesManager = this._resourcesManager,
+        let resourcesManager = this._resourcesManager,
             resourceForPainting = resourcesManager.getResourceForPainting(this._getCurrentViewOption("groups")),
             response = new Deferred().resolve().promise();
 
         if(resourceForPainting) {
-            var field = resourcesManager.getField(resourceForPainting),
+            let field = resourcesManager.getField(resourceForPainting),
                 groupIndex = options.groupIndex,
                 groups = this._workSpace._getCellGroups(groupIndex),
                 resourceValues = array.wrapToArray(resourcesManager.getDataAccessors(field, "getter")(options.itemData)),
                 groupId = resourceValues.length ? resourceValues[0] : undefined;
 
-            for(var i = 0; i < groups.length; i++) {
+            for(let i = 0; i < groups.length; i++) {
                 if(groups[i].name === field) {
                     groupId = groups[i].id;
                     break;
@@ -200,20 +233,20 @@ var subscribes = {
     appointmentTakesSeveralDays: function(appointment) {
         return this._appointmentModel.appointmentTakesSeveralDays(appointment);
     },
-        // NOTE: T312051, remove after fix scrollable bug T324196
+    // NOTE: T312051, remove after fix scrollable bug T324196
     appointmentFocused: function() {
         this._workSpace.restoreScrollTop();
     },
 
     getResizableAppointmentArea: function(options) {
-        var area,
+        let area,
             allDay = options.allDay,
             groups = this._getCurrentViewOption("groups"),
             isGrouped = groups && groups.length;
 
         if(isGrouped) {
             if(allDay || this.getLayoutManager().getRenderingStrategyInstance()._needHorizontalGroupBounds()) {
-                var horizontalGroupBounds = this._workSpace.getGroupBounds(options.coordinates);
+                let horizontalGroupBounds = this._workSpace.getGroupBounds(options.coordinates);
                 area = {
                     left: horizontalGroupBounds.left,
                     right: horizontalGroupBounds.right,
@@ -223,7 +256,7 @@ var subscribes = {
             }
 
             if(this.getLayoutManager().getRenderingStrategyInstance()._needVerticalGroupBounds(allDay) && this._workSpace._isVerticalGroupedWorkSpace()) {
-                var verticalGroupBounds = this._workSpace.getGroupBounds(options.coordinates);
+                let verticalGroupBounds = this._workSpace.getGroupBounds(options.coordinates);
                 area = {
                     left: 0,
                     right: 0,
@@ -272,6 +305,17 @@ var subscribes = {
         return this._cellHeight;
     },
 
+    getResizableStep: function() {
+        let cellWidth = this._cellWidth,
+            workSpace = this.getWorkSpace();
+
+        if(workSpace.isGroupedByDate()) {
+            return workSpace._getGroupCount() * cellWidth;
+        }
+
+        return cellWidth;
+    },
+
     getEndDate: function(appointmentData) {
         return this._getEndDate(appointmentData);
     },
@@ -292,17 +336,25 @@ var subscribes = {
         return this.getWorkSpaceDateTableOffset();
     },
 
+    getDateTableWidth: function() {
+        return this._workSpace.getDateTableWidth();
+    },
+
+    getTimePanelWidth: function() {
+        return this._workSpace.getTimePanelWidth();
+    },
+
     correctAppointmentCoordinates: function(options) {
-        var isAllDay = options.allDay,
+        let isAllDay = options.allDay,
             containerSign = options.isFixedContainer ? -1 : 1;
 
-        var scrollTop = this.getWorkSpaceScrollableScrollTop(isAllDay),
+        let scrollTop = this.getWorkSpaceScrollableScrollTop(isAllDay),
             allDayPanelTopOffset = !isAllDay ? this.getWorkSpaceAllDayOffset() : 0,
             headerHeight = this.getWorkSpaceHeaderPanelHeight(),
             scrollLeft = this.getWorkSpaceScrollableScrollLeft(),
             tableLeftOffset = this.getWorkSpaceDateTableOffset();
 
-        var topOffset = -scrollTop + allDayPanelTopOffset + headerHeight,
+        let topOffset = -scrollTop + allDayPanelTopOffset + headerHeight,
             leftOffset = -scrollLeft - tableLeftOffset;
 
         options.callback({
@@ -316,18 +368,18 @@ var subscribes = {
     },
 
     formatDates: function(options) {
-        var startDate = options.startDate,
+        let startDate = options.startDate,
             endDate = options.endDate,
             formatType = options.formatType;
 
-        var formatTypes = {
+        let formatTypes = {
             "DATETIME": function() {
-                var dateTimeFormat = "mediumdatemediumtime",
+                let dateTimeFormat = "mediumdatemediumtime",
                     startDateString = dateLocalization.format(startDate, dateTimeFormat) + " - ";
 
-                var endDateString = (startDate.getDate() === endDate.getDate()) ?
-                        dateLocalization.format(endDate, "shorttime") :
-                        dateLocalization.format(endDate, dateTimeFormat);
+                let endDateString = (startDate.getDate() === endDate.getDate()) ?
+                    dateLocalization.format(endDate, "shorttime") :
+                    dateLocalization.format(endDate, dateTimeFormat);
 
                 return startDateString + endDateString;
             },
@@ -335,13 +387,13 @@ var subscribes = {
                 return dateLocalization.format(startDate, "shorttime") + " - " + dateLocalization.format(endDate, "shorttime");
             },
             "DATE": function() {
-                var dateTimeFormat = "monthAndDay",
+                let dateTimeFormat = "monthAndDay",
                     startDateString = dateLocalization.format(startDate, dateTimeFormat),
-                    isDurationMoreThanDay = (endDate.getTime() - startDate.getTime()) > 24 * 3600000;
+                    isDurationMoreThanDay = (endDate.getTime() - startDate.getTime()) > toMs("day");
 
-                var endDateString = (isDurationMoreThanDay || endDate.getDate() !== startDate.getDate()) ?
-                        " - " + dateLocalization.format(endDate, dateTimeFormat) :
-                        "";
+                let endDateString = (isDurationMoreThanDay || endDate.getDate() !== startDate.getDate()) ?
+                    " - " + dateLocalization.format(endDate, dateTimeFormat) :
+                    "";
 
                 return startDateString + endDateString;
             }
@@ -351,19 +403,19 @@ var subscribes = {
     },
 
     getFullWeekAppointmentWidth: function(options) {
-        var groupIndex = options.groupIndex,
+        let groupIndex = options.groupIndex,
             groupWidth = this._workSpace.getGroupWidth(groupIndex);
 
         options.callback(groupWidth);
     },
 
     getMaxAppointmentWidth: function(options) {
-        var cellCountToLastViewDate = this._workSpace.getCellCountToLastViewDate(options.date);
+        let cellCountToLastViewDate = this._workSpace.getCellCountToLastViewDate(options.date);
         options.callback(cellCountToLastViewDate * this._workSpace.getCellWidth());
     },
 
     updateAppointmentStartDate: function(options) {
-        var appointment = options.appointment,
+        let appointment = options.appointment,
             firstViewDate = this._workSpace.getStartViewDate(),
             startDate = new Date(options.startDate),
             startDayHour = this._getCurrentViewOption("startDayHour"),
@@ -378,15 +430,13 @@ var subscribes = {
             updatedStartDate = dateUtils.normalizeDate(options.startDate, new Date(startDate));
         }
 
-        if(updatedStartDate.getHours() < startDayHour) {
-            updatedStartDate.setHours(startDayHour, 0, 0, 0);
-        }
+        updatedStartDate = dateUtils.roundDateByStartDayHour(updatedStartDate, startDayHour);
 
         options.callback(updatedStartDate);
     },
 
     updateAppointmentEndDate: function(options) {
-        var endDate = new Date(options.endDate),
+        let endDate = new Date(options.endDate),
             endDayHour = this._getCurrentViewOption("endDayHour"),
             updatedEndDate = endDate;
 
@@ -404,18 +454,14 @@ var subscribes = {
         return this._workSpace._supportCompactDropDownAppointments();
     },
 
-    getGroupCount: function(options) {
-        var groupCount = this._workSpace._getGroupCount();
-        options.callback(groupCount);
+    getGroupCount: function() {
+        return this._workSpace._getGroupCount();
     },
 
     mapAppointmentFields: function(config) {
-        var result = {
+        let result = {
             appointmentData: config.itemData,
-            appointmentElement: config.itemElement,
-            itemData: undefined,
-            itemElement: undefined,
-            itemIndex: undefined
+            appointmentElement: config.itemElement
         };
 
         if(config.itemData) {
@@ -425,11 +471,19 @@ var subscribes = {
         return result;
     },
 
-    updateResizableArea: function() {
-        var $allResizableElements = this.$element().find(".dx-scheduler-appointment.dx-resizable");
+    getOffsetByAllDayPanel: function(groupIndex) {
+        return this._workSpace._getOffsetByAllDayPanel(groupIndex);
+    },
 
-        var horizontalResizables = grep($allResizableElements, function(el) {
-            var $el = $(el),
+    getGroupTop: function(groupIndex) {
+        return this._workSpace._getGroupTop(groupIndex);
+    },
+
+    updateResizableArea: function() {
+        let $allResizableElements = this.$element().find(".dx-scheduler-appointment.dx-resizable");
+
+        let horizontalResizables = grep($allResizableElements, function(el) {
+            let $el = $(el),
                 resizableInst = $el.dxResizable("instance"),
                 area = resizableInst.option("area");
 
@@ -437,11 +491,11 @@ var subscribes = {
         });
 
         each(horizontalResizables, (function(_, el) {
-            var $el = $(el),
+            let $el = $(el),
                 position = translator.locate($el),
                 appointmentData = this._appointments._getItemData($el);
 
-            var area = this._appointments._calculateResizableArea({
+            let area = this._appointments._calculateResizableArea({
                 left: position.left
             }, appointmentData);
 
@@ -450,8 +504,8 @@ var subscribes = {
         }).bind(this));
     },
 
-    recurrenceEditorVisibilityChanged: function(options) {
-        this.recurrenceEditorVisibilityChanged(options.visible);
+    recurrenceEditorVisibilityChanged: function(visible) {
+        this.recurrenceEditorVisibilityChanged(visible);
     },
 
     getField: function(field, obj) {
@@ -467,16 +521,16 @@ var subscribes = {
             return;
         }
 
-        var splitExprStr = this.option(field + "Expr").split("."),
+        let splitExprStr = this.option(field + "Expr").split("."),
             rootField = splitExprStr[0];
 
         if(obj[rootField] === undefined && splitExprStr.length > 1) {
-            var emptyChain = (function(arr) {
-                var result = {},
+            let emptyChain = (function(arr) {
+                let result = {},
                     tmp = result,
                     arrLength = arr.length - 1;
 
-                for(var i = 1; i < arrLength; i++) {
+                for(let i = 1; i < arrLength; i++) {
                     tmp = tmp[arr[i]] = {};
                 }
 
@@ -491,7 +545,7 @@ var subscribes = {
     },
 
     prerenderFilter: function() {
-        var dateRange = this.getWorkSpace().getDateRange(),
+        let dateRange = this.getWorkSpace().getDateRange(),
             resources = this._resourcesManager.getResourcesData(),
             allDay;
 
@@ -522,20 +576,20 @@ var subscribes = {
     },
 
     createReducedResourcesTree: function() {
-        var tree = this._resourcesManager.createResourcesTree(this._loadedResources);
+        let tree = this._resourcesManager.createResourcesTree(this._loadedResources);
 
         return this._resourcesManager.reduceResourcesTree(tree, this.getFilteredItems());
     },
 
     groupAppointmentsByResources: function(appointments) {
-        var result = { "0": appointments },
+        let result = { "0": appointments },
             groups = this._getCurrentViewOption("groups");
 
         if(groups && groups.length && this._resourcesManager.getResourcesData().length) {
             result = this._resourcesManager.groupAppointmentsByResources(appointments, this._loadedResources);
         }
 
-        var totalResourceCount = 0;
+        let totalResourceCount = 0;
 
         each(this._loadedResources, function(i, resource) {
             if(!i) {
@@ -545,8 +599,8 @@ var subscribes = {
             }
         });
 
-        for(var j = 0; j < totalResourceCount; j++) {
-            var index = j.toString();
+        for(let j = 0; j < totalResourceCount; j++) {
+            let index = j.toString();
 
             if(result[index]) {
                 continue;
@@ -559,12 +613,12 @@ var subscribes = {
     },
 
     getAgendaRows: function(options) {
-        var renderingStrategy = this._layoutManager.getRenderingStrategyInstance(),
+        let renderingStrategy = this._layoutManager.getRenderingStrategyInstance(),
             calculateRows = renderingStrategy.calculateRows.bind(renderingStrategy),
             d = new Deferred();
 
         function rowsCalculated(appointments) {
-            var result = calculateRows(appointments, options.agendaDuration, options.currentDate);
+            let result = calculateRows(appointments, options.agendaDuration, options.currentDate);
             this._dataSourceLoadedCallback.remove(rowsCalculated);
 
             d.resolve(result);
@@ -600,18 +654,18 @@ var subscribes = {
     },
 
     agendaIsReady: function(rows, innerRowOffset, outerRowOffset) {
-        var $appts = this.getAppointmentsInstance()._itemElements(),
+        let $appts = this.getAppointmentsInstance()._itemElements(),
             total = 0;
 
         $appts.css("marginBottom", innerRowOffset);
 
-        var applyOffset = function(_, count) {
-            var index = count + total - 1;
+        let applyOffset = function(_, count) {
+            let index = count + total - 1;
             $appts.eq(index).css("marginBottom", outerRowOffset);
             total += count;
         };
 
-        for(var i = 0; i < rows.length; i++) {
+        for(let i = 0; i < rows.length; i++) {
             each(rows[i], applyOffset);
         }
     },
@@ -628,23 +682,9 @@ var subscribes = {
     convertDateByTimezone: function(date, appointmentTimezone) {
         date = new Date(date);
 
-        var clientTzOffset = -(this._subscribes["getClientTimezoneOffset"](date) / 3600000);
-
-        var commonTimezoneOffset = this._getTimezoneOffsetByOption(date);
-
-        var appointmentTimezoneOffset = this._calculateTimezoneByValue(appointmentTimezone, date);
-
-        if(typeof appointmentTimezoneOffset !== "number") {
-            appointmentTimezoneOffset = clientTzOffset;
-        }
-
-        var dateInUTC = date.getTime() - clientTzOffset * 3600000;
-
-        date = new Date(dateInUTC + appointmentTimezoneOffset * 3600000);
-
-        if(typeof commonTimezoneOffset === "number") {
-            date = new Date(date.setHours(date.getHours() + (commonTimezoneOffset - appointmentTimezoneOffset)));
-        }
+        let tzOffsets = this._subscribes.getComplexOffsets(this, date, appointmentTimezone);
+        date = this._subscribes.translateDateToAppointmentTimeZone(date, tzOffsets);
+        date = this._subscribes.translateDateToCommonTimeZone(date, tzOffsets);
 
         return date;
     },
@@ -652,25 +692,46 @@ var subscribes = {
     convertDateByTimezoneBack: function(date, appointmentTimezone) {
         date = new Date(date);
 
-        var clientTzOffset = -(this._subscribes["getClientTimezoneOffset"](date) / 3600000);
-
-        var commonTimezoneOffset = this._getTimezoneOffsetByOption(date);
-
-        var appointmentTimezoneOffset = this._calculateTimezoneByValue(appointmentTimezone, date);
-
-        if(typeof appointmentTimezoneOffset !== "number") {
-            appointmentTimezoneOffset = clientTzOffset;
-        }
-
-        var dateInUTC = date.getTime() + clientTzOffset * 3600000;
-
-        date = new Date(dateInUTC - appointmentTimezoneOffset * 3600000);
-
-        if(typeof commonTimezoneOffset === "number") {
-            date = new Date(date.setHours(date.getHours() - (commonTimezoneOffset - appointmentTimezoneOffset)));
-        }
+        let tzOffsets = this._subscribes.getComplexOffsets(this, date, appointmentTimezone);
+        date = this._subscribes.translateDateToAppointmentTimeZone(date, tzOffsets, true);
+        date = this._subscribes.translateDateToCommonTimeZone(date, tzOffsets, true);
 
         return date;
+    },
+
+    translateDateToAppointmentTimeZone: function(date, offsets, back) {
+        let operation = back ? -1 : 1;
+        let dateInUTC = date.getTime() - operation * offsets.client * toMs("hour");
+        return new Date(dateInUTC + operation * offsets.appointment * toMs("hour"));
+    },
+
+    translateDateToCommonTimeZone: function(date, offsets, back) {
+        let operation = back ? -1 : 1;
+        if(typeof offsets.common === "number") {
+            let offset = offsets.common - offsets.appointment,
+                hoursOffset = (offset < 0 ? -1 : 1) * Math.floor(Math.abs(offset)),
+                minutesOffset = offset % 1;
+
+            date.setHours(date.getHours() + operation * hoursOffset);
+            date.setMinutes(date.getMinutes() + operation * minutesOffset * MINUTES_IN_HOUR);
+        }
+        return date;
+    },
+
+    getComplexOffsets: function(scheduler, date, appointmentTimezone) {
+        let clientTimezoneOffset = -this.getClientTimezoneOffset(date) / toMs("hour");
+        let commonTimezoneOffset = scheduler._getTimezoneOffsetByOption(date);
+        let appointmentTimezoneOffset = scheduler._calculateTimezoneByValue(appointmentTimezone, date);
+
+        if(typeof appointmentTimezoneOffset !== "number") {
+            appointmentTimezoneOffset = clientTimezoneOffset;
+        }
+
+        return {
+            client: clientTimezoneOffset,
+            common: commonTimezoneOffset,
+            appointment: appointmentTimezoneOffset
+        };
     },
 
     getDaylightOffset: function(startDate, endDate) {
@@ -693,11 +754,13 @@ var subscribes = {
         return SchedulerTimezones.getTimezonesIdsByDisplayName(displayName);
     },
 
-    getTargetedAppointmentData: function(appointmentData, appointmentElement, appointmentIndex) {
-        var recurringData = this._getSingleAppointmentData(appointmentData, {
+    getTargetedAppointmentData: function(appointmentData, appointmentElement, appointmentIndex, startDate) {
+        let $appointmentElement = $(appointmentElement),
+            recurringData = this._getSingleAppointmentData(appointmentData, {
                 skipDateCalculation: true,
-                $appointment: $(appointmentElement),
-                skipHoursProcessing: true
+                $appointment: $appointmentElement,
+                skipHoursProcessing: true,
+                startDate: startDate
             }),
             result = {};
 
@@ -705,37 +768,41 @@ var subscribes = {
 
         this._convertDatesByTimezoneBack(false, result);
 
-            // TODO: _getSingleAppointmentData already uses a related cell data for appointment that contains info about resources
-        this.setTargetedAppointmentResources(result, appointmentElement, appointmentIndex);
+        if(!typeUtils.isDefined(appointmentIndex)) {
+            appointmentIndex = $appointmentElement.data(this._appointments._itemIndexKey());
+        }
+
+        // TODO: _getSingleAppointmentData already uses a related cell data for appointment that contains info about resources
+        appointmentElement && this.setTargetedAppointmentResources(result, appointmentElement, appointmentIndex);
 
         return result;
     },
 
     getAppointmentDurationInMs: function(options) {
-        var startDate = options.startDate,
+        let startDate = options.startDate,
             endDate = options.endDate,
             allDay = options.allDay,
             appointmentDuration = endDate.getTime() - startDate.getTime();
 
-        var dayDuration = toMs("day"),
-            visibleDayDuration = this._getDayDuration() * toMs("hour"),
+        let dayDuration = toMs("day"),
+            visibleDayDuration = this._workSpace.getVisibleDayDuration(),
             result = 0;
 
         if(allDay) {
-            var ceilQuantityOfDays = Math.ceil(appointmentDuration / dayDuration);
+            let ceilQuantityOfDays = Math.ceil(appointmentDuration / dayDuration);
 
             result = ceilQuantityOfDays * visibleDayDuration;
         } else {
-            var isDifferentDate = !dateUtils.sameDate(startDate, new Date(endDate.getTime() - 1)),
+            let isDifferentDate = !dateUtils.sameDate(startDate, new Date(endDate.getTime() - 1)),
                 floorQuantityOfDays = Math.floor(appointmentDuration / dayDuration),
                 tailDuration;
 
             if(isDifferentDate) {
-                var hiddenDayDuration = dayDuration - visibleDayDuration;
+                let hiddenDayDuration = dayDuration - visibleDayDuration;
 
                 tailDuration = appointmentDuration - (floorQuantityOfDays ? floorQuantityOfDays * dayDuration : hiddenDayDuration);
 
-                var startDayTime = this.option("startDayHour") * toMs("hour"),
+                let startDayTime = this.option("startDayHour") * toMs("hour"),
                     endPartDuration = endDate - dateUtils.trimTime(endDate);
 
                 if(endPartDuration < startDayTime) {
@@ -758,6 +825,10 @@ var subscribes = {
         options.callback(result);
     },
 
+    fixWrongEndDate: function(appointment, startDate, endDate) {
+        return this._appointmentModel.fixWrongEndDate(appointment, startDate, endDate);
+    },
+
     getEndDayHour: function() {
         return this.option("endDayHour");
     },
@@ -765,6 +836,5 @@ var subscribes = {
     getStartDayHour: function() {
         return this.option("startDayHour");
     }
-
 };
 module.exports = subscribes;

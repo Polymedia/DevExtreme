@@ -1,11 +1,9 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    getPublicElement = require("../../core/utils/dom").getPublicElement,
-    noop = require("../../core/utils/common").noop,
-    each = require("../../core/utils/iterator").each,
-    modules = require("./ui.grid_core.modules"),
-    ContextMenu = require("../context_menu");
+import $ from "../../core/renderer";
+import { getPublicElement } from "../../core/utils/dom";
+import { noop } from "../../core/utils/common";
+import { each } from "../../core/utils/iterator";
+import modules from "./ui.grid_core.modules";
+import ContextMenu from "../context_menu";
 
 var CONTEXT_MENU = "dx-context-menu",
 
@@ -78,9 +76,12 @@ var ContextMenuController = modules.ViewController.inherit({
 
 var ContextMenuView = modules.View.inherit({
     _renderCore: function() {
-        var that = this;
+        var that = this,
+            $element = that.element().addClass(CONTEXT_MENU);
 
-        this._createComponent(that.element().addClass(CONTEXT_MENU),
+        this.setAria("role", "presentation", $element);
+
+        this._createComponent($element,
             ContextMenu, {
                 onPositioning: function(actionArgs) {
                     var event = actionArgs.event,

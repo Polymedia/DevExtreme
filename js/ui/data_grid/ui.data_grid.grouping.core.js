@@ -1,26 +1,8 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    Class = require("../../core/class"),
-    gridCore = require("./ui.data_grid.core"),
-    normalizeSortingInfo = require("../../data/utils").normalizeSortingInfo,
-    when = require("../../core/utils/deferred").when;
-
-exports.createGroupFilter = function(path, storeLoadOptions) {
-    var groups = normalizeSortingInfo(storeLoadOptions.group),
-        i,
-        filter = [];
-
-    for(i = 0; i < path.length; i++) {
-        filter.push([groups[i].selector, "=", path[i]]);
-    }
-
-    if(storeLoadOptions.filter) {
-        filter.push(storeLoadOptions.filter);
-    }
-    return gridCore.combineFilters(filter);
-};
-
+import $ from "../../core/renderer";
+import Class from "../../core/class";
+import gridCore from "./ui.data_grid.core";
+import { normalizeSortingInfo } from "../../data/utils";
+import { when } from "../../core/utils/deferred";
 
 exports.createOffsetFilter = function(path, storeLoadOptions) {
     var groups = normalizeSortingInfo(storeLoadOptions.group),
@@ -66,7 +48,7 @@ exports.GroupingHelper = Class.inherit((function() {
     var findGroupInfoByKey = function(groupsInfo, key) {
         var hash = groupsInfo.hash;
 
-        return hash && hash[key];
+        return hash && hash[JSON.stringify(key)];
     };
 
     var getGroupInfoIndexByOffset = function(groupsInfo, offset) {
@@ -138,7 +120,7 @@ exports.GroupingHelper = Class.inherit((function() {
                 result = items.length;
             } else {
                 for(i = 0; i < items.length; i++) {
-                    if(that._isGroupItemCountable(items[i])) {
+                    if(that.isGroupItemCountable(items[i])) {
                         result++;
                     }
                     result += calculateItemsCount(that, items[i].items, groupsCount - 1);
@@ -163,7 +145,7 @@ exports.GroupingHelper = Class.inherit((function() {
         updateTotalItemsCount: function(totalCountCorrection) {
             this._totalCountCorrection = totalCountCorrection || 0;
         },
-        _isGroupItemCountable: function(item) {
+        isGroupItemCountable: function(item) {
             return !this._isVirtualPaging() || !item.isContinuation;
         },
         _isVirtualPaging: function() {
@@ -255,7 +237,7 @@ exports.GroupingHelper = Class.inherit((function() {
                     index = getGroupInfoIndexByOffset(groupsInfo, groupInfoData.offset);
                     groupsInfo.splice(index, 0, groupInfo);
                     groupsInfo.hash = groupsInfo.hash || {};
-                    groupsInfo.hash[groupInfo.key] = groupInfo;
+                    groupsInfo.hash[JSON.stringify(groupInfo.key)] = groupInfo;
                 }
                 if(pathIndex === path.length - 1) {
                     groupInfo.data = groupInfoData;

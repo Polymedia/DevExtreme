@@ -1,8 +1,7 @@
-"use strict";
-
 var isDefined = require("./type").isDefined,
     each = require("./iterator").each,
-    objectUtils = require("./object");
+    objectUtils = require("./object"),
+    config = require("../config");
 
 var isEmpty = function(entity) {
     return Array.isArray(entity) && !entity.length;
@@ -55,11 +54,12 @@ var removeDuplicates = function(from, what) {
 
 var normalizeIndexes = function(items, indexParameterName, currentItem, needIndexCallback) {
     var indexedItems = {},
-        parameterIndex = 0;
+        parameterIndex = 0,
+        useLegacyVisibleIndex = config().useLegacyVisibleIndex;
 
     each(items, function(index, item) {
         index = item[indexParameterName];
-        if(isDefined(index)) {
+        if(index >= 0) {
             indexedItems[index] = indexedItems[index] || [];
 
             if(item === currentItem) {
@@ -67,9 +67,24 @@ var normalizeIndexes = function(items, indexParameterName, currentItem, needInde
             } else {
                 indexedItems[index].push(item);
             }
-            delete item[indexParameterName];
+        } else {
+            item[indexParameterName] = undefined;
         }
     });
+
+    if(!useLegacyVisibleIndex) {
+        each(items, function() {
+            if(!isDefined(this[indexParameterName]) && (!needIndexCallback || needIndexCallback(this))) {
+                while(indexedItems[parameterIndex]) {
+                    parameterIndex++;
+                }
+                indexedItems[parameterIndex] = [this];
+                parameterIndex++;
+            }
+        });
+    }
+
+    parameterIndex = 0;
 
     objectUtils.orderEach(indexedItems, function(index, items) {
         each(items, function() {
@@ -79,11 +94,13 @@ var normalizeIndexes = function(items, indexParameterName, currentItem, needInde
         });
     });
 
-    each(items, function() {
-        if(!isDefined(this[indexParameterName]) && (!needIndexCallback || needIndexCallback(this))) {
-            this[indexParameterName] = parameterIndex++;
-        }
-    });
+    if(useLegacyVisibleIndex) {
+        each(items, function() {
+            if(!isDefined(this[indexParameterName]) && (!needIndexCallback || needIndexCallback(this))) {
+                this[indexParameterName] = parameterIndex++;
+            }
+        });
+    }
 
     return parameterIndex;
 };

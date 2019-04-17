@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     commons = require("./rangeSelectorParts/commons.js"),
     seriesDataSourceModule = require("viz/range_selector/series_data_source"),
@@ -75,6 +73,9 @@ QUnit.test("Pass axes to seriesDataSource", function(assert) {
             series: {
                 argumentField: "x",
                 valueField: "y1"
+            },
+            valueAxis: {
+                categoriesSortingMethod: "categories sorting method"
             }
         }
     });
@@ -84,7 +85,8 @@ QUnit.test("Pass axes to seriesDataSource", function(assert) {
     assert.strictEqual(series.getArgumentAxis(), rangeSelector._axis, "argument axis passed to series");
     assert.deepEqual(valueAxis.updateOptions.lastCall.args[0], {
         isHorizontal: false,
-        label: {}
+        label: {},
+        categoriesSortingMethod: "categories sorting method"
     }, "valueAxis options");
 
     assert.strictEqual(axisModule.Axis.secondCall.args[0].renderer, this.renderer);
@@ -327,7 +329,7 @@ QUnit.test("translator interval if series arg interval < tickInterval", function
         ],
         scale: {
             minorTickInterval: 0,
-            majorTickInterval: 10
+            tickInterval: 10
         },
         chart: {
             series: {
@@ -340,7 +342,7 @@ QUnit.test("translator interval if series arg interval < tickInterval", function
     assert.strictEqual(this.getArgRange().interval, 5);
 });
 
-QUnit.test("translator interval if series arg interval > majorTickInterval", function(assert) {
+QUnit.test("translator interval if series arg interval > tickInterval (axisDivisionFactor is not defined)", function(assert) {
     this.createWidget({
         dataSource: [
             { x: 10, y1: 0 },
@@ -352,7 +354,34 @@ QUnit.test("translator interval if series arg interval > majorTickInterval", fun
             { x: 180, y1: 8 }
         ],
         scale: {
-            majorTickInterval: 1,
+            tickInterval: 1,
+            minorTickInterval: 0
+        },
+        chart: {
+            series: {
+                argumentField: "x",
+                valueField: "y1"
+            }
+        }
+    });
+
+    assert.strictEqual(this.getArgRange().interval, 1);
+});
+
+QUnit.test("translator interval if series arg interval > tickInterval (axisDivisionFactor is defined)", function(assert) {
+    this.createWidget({
+        dataSource: [
+            { x: 10, y1: 0 },
+            { x: 15, y1: 6 },
+            { x: 20, y1: 8 },
+            { x: 30, y1: 10 },
+            { x: 50, y1: 16 },
+            { x: 150, y1: 12 },
+            { x: 180, y1: 8 }
+        ],
+        scale: {
+            tickInterval: 1,
+            axisDivisionFactor: 70,
             minorTickInterval: 0
         },
         chart: {
@@ -378,7 +407,7 @@ QUnit.test("translator interval if series arg interval > minorTickInterval", fun
             { x: 180, y1: 8 }
         ],
         scale: {
-            majorTickInterval: 2,
+            tickInterval: 2,
             minorTickInterval: 1
         },
         chart: {
@@ -401,7 +430,7 @@ QUnit.test("translator interval for datetime", function(assert) {
         scale: {
             valueType: "datetime",
             minorTickInterval: { hours: 12 },
-            majorTickInterval: "day"
+            tickInterval: "day"
         },
         chart: {
             series: {
@@ -591,7 +620,7 @@ QUnit.test("categories axis. range with startValue, without endValue", function(
     assert.strictEqual(range.axisType, "discrete");
     assert.strictEqual(range.min, "a1");
     assert.strictEqual(range.max, undefined);
-    assert.deepEqual(range.categories, ["0", "1", "2"]);
+    assert.strictEqual(range.isEmpty(), true);
 });
 
 QUnit.test("categories axis. range with endValue, without startValue", function(assert) {
@@ -608,7 +637,7 @@ QUnit.test("categories axis. range with endValue, without startValue", function(
     assert.strictEqual(range.axisType, "discrete");
     assert.strictEqual(range.min, undefined);
     assert.strictEqual(range.max, "a2");
-    assert.deepEqual(range.categories, ["0", "1", "2"]);
+    assert.strictEqual(range.isEmpty(), true);
 });
 
 QUnit.test("categories axis. range with startValue, without endValue (with categories)", function(assert) {
@@ -761,8 +790,7 @@ QUnit.test("range when scale is changed", function(assert) {
     var range = this.createWidget({
         scale: {
             startValue: 1,
-            endValue: 5,
-            majorTickInterval: 0.1
+            endValue: 5
         }
     });
 
@@ -771,7 +799,6 @@ QUnit.test("range when scale is changed", function(assert) {
     var options = this.axis.updateOptions.lastCall.args[0];
     assert.strictEqual(options.startValue, 1);
     assert.strictEqual(options.endValue, 10);
-    assert.strictEqual(options.majorTickInterval, 0.1);
 });
 
 QUnit.test("range when background is changed", function(assert) {
@@ -891,7 +918,7 @@ QUnit.test("init selection number precision without snapToTicks", function(asser
 QUnit.test("rangeContainer canvas after min/max calculation", function(assert) {
     this.createWidget({
         scale: {
-            majorTickInterval: 1
+            tickInterval: 1
         },
         dataSource: [{ arg: 20, val: 0 }]
     });
@@ -961,7 +988,7 @@ QUnit.test("Auto format when scale marker is not visible", function(assert) {
         scale: {
             startValue: new Date(2006, 10, 1),
             endValue: new Date(2007, 5, 1),
-            majorTickInterval: { months: 1 },
+            tickInterval: { months: 1 },
             minorTickInterval: { days: 1 },
             marker: { visible: false }
         }
@@ -977,7 +1004,7 @@ QUnit.test("Slidermarker format have custom format", function(assert) {
         scale: {
             startValue: new Date(2006, 10, 1),
             endValue: new Date(2007, 5, 1),
-            majorTickInterval: { months: 1 },
+            tickInterval: { months: 1 },
             minorTickInterval: { days: 1 },
             marker: { visible: false }
         },
@@ -994,7 +1021,7 @@ QUnit.test("Auto format when scale marker is not visible and minorTickInterval i
         scale: {
             startValue: new Date(2006, 10, 1),
             endValue: new Date(2007, 5, 1),
-            majorTickInterval: { months: 1 },
+            tickInterval: { months: 1 },
             minorTickInterval: 0,
             marker: { visible: false }
         }
@@ -1010,7 +1037,7 @@ QUnit.test("Auto format when minorTickInterval is auto calculated", function(ass
         scale: {
             startValue: new Date(2006, 10, 1),
             endValue: new Date(2007, 5, 1),
-            majorTickInterval: { months: 1 }
+            tickInterval: { months: 1 }
         }
     });
 
@@ -1142,51 +1169,11 @@ QUnit.test("pass containerBackgroundColor to slidersMarker options like border c
     assert.strictEqual(this.slidersController.update.lastCall.args[4].borderColor, "someColor");
 });
 
-// for deprecated padding option
-QUnit.test("padding without paddingLeftRight & without paddingTopBottom", function(assert) {
-    this.createWidget({
-        sliderMarker: {
-            padding: 20
-        }
-    });
-
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingLeftRight, 20);
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingTopBottom, 20);
-});
-
-// for deprecated padding option
-QUnit.test("padding without paddingLeftRight", function(assert) {
+QUnit.test("passing paddingLeftRight & paddingTopBottom to slidersController", function(assert) {
     this.createWidget({
         sliderMarker: {
             paddingTopBottom: 10,
-            padding: 20
-        }
-    });
-
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingLeftRight, undefined);
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingTopBottom, 10);
-});
-
-// for deprecated padding option
-QUnit.test("padding without paddingTopBottom", function(assert) {
-    this.createWidget({
-        sliderMarker: {
-            paddingLeftRight: 10,
-            padding: 20
-        }
-    });
-
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingLeftRight, 10);
-    assert.strictEqual(this.slidersController.update.lastCall.args[4].paddingTopBottom, undefined);
-});
-
-// for deprecated padding option
-QUnit.test("padding with paddingLeftRight & with paddingTopBottom", function(assert) {
-    this.createWidget({
-        sliderMarker: {
-            paddingTopBottom: 10,
-            paddingLeftRight: 10,
-            padding: 20
+            paddingLeftRight: 10
         }
     });
 

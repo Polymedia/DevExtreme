@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<style>\
@@ -15,8 +13,8 @@ QUnit.testStart(function() {
         border-collapse: separate !important;\
     }\
 </style>\
-<div>\
-    <div class="dx-datagrid">\
+<div class="dx-widget">\
+    <div class="dx-datagrid dx-gridbase-container">\
         <div id="container"></div>\
     </div>\
 </div>';
@@ -24,31 +22,29 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("generic_light.css!");
+import "common.css!";
+import "generic_light.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var $ = require("jquery"),
-    gridCoreUtils = require("ui/grid_core/ui.grid_core.utils"),
-    dataUtils = require("core/element_data"),
-    commonUtils = require("core/utils/common"),
-    typeUtils = require("core/utils/type"),
-    devices = require("core/devices"),
-    config = require("core/config"),
-    support = require("core/utils/support"),
-    browser = require("core/utils/browser"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    nativePointerMock = require("../../helpers/nativePointerMock.js"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    numberLocalization = require("localization/number"),
-    virtualScrollingCore = require("ui/grid_core/ui.grid_core.virtual_scrolling_core"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    MockColumnsController = dataGridMocks.MockColumnsController,
-    MockSelectionController = dataGridMocks.MockSelectionController,
-    getCells = dataGridMocks.getCells,
-    expandCellTemplate = gridCoreUtils.getExpandCellTemplate();
+import $ from "jquery";
+import gridCoreUtils from "ui/grid_core/ui.grid_core.utils";
+import dataUtils from "core/element_data";
+import commonUtils from "core/utils/common";
+import typeUtils from "core/utils/type";
+import devices from "core/devices";
+import config from "core/config";
+import support from "core/utils/support";
+import browser from "core/utils/browser";
+import pointerMock from "../../helpers/pointerMock.js";
+import nativePointerMock from "../../helpers/nativePointerMock.js";
+import { setupDataGridModules, MockDataController, MockColumnsController, MockSelectionController, getCells, generateItems } from "../../helpers/dataGridMocks.js";
+import numberLocalization from "localization/number";
+import virtualScrollingCore from "ui/grid_core/ui.grid_core.virtual_scrolling_core";
+import ODataStore from "data/odata/store";
+import ArrayStore from "data/array_store";
+
+var expandCellTemplate = gridCoreUtils.getExpandCellTemplate();
 
 function getText(element) {
     return $(element).text();
@@ -140,7 +136,7 @@ QUnit.test('Create col elements by columns collection', function(assert) {
     // arrange, act
     // arrange
     var rowsView = this.createRowsView([{ values: [1, 2, 3, 4, 5] }], null, [{ caption: 'Column 1', width: 30 }, { caption: 'Column 2', width: 50 }, { caption: 'Column 3', width: 73 },
-        { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
+            { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
         testElement = $('#container');
 
     // act
@@ -249,8 +245,10 @@ QUnit.test('Render scrollable', function(assert) {
     assert.strictEqual(scrollable.option("useNative"), false, 'scrollable useNative');
     assert.strictEqual(scrollable.option("showScrollbar"), "always", 'scrollable showScrollbar');
     assert.strictEqual(scrollable.option("test"), "test", 'scrollable test');
-    // T572392
-    assert.strictEqual(scrollable.option("updateManually"), true, 'scrollable updateManually');
+    // T654402
+    assert.strictEqual(scrollable.option("updateManually"), false, 'scrollable updateManually');
+    // T698156
+    assert.strictEqual(scrollable.option("pushBackValue"), 0, 'scrollable pushBackValue');
 });
 
 QUnit.test('Check WAI-ARIA attributes for data rows/cells after render rows', function(assert) {
@@ -378,9 +376,9 @@ QUnit.test('Resized event on resize after second render', function(assert) {
     // arrange
 
     var columns = [
-            { dataField: 'test1', width: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test1'); resizedColumnWidths.push(width); }) },
-            { dataField: 'test2', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test2'); resizedColumnWidths.push(width); }) },
-            { dataField: 'test3', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test3'); resizedColumnWidths.push(width); }) }
+        { dataField: 'test1', width: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test1'); resizedColumnWidths.push(width); }) },
+        { dataField: 'test2', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test2'); resizedColumnWidths.push(width); }) },
+        { dataField: 'test3', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test3'); resizedColumnWidths.push(width); }) }
     ];
 
     var rowsView = this.createRowsView(this.items, null, columns),
@@ -430,7 +428,6 @@ QUnit.test('Resized event on second resize when container resized and columns wi
             { dataField: 'test2', resizedCallbacks: $.Callbacks().add(function() { resizedColumns.push('test2'); }) },
             { dataField: 'test3', resizedCallbacks: $.Callbacks().add(function() { resizedColumns.push('test3'); }) }
         ]),
-        cells,
         resizedColumns = [],
         testElement = $('#container');
 
@@ -441,7 +438,7 @@ QUnit.test('Resized event on second resize when container resized and columns wi
     this.setColumnWidths([100, 50, 50]);
     // act
     rowsView.resize();
-    cells = getCells(testElement);
+    getCells(testElement);
 
     // assert
     assert.deepEqual(resizedColumns, ['test2', 'test3'], 'resized event raised for columns with changed width after change container width ');
@@ -451,9 +448,9 @@ QUnit.test('Resized event on update width of column', function(assert) {
     // arrange
 
     var columns = [
-            { dataField: 'test1', visibleWidth: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test1'); widths.push(width); }) },
-            { dataField: 'test2', visibleWidth: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test2'); widths.push(width); }) },
-            { dataField: 'test3', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test3'); widths.push(width); }) }
+        { dataField: 'test1', visibleWidth: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test1'); widths.push(width); }) },
+        { dataField: 'test2', visibleWidth: 100, resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test2'); widths.push(width); }) },
+        { dataField: 'test3', resizedCallbacks: $.Callbacks().add(function(width) { resizedColumns.push('test3'); widths.push(width); }) }
     ];
 
     var rowsView = this.createRowsView(this.items, null, columns),
@@ -589,8 +586,89 @@ QUnit.test('Highlight searchText with customizeText', function(assert) {
     assert.equal(getNormalizeMarkup(cells.eq(2)), '1/01/2001', 'cell 3');
 });
 
+QUnit.test('Highlight searchText for different data types (T636268)', function(assert) {
+    this.items = [
+        { data: { name: 'test1', id: 11, date: new Date(2001, 0, 1) }, values: ['test1', 11, '1/01/2001'], rowType: 'data', dataIndex: 0 },
+        { data: { name: 'test2', id: 21, date: new Date(2002, 1, 2) }, values: ['test2', 21, '2/02/2002'], rowType: 'data', dataIndex: 1 },
+        { data: { name: 'test3', id: 31, date: new Date(2003, 2, 3) }, values: ['test3', 31, '3/03/2003'], rowType: 'data', dataIndex: 2 }];
+
+    var columns = [
+            { allowFiltering: true, dataType: "string",
+                cellTemplate: function(container, options) {
+                    $("<span>test</span>").appendTo(container);
+                }
+            },
+            { allowFiltering: true, dataType: "number" },
+            { allowFiltering: true, dataType: "date" }],
+        dataController = new MockDataController({ items: this.items }),
+        rowsView = this.createRowsView(this.items, dataController, columns),
+        $testElement = $('#container'),
+        searchTextClass = "dx-datagrid-search-text",
+        cells;
+
+    // act
+    this.options.searchPanel = {
+        highlightSearchText: true,
+        text: "1"
+    };
+
+    rowsView.render($testElement);
+    cells = $testElement.find('td');
+
+    // assert
+    assert.ok(cells.length > 3, 'Correct number of cells');
+    assert.equal(getNormalizeMarkup(cells.eq(0)), '<span>test</span>', 'cell 0');
+    assert.equal(getNormalizeMarkup(cells.eq(1)), "11", 'cell 1');
+    assert.equal(getNormalizeMarkup(cells.eq(2)), '1/01/2001', 'cell 2');
+
+    // act
+    this.options.searchPanel = { highlightSearchText: true, text: "11" };
+
+    rowsView.render($testElement);
+    cells = $testElement.find('td');
+
+    // assert
+    assert.equal(getNormalizeMarkup(cells.eq(0)), '<span>test</span>', 'cell 0');
+    assert.equal(getNormalizeMarkup(cells.eq(1)), "<span class=" + searchTextClass + ">11</span>", "cell 1");
+    assert.equal(getNormalizeMarkup(cells.eq(2)), '1/01/2001', 'cell 2');
+});
+
+QUnit.test('Highlight searchText for a cell template (T656969)', function(assert) {
+    this.items = [
+        { data: { name: 'test1', id: 11, date: new Date(2001, 0, 1) }, values: ['test1', 11, '1/01/2001'], rowType: 'data', dataIndex: 0 },
+        { data: { name: 'test2', id: 21, date: new Date(2002, 1, 2) }, values: ['test2', 21, '2/02/2002'], rowType: 'data', dataIndex: 1 },
+        { data: { name: 'test3', id: 31, date: new Date(2003, 2, 3) }, values: ['test3', 31, '3/03/2003'], rowType: 'data', dataIndex: 2 }];
+
+    var columns = [
+            { allowFiltering: true, dataType: "string",
+                cellTemplate: function(container) {
+                    $("<div>")
+                        .addClass("dx-template-wrapper")
+                        .append($("<span>test</span>"))
+                        .appendTo(container);
+                }
+            },
+            { allowFiltering: true, dataType: "number" },
+            { allowFiltering: true, dataType: "date" }],
+        dataController = new MockDataController({ items: this.items }),
+        rowsView = this.createRowsView(this.items, dataController, columns),
+        $testElement = $('#container'),
+        searchTextClass = "dx-datagrid-search-text",
+        cells;
+
+    // act
+    this.options.searchPanel = { highlightSearchText: true, text: "te" };
+
+    rowsView.render($testElement);
+    cells = $testElement.find('td');
+
+    // assert
+    assert.equal(getNormalizeMarkup(cells.eq(0)), '<div class=dx-template-wrapper><span><span class=' + searchTextClass + '>te</span>st</span></div>', 'cell 0');
+    assert.equal(getNormalizeMarkup(cells.eq(1)), "11", 'cell 1');
+    assert.equal(getNormalizeMarkup(cells.eq(2)), '1/01/2001', 'cell 2');
+});
 function getNormalizeMarkup($element) {
-    var quoteRE = new RegExp('\"', 'g'),
+    var quoteRE = new RegExp('"', 'g'),
         spanRE = new RegExp('span', 'gi');
     return $element.html().replace(quoteRE, '').replace(spanRE, "span");
 }
@@ -806,7 +884,6 @@ QUnit.test('Highlight searchText - case sensitive for odata when highlightCaseSe
         dataController = new MockDataController({ items: rows }),
         rowsView = this.createRowsView(this.items, dataController, columns),
         testElement = $('#container'),
-        ODataStore = require("data/odata/store"),
         store = new ODataStore({ url: "test.org" }),
         $rows;
 
@@ -842,7 +919,6 @@ QUnit.test('Highlight searchText - case sensitive for odata', function(assert) {
         dataController = new MockDataController({ items: rows }),
         rowsView = this.createRowsView(this.items, dataController, columns),
         testElement = $('#container'),
-        ODataStore = require("data/odata/store"),
         store = new ODataStore({ url: "test.org" }),
         $rows;
 
@@ -1194,7 +1270,7 @@ QUnit.test('Selection rows by space keydown on checkbox', function(assert) {
     rowsView.render(testElement);
     checkBoxes = testElement.find('.dx-checkbox');
     assert.equal(checkBoxes.length, 3);
-    checkBoxes.eq(1).trigger($.Event("keydown", { which: 32 }));
+    checkBoxes.eq(1).trigger($.Event("keydown", { key: " " }));
 
     // assert
     assert.equal(this.selectionOptions.changeItemSelectionCallsCount, 1);
@@ -1393,11 +1469,14 @@ QUnit.test('Custom extern column template without allowRenderToDetachedContainer
     // act
 
     var contentPositionUpdated = false;
-    rowsView._updateContentPosition = function() {
-        contentPositionUpdated = true;
+    rowsView._updateContentPosition = function(isRender) {
+        if(!isRender) {
+            contentPositionUpdated = true;
+        }
     };
 
     rowsView.render(testElement);
+    rowsView.resize();
     cells = testElement.find('td');
 
     // assert
@@ -1923,7 +2002,7 @@ QUnit.test('Render additional row for free space_B232625', function(assert) {
     // assert
     assert.equal(rowsView._getFreeSpaceRowElements().css('display'), 'table-row', 'display style is table-row');
     assert.ok(oldTableHeight < $testElement.height(), 'old table height');
-    assert.ok(Math.floor(Math.abs($table.height() - $testElement.height())) <= 1);
+    assert.ok(Math.abs($table[0].offsetHeight - $testElement[0].offsetHeight) <= 1);
     assert.ok(rowsView._getFreeSpaceRowElements()[0].style.height, 'free space rows height');
 });
 
@@ -2062,16 +2141,18 @@ QUnit.test('Height free space row for virtual scroller', function(assert) {
         rowsView = this.createRowsView(this.items, dataController),
         $testElement = $('#container'),
         freeSpaceRowHeight,
-        borderTopWidth;
+        borderTopWidth,
+        tableBorderTopWidth;
 
     // act
     rowsView.render($testElement);
     rowsView.height(400);
     rowsView.resize();
-    borderTopWidth = Math.ceil(parseFloat(rowsView.getTableElements().css("borderTopWidth")));
+    borderTopWidth = Math.ceil(parseFloat($(rowsView.element()).css("borderTopWidth")));
+    tableBorderTopWidth = Math.ceil(parseFloat(rowsView.getTableElements().css("borderTopWidth")));
 
     // assert
-    freeSpaceRowHeight = 400 - 3 * rowsView._rowHeight - borderTopWidth;
+    freeSpaceRowHeight = 400 - 3 * rowsView._rowHeight - borderTopWidth - tableBorderTopWidth;
     assert.equal(rowsView._getFreeSpaceRowElements().css('display'), 'table-row', 'display style is none');
     assert.equal(rowsView._getFreeSpaceRowElements()[0].offsetHeight, Math.round(freeSpaceRowHeight), 'height free space row');
 });
@@ -2252,7 +2333,7 @@ QUnit.test("Remove css class for a last row when freeSpaceRow is shown", functio
             showRowLines: true,
             showBorders: true
         }
-            ),
+        ),
         testElement = $('#container');
 
     // act
@@ -2506,7 +2587,7 @@ QUnit.test('Show grouped columns with select column', function(assert) {
     // arrange
     var rows = [{ rowType: 'group', groupIndex: 0, isExpanded: true, values: [1] }, { rowType: 'group', groupIndex: 1, isExpanded: false, values: [1, 2] }, { values: ['', '', 3] }],
         dataController = new MockDataController({ items: rows }),
-        rowsView = this.createRowsView(rows, dataController, [{ command: 'select' }, { command: 'expand', groupIndex: 0, caption: 'column 1', allowCollapsing: true, cellTemplate: expandCellTemplate }, { command: 'expand', groupIndex: 1, caption: 'column 2', cellTemplate: expandCellTemplate }, {}]),
+        rowsView = this.createRowsView(rows, dataController, [{ command: 'select' }, { command: 'expand', type: 'groupExpand', groupIndex: 0, caption: 'column 1', allowCollapsing: true, cellTemplate: expandCellTemplate }, { command: 'expand', type: 'groupExpand', groupIndex: 1, caption: 'column 2', cellTemplate: expandCellTemplate }, {}]),
         testElement = $('#container');
 
     // act
@@ -2567,9 +2648,9 @@ QUnit.test('Show grouped columns with column command is empty', function(assert)
 QUnit.test("groupContinuesMessage parameter for group template", function(assert) {
     // arrange
     var rows = [
-        { rowType: 'group', groupIndex: 0, isExpanded: true, values: [1], data: { isContinuationOnNextPage: true, items: [{}, {}] } },
-        { rowType: 'group', groupIndex: 1, isExpanded: false, values: [1, 2], data: { items: [{}, {}, {}] } },
-        { values: ['', '', 3] }
+            { rowType: 'group', groupIndex: 0, isExpanded: true, values: [1], data: { isContinuationOnNextPage: true, items: [{}, {}] } },
+            { rowType: 'group', groupIndex: 1, isExpanded: false, values: [1, 2], data: { items: [{}, {}, {}] } },
+            { values: ['', '', 3] }
         ],
         groupContinuesMessage,
         dataController = new MockDataController({ items: rows }),
@@ -2642,9 +2723,8 @@ QUnit.test('Show master detail', function(assert) {
 
     assert.ok(!$(testElement.find('tbody > tr')[1]).hasClass("dx-group-row"));
     assert.ok($(testElement.find('tbody > tr')[1]).hasClass("dx-master-detail-row"));
-    assert.equal($(testElement.find('tbody > tr')[1]).find('td').length, 2);
-    assert.equal($(testElement.find('tbody > tr')[1]).find('td').eq(0).html(), '&nbsp;');
-    assert.equal($(testElement.find('tbody > tr')[1]).find('td').eq(1).text(), 'Test Detail Information');
+    assert.equal($(testElement.find('tbody > tr')[1]).find('td').length, 1);
+    assert.equal($(testElement.find('tbody > tr')[1]).find('td').first().text(), 'Test Detail Information');
 });
 
 QUnit.test('Detail grid render as delayed template', function(assert) {
@@ -2768,10 +2848,8 @@ QUnit.test('Show grouped columns and master detail', function(assert) {
     assert.equal($(testElement.find('tbody > tr')[2]).find('td').last().text(), '3');
 
     assert.ok(!$(testElement.find('tbody > tr')[3]).hasClass("dx-group-row"));
-    assert.equal($(testElement.find('tbody > tr')[3]).find('td').length, 4);
-    assert.equal($(testElement.find('tbody > tr')[3]).find('td').first().html(), '&nbsp;');
-    assert.equal($($(testElement.find('tbody > tr')[3]).find('td')[1]).html(), '&nbsp;');
-    assert.equal($(testElement.find('tbody > tr')[3]).find('td').last().text(), 'Test Detail Information');
+    assert.equal($(testElement.find('tbody > tr')[3]).find('td').length, 1);
+    assert.equal($(testElement.find('tbody > tr')[3]).find('td').first().text(), 'Test Detail Information');
 });
 
 QUnit.test('Change Row Expand for master detail on expand button click ', function(assert) {
@@ -2899,7 +2977,7 @@ QUnit.test("Show rowlines for master detail", function(assert) {
 QUnit.test('Add class nowrap when wordWrapEnabled false', function(assert) {
     // arrange
     var rowsView = this.createRowsView([{ values: [1, 2, 3, 4, 5] }], null, [{ caption: 'Column 1', width: 30 }, { caption: 'Column 2', width: 50 }, { caption: 'Column 3', width: 73 },
-        { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
+            { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
         testElement = $('#container');
 
     this.options.wordWrapEnabled = false;
@@ -2913,7 +2991,7 @@ QUnit.test('Add class nowrap when wordWrapEnabled false', function(assert) {
 QUnit.test('Remove class nowrap when wordWrapEnabled true', function(assert) {
     // arrange
     var rowsView = this.createRowsView([{ values: [1, 2, 3, 4, 5] }], null, [{ caption: 'Column 1', width: 30 }, { caption: 'Column 2', width: 50 }, { caption: 'Column 3', width: 73 },
-        { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
+            { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
         testElement = $('#container');
 
     this.options.wordWrapEnabled = true;
@@ -3088,12 +3166,12 @@ QUnit.test('Rows with option rowAlternationEnabled true when grouping', function
                 items: [{ name: 'test', id: 2, date: new Date(2002, 1, 2) }, { name: 'test', id: 3, date: new Date(2003, 2, 3) }], key: "test"
             }, values: ["test"]
         },
-    {
-        data: { isContinuation: true, name: 'test', id: 2, date: new Date(2002, 1, 2) }, values: ['test', 2, '2/02/2002'], rowType: 'data', dataIndex: 0
-    },
-    {
-        data: { isContinuation: true, name: 'test', id: 3, date: new Date(2003, 2, 3) }, values: ['test', 3, '3/03/2003'], rowType: 'data', dataIndex: 1
-    }],
+        {
+            data: { isContinuation: true, name: 'test', id: 2, date: new Date(2002, 1, 2) }, values: ['test', 2, '2/02/2002'], rowType: 'data', dataIndex: 0
+        },
+        {
+            data: { isContinuation: true, name: 'test', id: 3, date: new Date(2003, 2, 3) }, values: ['test', 3, '3/03/2003'], rowType: 'data', dataIndex: 1
+        }],
         rowsView = this.createRowsView(items, null, [{ dataField: "name", caption: "Name", groupIndex: 0 }, "id", "date"]),
         rows,
         testElement = $('#container');
@@ -3218,7 +3296,7 @@ QUnit.test("onCellPrepared for group rows", function(assert) {
     assert.strictEqual(resultOptions.displayValue, 1, "displayValue");
     assert.deepEqual(resultOptions.data, { isContinuationOnNextPage: true }, "data");
     assert.strictEqual(resultOptions.rowType, "group", "rowType");
-    assert.deepEqual(resultOptions.column, { groupIndex: 0, caption: 'column 1', allowCollapsing: true, command: null, colspan: 2, "alignment": "left", "index": 0, "cssClass": null, showWhenGrouped: false }, "column");
+    assert.deepEqual(resultOptions.column, { groupIndex: 0, caption: 'column 1', allowCollapsing: true, command: null, width: null, colspan: 2, "alignment": "left", "index": 0, "cssClass": null, showWhenGrouped: false }, "column");
 });
 
 QUnit.test("onCellPrepared for group rows (RTL)", function(assert) {
@@ -3254,7 +3332,7 @@ QUnit.test("onCellPrepared for group rows (RTL)", function(assert) {
     assert.strictEqual(resultOptions.displayValue, 1, "displayValue");
     assert.deepEqual(resultOptions.data, { isContinuationOnNextPage: true }, "data");
     assert.strictEqual(resultOptions.rowType, "group", "rowType");
-    assert.deepEqual(resultOptions.column, { groupIndex: 0, caption: 'column 1', allowCollapsing: true, command: null, colspan: 2, "alignment": "right", "index": 0, "cssClass": null, showWhenGrouped: false }, "column");
+    assert.deepEqual(resultOptions.column, { groupIndex: 0, caption: 'column 1', allowCollapsing: true, command: null, width: null, colspan: 2, "alignment": "right", "index": 0, "cssClass": null, showWhenGrouped: false }, "column");
 });
 
 QUnit.test("onCellPrepared for called for command columns", function(assert) {
@@ -3453,22 +3531,22 @@ QUnit.test("EncodeHtml is false for column with grouping", function(assert) {
 QUnit.test("Show summary items in a group row", function(assert) {
     // arrange
     var items = [{ rowType: 'group', groupIndex: 0, isExpanded: true, values: [1], summaryCells: [
-        [{
-            column: "Column1",
-            summaryType: "sum",
-            value: 1,
-            valueFormat: "currency"
-        }, {
-            column: "Column2",
-            summaryType: "count",
-            value: 1,
-            displayFormat: "{0}-Count"
-        }, {
-            column: "Column2",
-            columnCaption: "Column 2",
-            summaryType: "count",
-            value: 1
-        }]
+            [{
+                column: "Column1",
+                summaryType: "sum",
+                value: 1,
+                valueFormat: "currency"
+            }, {
+                column: "Column2",
+                summaryType: "count",
+                value: 1,
+                displayFormat: "{0}-Count"
+            }, {
+                column: "Column2",
+                columnCaption: "Column 2",
+                summaryType: "count",
+                value: 1
+            }]
         ] }, { values: ["text", "text2"] }],
         rowsView = this.createRowsView(items, null, [{ caption: 'Column 1', groupIndex: 0 }, { caption: 'Column 2' }], true),
         testElement = $("#container"),
@@ -3484,14 +3562,14 @@ QUnit.test("Show summary items in a group row", function(assert) {
 QUnit.test("Show only one summary item in a group row", function(assert) {
     // arrange
     var items = [{ rowType: 'group', groupIndex: 0, isExpanded: true, values: [1], summaryCells: [
-        [{
-            column: "Column1",
-            summaryType: "sum",
-            value: 1,
-            customizeText: function(itemInfo) {
-                return "Column1 " + itemInfo.valueText;
-            }
-        }]
+            [{
+                column: "Column1",
+                summaryType: "sum",
+                value: 1,
+                customizeText: function(itemInfo) {
+                    return "Column1 " + itemInfo.valueText;
+                }
+            }]
         ] }, { values: ["text", "text2"] }],
         rowsView = this.createRowsView(items, null, [{ caption: 'Column 1', groupIndex: 0 }, { caption: 'Column 2' }], true),
         testElement = $("#container"),
@@ -3620,7 +3698,7 @@ QUnit.test("Show summary in a group row when two alignByColumn summary items and
 QUnit.test("Summary items are not displayed in a group row", function(assert) {
     // arrange
     var items = [{ rowType: 'group', groupIndex: 0, isExpanded: true, values: [1], summaryCells: [] },
-                { values: ["text", "text2"] }],
+            { values: ["text", "text2"] }],
         rowsView = this.createRowsView(items, null, [{ caption: 'Column 1', groupIndex: 0 }, { caption: 'Column 2' }], true),
         testElement = $("#container"),
         $groupRow;
@@ -3783,7 +3861,7 @@ QUnit.test("Rows view (with wordWrapEnabled is true) in container with 'nowrap' 
     // arrange
     var $rowsViewElement,
         rowsView = this.createRowsView([{ values: [1, 2, 3, 4, 5] }], null, [{ caption: 'Column 1', width: 30 }, { caption: 'Column 2', width: 50 }, { caption: 'Column 3', width: 73 },
-        { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
+            { caption: 'Column 4' }, { caption: 'Column 5', width: 91 }]),
         $testElement = $('#container');
 
     this.options.wordWrapEnabled = true;
@@ -3832,14 +3910,12 @@ QUnit.test("Calculate widths when there is only group rows", function(assert) {
     ];
 
     var rowsView = this.createRowsView(this.items, null, [{ allowCollapsing: true, cssClass: "dx-command-expand", groupIndex: 0, command: "expand" }, { width: 100 }, { width: 100 }]),
-        $tableElement,
         $testElement = $("#container").width(230);
 
     // act
     rowsView.render($testElement);
 
     // assert
-    $tableElement = $testElement.find("table");
     assert.deepEqual(rowsView.getColumnWidths(), [30, 100, 100], "calculate widths");
 });
 
@@ -3878,13 +3954,13 @@ QUnit.test("loadPanel position correction if rowsView.height > window.height", f
 QUnit.module('Rows view with real dataController and columnController', {
     beforeEach: function() {
         this.items = [
-                    { name: 'Alex', age: 15 },
-                    { name: 'Dan', age: 16 },
-                    { name: 'Vadim', age: 17 },
-                    { name: 'Dmitry', age: 18 },
-                    { name: 'Sergey', age: 18 },
-                    { name: 'Kate', age: 20 },
-                    { name: 'Dan', age: 21 }
+            { name: 'Alex', age: 15 },
+            { name: 'Dan', age: 16 },
+            { name: 'Vadim', age: 17 },
+            { name: 'Dmitry', age: 18 },
+            { name: 'Sergey', age: 18 },
+            { name: 'Kate', age: 20 },
+            { name: 'Dan', age: 21 }
         ];
 
         this.options = {
@@ -4081,7 +4157,6 @@ QUnit.test('None-zero initial pageIndex when virtual scrolling mode', function(a
     this.rowsView.render(testElement);
     this.rowsView.height(50);
     this.rowsView.resize();
-    this.rowsView.resize();
 });
 
 // B254955
@@ -4208,9 +4283,7 @@ QUnit.test('Scroll position is not reset on change dataSource', function(assert)
         scrollOffsetChangedCallCount++;
         if(scrollOffsetChangedCallCount === 1) {
             assert.ok(e.top > 0, 'scroll position more 0');
-            setTimeout(function() {
-                that.dataController.optionChanged({ name: 'dataSource' });
-            });
+            that.dataController.optionChanged({ name: 'dataSource' });
         } else {
             assert.equal(scrollOffsetChangedCallCount, 2, 'scrollChanged Call Count');
             assert.equal(e.top, 150, 'scroll position is 150');
@@ -4773,7 +4846,7 @@ QUnit.test("Render one time the master detail when expanded/collapsed item", fun
     // assert
     assert.ok(getRowElement(1).hasClass("dx-master-detail-row"), "have master detail row");
     assert.ok(getRowElement(1).is(":visible"), "visible master detail row");
-    assert.strictEqual(getRowElement(1).children().eq(1).text(), "Test", "text master detail row");
+    assert.strictEqual(getRowElement(1).children().first().text(), "Test", "text master detail row");
     assert.equal(countCallTemplate, 1, "call template");
 
     // act
@@ -4788,7 +4861,7 @@ QUnit.test("Render one time the master detail when expanded/collapsed item", fun
     // assert
     assert.ok(getRowElement(1).hasClass("dx-master-detail-row"), "have master detail row");
     assert.ok(getRowElement(1).is(":visible"), "visible master detail row");
-    assert.strictEqual(getRowElement(1).children().eq(1).text(), "Test", "text master detail row");
+    assert.strictEqual(getRowElement(1).children().first().text(), "Test", "text master detail row");
     assert.equal(countCallTemplate, 1, "not call template");
 });
 
@@ -5014,6 +5087,39 @@ QUnit.test("Show master detail with rowTemplate", function(assert) {
     assert.equal($rowElements.eq(1).find(".test-detail").length, 1, "master detail template is rendered");
 });
 
+// T718316
+QUnit.test("Show master detail when row as tbody", function(assert) {
+    // arrange
+    var $testElement = $("#container"),
+        $rowElements;
+
+    this.options.masterDetail = {
+        enabled: true,
+        template: function(container, options) {
+            $("<div>").addClass("test-detail").text(options.key).appendTo(container);
+        }
+    };
+    this.options.rowTemplate = function(container, options) {
+        $("<tbody class=\"dx-row dx-data-row\"><tr><td>+</td><td>" + options.data.name + "</td><td>" + options.data.age + "</td></tr></tbody>").appendTo(container);
+    };
+
+    this.setupDataGridModules();
+    this.rowsView.render($testElement);
+
+    // assert
+    $rowElements = $testElement.find("tbody.dx-row");
+    assert.strictEqual($rowElements.length, 8, "row count");
+
+    // act
+    this.expandRow(this.getKeyByRowIndex(0));
+
+    // assert
+    $rowElements = $testElement.find("tbody.dx-row");
+    assert.strictEqual($rowElements.length, 9, "row count");
+    assert.ok($rowElements.eq(0).hasClass("dx-data-row"), "data row");
+    assert.ok($rowElements.eq(1).hasClass("dx-master-detail-row"), "master detail row");
+});
+
 QUnit.test('Do not hide noData block placed inside the masterDetail template', function(assert) {
     // arrange
     var container = $('#container'),
@@ -5155,6 +5261,86 @@ QUnit.test('Show grouped column when cellTemplate is defined', function(assert) 
     assert.equal($(testElement.find('tbody > tr')[1]).find('td').eq(2).html(), '15');
 });
 
+QUnit.test("Group row with the custom position of the group cell", function(assert) {
+    // arrange
+    var $testElement = $("#container"),
+        $groupCellElements;
+
+    this.options.grouping = { allowCollapsing: true };
+    this.options.columns[0] = { dataField: "name", groupIndex: 0 };
+    this.options.columns.push({
+        type: "groupExpand"
+    }, "age");
+
+    this.setupDataGridModules();
+
+    // act
+    this.rowsView.render($testElement);
+
+    // assert
+    $groupCellElements = $(this.getRowElement(0)).children();
+    assert.strictEqual($groupCellElements.length, 3, "group cell count");
+    assert.ok($groupCellElements.eq(0).hasClass("dx-datagrid-group-space"), "first cell is empty");
+    assert.ok($groupCellElements.eq(1).hasClass("dx-datagrid-expand"), "second cell is expandable");
+    assert.ok($groupCellElements.eq(2).hasClass("dx-group-cell"), "third cell is group");
+});
+
+// T712541
+QUnit.test("Rows should be rendered properly on scrolling when virtual scrolling is enabled and a row template is used", function(assert) {
+    // arrange
+    var scrollable,
+        clock = sinon.useFakeTimers(),
+        $testElement = $('#container'),
+        store = new ArrayStore(generateItems(10000));
+
+    try {
+        this.options.columns = undefined;
+        this.options.remoteOperations = true;
+        this.options.dataSource = {
+            load: function(loadOptions) {
+                var d = $.Deferred();
+
+                setTimeout(() => {
+                    store.load(loadOptions).done((items) => {
+                        d.resolve({ data: items, totalCount: 10000 });
+                    });
+                }, 100);
+
+                return d.promise();
+            }
+        };
+        this.options.scrolling = {
+            mode: "virtual",
+            useNative: false,
+            removeInvisiblePages: true,
+            rowPageSize: 5,
+            rowRenderingMode: "standard"
+        };
+        this.options.rowTemplate = (_, options) => {
+            return $("<tbody>").addClass("dx-row").html("<tr><td colspan=5>" + options.data.id + "</td></tr>");
+        };
+
+        this.setupDataGridModules();
+        clock.tick(200);
+
+        this.rowsView.render($testElement);
+        this.rowsView.height(200);
+        this.rowsView.resize();
+
+        scrollable = this.rowsView._scrollable;
+        scrollable.scrollTo({ y: 2500 });
+        $(scrollable._container()).trigger("scroll");
+        clock.tick(500);
+
+        // assert
+        assert.strictEqual(this.pageIndex(), 3, "current pageIndex");
+        assert.strictEqual($testElement.find("tbody.dx-virtual-row").length, 2, "virtual tbody count");
+        assert.strictEqual($testElement.find("tbody").children(".dx-virtual-row").length, 2, "virtual row count");
+    } finally {
+        clock.restore();
+    }
+});
+
 
 QUnit.module('Virtual scrolling', {
     beforeEach: function() {
@@ -5165,9 +5351,11 @@ QUnit.module('Virtual scrolling', {
             rowsView._dataController.getVirtualContentSize = x.getVirtualContentSize;
             rowsView._dataController.getContentOffset = x.getContentOffset;
             rowsView._dataController.getItemSize = x.getItemSize;
+            rowsView._dataController.getItemSizes = x.getItemSizes;
             rowsView._dataController.viewportItemSize = x.viewportItemSize;
             rowsView._dataController.setContentSize = x.setContentSize;
             rowsView._dataController.setViewportPosition = x.setViewportPosition;
+            rowsView._dataController.getItemIndexByPosition = x.getItemIndexByPosition;
             rowsView._dataController._setViewportPositionCore = x._setViewportPositionCore;
             rowsView._dataController.option = rowsView.option.bind(rowsView);
             rowsView._dataController._dataSource = {
@@ -5201,7 +5389,8 @@ QUnit.test('Render rows with virtual items', function(assert) {
         },
         dataController = new MockDataController(options),
         rowsView = this.createRowsView(options.items, dataController),
-        testElement = $('#container');
+        testElement = $('#container'),
+        $virtualRows;
 
     // act
     this.options.scrolling = {
@@ -5221,9 +5410,15 @@ QUnit.test('Render rows with virtual items', function(assert) {
     assert.equal(content.children().length, 1);
     assert.equal(content.children().eq(0)[0].tagName, 'TABLE');
     assert.equal(content.children().eq(0).find('tbody > tr').length, 6, '3 data row + 1 freespace row + 2 virtual row');
-    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row").eq(0).height(), rowHeight * 10, 1);
-    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row").eq(1).height(), rowHeight * 7, 1);
+
+    $virtualRows = content.children().eq(0).find(".dx-virtual-row");
+    assert.roughEqual($virtualRows.eq(0).height(), rowHeight * 10, 1);
+    assert.roughEqual($virtualRows.eq(1).height(), rowHeight * 7, 1);
     assert.equal(content.children().eq(1).find("." + "dx-datagrid-group-space").length, 0, "group space class");
+
+    // T720928
+    assert.roughEqual(parseFloat($virtualRows.eq(0).children().get(0).style.height), rowHeight * 10, 1);
+    assert.roughEqual(parseFloat($virtualRows.eq(1).children().get(0).style.height), rowHeight * 7, 1);
 });
 
 QUnit.test('Render rows if row rendering mode is virtual', function(assert) {
@@ -5305,8 +5500,8 @@ QUnit.test('Render rows with virtual items count is more 1 000 000', function(as
     assert.equal(content.children().length, 1);
     assert.equal(content.children().eq(0)[0].tagName, 'TABLE');
     assert.equal(content.children().eq(0).find('tbody > tr').length, 6, '3 data row + 1 freespace row + 2 virtual row');
-    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row").eq(0).height(), rowHeight * heightRatio * 7000000, 1);
-    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row").eq(1).height(), rowHeight * heightRatio * 3000000, 1);
+    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row")[0].getBoundingClientRect().height, rowHeight * heightRatio * 7000000, 1);
+    assert.roughEqual(content.children().eq(0).find(".dx-virtual-row")[1].getBoundingClientRect().height, rowHeight * heightRatio * 3000000, 1);
     assert.ok(content.children().eq(0).height() < 16000000, "height is less then height limit");
     assert.equal(content.children().eq(0).find("." + "dx-datagrid-group-space").length, 0, "group space class");
 });
@@ -5482,12 +5677,14 @@ QUnit.test('setViewportItemIndex to far for virtual scrolling when rowsView heig
 
     dataController.setViewportItemIndex = function(itemIndex) {
         assert.ok(heightRatio > 0 && heightRatio < 1, "heightRatio is defined and in (0, 1)");
-        assert.roughEqual(itemIndex, 9000000, 1);
+        assert.roughEqual(itemIndex, 9000000, 2.1);
         done();
     };
 
     // act
-    rowsView.scrollTo({ y: rowHeight * heightRatio * 9000000 });
+    var itemSizes = dataController.getItemSizes();
+    var definedItemSizes = Object.keys(itemSizes).map(function(key) { return itemSizes[key]; });
+    rowsView.scrollTo({ y: rowHeight * heightRatio * (9000000 - definedItemSizes.length) + definedItemSizes[0] * definedItemSizes.length });
 });
 
 // T154003
@@ -5903,9 +6100,9 @@ QUnit.test('rowHeight/viewportSize calculation during Render rows with viewport'
     // arrange
     var options = {
             items: [
-            { values: [1] },
-            { values: [2] },
-            { values: [3] }
+                { values: [1] },
+                { values: [2] },
+                { values: [3] }
             ],
             virtualItemsCount: {
                 begin: 10,
@@ -5933,9 +6130,9 @@ QUnit.test('Update rowsView on changed', function(assert) {
     // arrange
     var options = {
             items: [
-            { values: [1] },
-            { values: [2] },
-            { values: [3] }
+                { values: [1] },
+                { values: [2] },
+                { values: [3] }
             ],
             virtualItemsCount: {
                 begin: 10,
@@ -5958,8 +6155,8 @@ QUnit.test('Update rowsView on changed', function(assert) {
     // act
 
     options.items = [
-            { values: [4] }, { values: [5] }, { values: [6] },
-            { values: [7] }, { values: [8] }, { values: [9] }
+        { values: [4] }, { values: [5] }, { values: [6] },
+        { values: [7] }, { values: [8] }, { values: [9] }
     ];
 
     options.virtualItemsCount = {
@@ -6034,15 +6231,15 @@ QUnit.test("Add group space class for master detail", function(assert) {
 QUnit.test("Change column visibility_T194439", function(assert) {
     // arrange
     var rows = [
-                { values: [1, 2, "test"] },
-                { values: [2, 3, "test"] },
-                { values: [3, 4, "test"] },
-                { values: [1, 5, "test"] },
-                { values: [2, 5, "test"] },
-                { values: [3, 6, "test"] },
-                { values: [1, 8, "test"] },
-                { values: [2, 1, "test"] },
-                { values: [3, 4, "test"] }
+            { values: [1, 2, "test"] },
+            { values: [2, 3, "test"] },
+            { values: [3, 4, "test"] },
+            { values: [1, 5, "test"] },
+            { values: [2, 5, "test"] },
+            { values: [3, 6, "test"] },
+            { values: [1, 8, "test"] },
+            { values: [2, 1, "test"] },
+            { values: [3, 4, "test"] }
         ],
         dataController = new MockDataController({
             items: rows,
@@ -6083,15 +6280,15 @@ QUnit.test("Change column visibility_T194439", function(assert) {
 QUnit.test("Change column lines visibility_T194439", function(assert) {
     // arrange
     var rows = [
-                { values: [1, 2, "test"] },
-                { values: [2, 3, "test"] },
-                { values: [3, 4, "test"] },
-                { values: [1, 5, "test"] },
-                { values: [2, 5, "test"] },
-                { values: [3, 6, "test"] },
-                { values: [1, 8, "test"] },
-                { values: [2, 1, "test"] },
-                { values: [3, 4, "test"] }
+            { values: [1, 2, "test"] },
+            { values: [2, 3, "test"] },
+            { values: [3, 4, "test"] },
+            { values: [1, 5, "test"] },
+            { values: [2, 5, "test"] },
+            { values: [3, 6, "test"] },
+            { values: [1, 8, "test"] },
+            { values: [2, 1, "test"] },
+            { values: [3, 4, "test"] }
         ],
         dataController = new MockDataController({
             items: rows,
@@ -6163,7 +6360,7 @@ QUnit.test("Set column widths for virtual table", function(assert) {
 
 // T472955
 QUnit.test("Last data row of the last tbody should not have border bottom width", function(assert) {
-   // arrange
+    // arrange
     var $tbodyElements,
         options = {
             isLoaded: true,
@@ -6209,6 +6406,11 @@ QUnit.test("Last data row of the last tbody should not have border bottom width"
 
 // T487466
 QUnit.test("Vertical scroll position should be correct after render rows when scroll up", function(assert) {
+    if(!browser.webkit) {
+        assert.ok(true, "This test is only relevant for webkit browser");
+        return;
+    }
+
     // arrange
     var options = {
             items: [
@@ -6308,7 +6510,7 @@ QUnit.module('Scrollbar', {
         this.createRowsView = createRowsView;
     },
     afterEach: function() {
-        this.dataGrid.dispose();
+        this.dataGrid && this.dataGrid.dispose();
     }
 });
 
@@ -6407,9 +6609,9 @@ QUnit.test('getTopVisibleRowData with scrolling', function(assert) {
     // arrange
     var done = assert.async();
     var rows = [
-                { values: [1], data: { field: 1 } },
-                { values: [2], data: { field: 2 } },
-                { values: [3], data: { field: 3 } }
+            { values: [1], data: { field: 1 } },
+            { values: [2], data: { field: 2 } },
+            { values: [3], data: { field: 3 } }
         ],
         dataController = new MockDataController({
             items: rows
@@ -6435,9 +6637,9 @@ QUnit.test('getTopVisibleRowData when virtual scrolling enabled after append nex
     var done = assert.async();
     var options = {
             items: [
-            { values: [1], data: { field: 1 } },
-            { values: [2], data: { field: 2 } },
-            { values: [3], data: { field: 3 } }
+                { values: [1], data: { field: 1 } },
+                { values: [2], data: { field: 2 } },
+                { values: [3], data: { field: 3 } }
             ],
             virtualItemsCount: {
                 begin: 0,
@@ -6453,9 +6655,9 @@ QUnit.test('getTopVisibleRowData when virtual scrolling enabled after append nex
     rowsView.resize();
 
     var appendRows = [
-            { values: [4], data: { field: 4 } },
-            { values: [5], data: { field: 5 } },
-            { values: [6], data: { field: 6 } }
+        { values: [4], data: { field: 4 } },
+        { values: [5], data: { field: 5 } },
+        { values: [6], data: { field: 6 } }
     ];
     options.virtualItemsCount.end = 1;
     options.items = options.items.concat(appendRows);
@@ -6498,6 +6700,11 @@ QUnit.test("Get width of horizontal scrollbar when both scrollbars are shown", f
 
 // T606944
 QUnit.test("The vertical scrollbar should not be shown when there is a horizontal scrollbar", function(assert) {
+    if(browser.msie && browser.version === "18.17763") {
+        assert.ok(true);
+        return;
+    }
+
     // arrange
     var rows = [{ values: ["test1", "test2", "test3", "test4"] }],
         columns = [{ dataField: "field1", width: 300 }, { dataField: "field2", width: 300 }, { dataField: "field3", width: 300 }, { dataField: "field4", width: 300 } ],
@@ -6536,6 +6743,23 @@ if(browser.webkit) {
         assert.strictEqual(rowsView.getScrollbarWidth(), 0, "There is no vertical scrollbar");
     });
 }
+
+// T697699
+QUnit.test("The vertical scrollbar should not be shown if showScrollbar is always", function(assert) {
+    // arrange
+    var rows = [{ values: ["test1"], rowType: "data" }],
+        columns = ["field1"],
+        rowsView = this.createRowsView(rows, null, columns, null, { scrolling: { useNative: false, showScrollbar: "always" } }),
+        $testElement = $('#container');
+
+    // act
+    rowsView.render($testElement);
+    rowsView.height(500);
+    rowsView.resize();
+
+    // assert
+    assert.strictEqual(rowsView.getScrollable().$content().outerHeight(), rowsView.getScrollable()._container().outerHeight(), "No vertical scroll");
+});
 
 QUnit.module('No data text', {
     beforeEach: function() {

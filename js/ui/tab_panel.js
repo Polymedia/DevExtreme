@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     support = require("../core/utils/support"),
     extend = require("../core/utils/extend").extend,
@@ -7,6 +5,7 @@ var $ = require("../core/renderer"),
     registerComponent = require("../core/component_registrator"),
     MultiView = require("./multi_view"),
     Tabs = require("./tabs"),
+    TabPanelItem = require("./tab_panel/item").default,
     iconUtils = require("../core/utils/icon"),
     getPublicElement = require("../core/utils/dom").getPublicElement,
     BindableTemplate = require("./widget/bindable_template"),
@@ -28,6 +27,19 @@ var TabPanel = MultiView.inherit({
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
+            /**
+            * @name dxTabPanelOptions.repaintChangesOnly
+            * @type boolean
+            * @default false
+            */
+
+            /**
+             * @name dxTabPanelOptions.items
+             * @type Array<string, dxTabPanelItem, object>
+             * @fires dxTabPanelOptions.onOptionChanged
+             * @inheritdoc
+             */
+
             /**
             * @name dxTabPanelOptions.itemTitleTemplate
             * @type template|function
@@ -75,6 +87,7 @@ var TabPanel = MultiView.inherit({
             * @type_function_param1 e:object
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
+            * @type_function_param1_field6 event:event
             * @action
             */
             onTitleClick: null,
@@ -86,6 +99,7 @@ var TabPanel = MultiView.inherit({
             * @type_function_param1 e:object
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
+            * @type_function_param1_field6 event:event
             * @action
             */
             onTitleHold: null,
@@ -99,34 +113,36 @@ var TabPanel = MultiView.inherit({
             * @type_function_param1_field5 itemElement:dxElement
             * @action
             */
-            onTitleRendered: null
+            onTitleRendered: null,
+
+            badgeExpr: function(data) { return data ? data.badge : undefined; }
 
             /**
-            * @name dxTabPanelItemTemplate
-            * @inherits dxMultiViewItemTemplate
+            * @name dxTabPanelItem
+            * @inherits dxMultiViewItem
             * @type object
             */
             /**
-            * @name dxTabPanelItemTemplate.tabTemplate
+            * @name dxTabPanelItem.tabTemplate
             * @type template|function
             * @type_function_return string|Node|jQuery
             */
 
             /**
-            * @name dxTabPanelItemTemplate.visible
+            * @name dxTabPanelItem.visible
             * @hidden
             * @inheritdoc
             */
             /**
-            * @name dxTabPanelItemTemplate.title
+            * @name dxTabPanelItem.title
             * @type String
             */
             /**
-            * @name dxTabPanelItemTemplate.icon
+            * @name dxTabPanelItem.icon
             * @type String
             */
             /**
-            * @name dxTabPanelItemTemplate.badge
+            * @name dxTabPanelItem.badge
             * @type String
             */
         });
@@ -203,7 +219,7 @@ var TabPanel = MultiView.inherit({
 
             $container.wrapInner($("<span>").addClass(TABS_ITEM_TEXT_CLASS));
             $iconElement && $iconElement.prependTo($container);
-        }, ["title", "html", "icon"], this.option("integrationOptions.watchMethod"));
+        }, ["title", "icon"], this.option("integrationOptions.watchMethod"));
     },
 
     _createTitleActions: function() {
@@ -287,9 +303,10 @@ var TabPanel = MultiView.inherit({
             selectOnFocus: true,
             focusStateEnabled: this.option("focusStateEnabled"),
             hoverStateEnabled: this.option("hoverStateEnabled"),
+            repaintChangesOnly: this.option("repaintChangesOnly"),
             tabIndex: this.option("tabIndex"),
             selectedIndex: this.option("selectedIndex"),
-
+            badgeExpr: this.option("badgeExpr"),
             onItemClick: this._titleClickAction.bind(this),
             onItemHold: this._titleHoldAction.bind(this),
             itemHoldTimeout: this.option("itemHoldTimeout"),
@@ -350,6 +367,11 @@ var TabPanel = MultiView.inherit({
         }
     },
 
+    repaint: function() {
+        this.callBase();
+        this._tabs.repaint();
+    },
+
     _optionChanged: function(args) {
         var name = args.name,
             value = args.value,
@@ -362,8 +384,14 @@ var TabPanel = MultiView.inherit({
             case "items":
                 this._setTabsOption(fullName, value);
                 this._updateLayout();
-                this._tabs.repaint();
+                if(!this.option("repaintChangesOnly")) {
+                    this._tabs.repaint();
+                }
                 this.callBase(args);
+                break;
+            case "width":
+                this.callBase(args);
+                this._tabs.repaint();
                 break;
             case "selectedIndex":
             case "selectedItem":
@@ -383,7 +411,6 @@ var TabPanel = MultiView.inherit({
                 var newItem = value ? this._tabs._itemElements().eq(id) : value;
                 this._setTabsOption("focusedElement", getPublicElement(newItem));
                 this.callBase(args);
-                this._tabs.focus();
                 break;
             case "itemTitleTemplate":
                 this._setTabsOption("itemTemplate", this._getTemplateByOption("itemTitleTemplate"));
@@ -403,6 +430,9 @@ var TabPanel = MultiView.inherit({
             case "loop":
                 this._setTabsOption("loopItemFocus", value);
                 break;
+            case "badgeExpr":
+                this._invalidate();
+                break;
             default:
                 this.callBase(args);
         }
@@ -414,6 +444,8 @@ var TabPanel = MultiView.inherit({
     }
 
 });
+
+TabPanel.ItemClass = TabPanelItem;
 
 registerComponent("dxTabPanel", TabPanel);
 

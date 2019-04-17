@@ -1,5 +1,3 @@
-"use strict";
-
 var eventsEngine = require("./events/core/events_engine");
 
 /**
@@ -29,6 +27,41 @@ var eventsEngine = require("./events/core/events_engine");
 * @export on
 */
 
+/**
+* @name eventsMethods.on
+* @publicName on(element, eventName, selector, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 selector:string
+* @param4 handler:function
+* @module events
+* @export on
+*/
+
+/**
+* @name eventsMethods.on
+* @publicName on(element, eventName, data, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 data:object
+* @param4 handler:function
+* @module events
+* @export on
+*/
+
+/**
+* @name eventsMethods.on
+* @publicName on(element, eventName, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 handler:function
+* @module events
+* @export on
+*/
+
 exports.on = eventsEngine.on;
 
 /**
@@ -40,6 +73,41 @@ exports.on = eventsEngine.on;
 * @param3 selector:string
 * @param4 data:object
 * @param5 handler:function
+* @module events
+* @export one
+*/
+
+/**
+* @name eventsMethods.one
+* @publicName one(element, eventName, selector, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 selector:string
+* @param4 handler:function
+* @module events
+* @export one
+*/
+
+/**
+* @name eventsMethods.one
+* @publicName one(element, eventName, data, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 data:object
+* @param4 handler:function
+* @module events
+* @export one
+*/
+
+/**
+* @name eventsMethods.one
+* @publicName one(element, eventName, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 handler:function
 * @module events
 * @export one
 */
@@ -58,6 +126,47 @@ exports.one = eventsEngine.one;
 * @export off
 */
 
+/**
+* @name eventsMethods.off
+* @publicName off(element, eventName, selector)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 selector:string
+* @module events
+* @export off
+*/
+
+/**
+* @name eventsMethods.off
+* @publicName off(element, eventName, handler)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @param3 handler:function
+* @module events
+* @export off
+*/
+
+/**
+* @name eventsMethods.off
+* @publicName off(element, eventName)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 eventName:string
+* @module events
+* @export off
+*/
+
+/**
+* @name eventsMethods.off
+* @publicName off(element)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @module events
+* @export off
+*/
+
 exports.off = eventsEngine.off;
 
 /**
@@ -71,6 +180,16 @@ exports.off = eventsEngine.off;
 * @export trigger
 */
 
+/**
+* @name eventsMethods.trigger
+* @publicName trigger(element, event)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 event:string|event
+* @module events
+* @export trigger
+*/
+
 exports.trigger = eventsEngine.trigger;
 
 /**
@@ -80,6 +199,16 @@ exports.trigger = eventsEngine.trigger;
 * @param1 element:Node|Array<Node>
 * @param2 event:string|event
 * @param3 extraParameters:object
+* @module events
+* @export triggerHandler
+* @hidden
+*/
+/**
+* @name eventsMethods.triggerHandler
+* @publicName triggerHandler(element, event)
+* @namespace DevExpress.events
+* @param1 element:Node|Array<Node>
+* @param2 event:string|event
 * @module events
 * @export triggerHandler
 * @hidden

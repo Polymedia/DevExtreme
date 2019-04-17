@@ -1,5 +1,3 @@
-"use strict";
-
 /* global currentTest */
 
 var vizMocks = require("../../helpers/vizMocks.js"),
@@ -35,8 +33,10 @@ QUnit.module('CircularRangeBar', {
             space: 3 * 80 * Math.PI / 180,
             text: {
                 indent: 9,
-                format: 'fixedPoint',
-                precision: 1,
+                format: {
+                    type: 'fixedPoint',
+                    precision: 1
+                },
                 font: {
                     family: 'Font'
                 }

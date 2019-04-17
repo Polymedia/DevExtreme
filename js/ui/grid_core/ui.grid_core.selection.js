@@ -1,18 +1,17 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    eventsEngine = require("../../events/core/events_engine"),
-    gridCore = require("../data_grid/ui.data_grid.core"),
-    typeUtils = require("../../core/utils/type"),
-    each = require("../../core/utils/iterator").each,
-    extend = require("../../core/utils/extend").extend,
-    support = require("../../core/utils/support"),
-    clickEvent = require("../../events/click"),
-    messageLocalization = require("../../localization/message"),
-    eventUtils = require("../../events/utils"),
-    holdEvent = require("../../events/hold"),
-    Selection = require("../selection/selection"),
-    Deferred = require("../../core/utils/deferred").Deferred;
+import $ from "../../core/renderer";
+import eventsEngine from "../../events/core/events_engine";
+import gridCore from "../data_grid/ui.data_grid.core";
+import { setEmptyText } from "./ui.grid_core.utils";
+import { isDefined } from "../../core/utils/type";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import support from "../../core/utils/support";
+import clickEvent from "../../events/click";
+import messageLocalization from "../../localization/message";
+import { addNamespace } from "../../events/utils";
+import holdEvent from "../../events/hold";
+import Selection from "../selection/selection";
+import { Deferred } from "../../core/utils/deferred";
 
 var EDITOR_CELL_CLASS = "dx-editor-cell",
     ROW_CLASS = "dx-row",
@@ -123,7 +122,7 @@ exports.SelectionController = gridCore.Controller.inherit((function() {
                     return dataController.dataSource() && dataController.dataSource().load(options) || new Deferred().resolve([]);
                 },
                 plainItems: function() {
-                    return dataController.items();
+                    return dataController.items(true);
                 },
                 isItemSelected: function(item) {
                     return item.selected;
@@ -152,6 +151,7 @@ exports.SelectionController = gridCore.Controller.inherit((function() {
                 isSelectColumnVisible = this.isSelectColumnVisible();
 
             columnsController.addCommandColumn({
+                type: "selection",
                 command: "select",
                 visible: isSelectColumnVisible,
                 visibleIndex: -1,
@@ -462,7 +462,7 @@ exports.SelectionController = gridCore.Controller.inherit((function() {
         focusedItemIndex: function(itemIndex) {
             var that = this;
 
-            if(typeUtils.isDefined(itemIndex)) {
+            if(isDefined(itemIndex)) {
                 that._selection._focusedItemIndex = itemIndex;
             } else {
                 return that._selection._focusedItemIndex;
@@ -516,11 +516,11 @@ module.exports = {
          * @name GridBaseOptions.selection
          * @type object
          */
-        /**
+            /**
          * @name dxDataGridOptions.selection
          * @type object
          */
-        /**
+            /**
          * @name dxTreeListOptions.selection
          * @type object
          */
@@ -550,14 +550,14 @@ module.exports = {
                  */
                 selectAllMode: "allPages",
 
-                 /**
+                /**
                  * @name dxDataGridOptions.selection.maxFilterLengthInRequest
                  * @type number
                  * @hidden
                  * @default 1500
                  */
                 maxFilterLengthInRequest: 1500,
-                 /**
+                /**
                  * @name dxDataGridOptions.selection.deferred
                  * @type boolean
                  * @default false
@@ -640,12 +640,16 @@ module.exports = {
                     return dataItem;
                 },
 
-                refresh: function() {
+                refresh: function(options) {
                     var that = this,
                         d = new Deferred();
 
                     this.callBase.apply(this, arguments).done(function() {
-                        that.getController("selection").refresh().done(d.resolve).fail(d.reject);
+                        if(!options || options.selection) {
+                            that.getController("selection").refresh().done(d.resolve).fail(d.reject);
+                        } else {
+                            d.resolve();
+                        }
                     }).fail(d.reject);
 
                     return d.promise();
@@ -654,9 +658,34 @@ module.exports = {
                 _handleDataChanged: function(e) {
                     this.callBase.apply(this, arguments);
 
-                    if(!e || e.changeType === "refresh") {
+                    if((!e || e.changeType === "refresh") && !this._repaintChangesOnly) {
                         this.getController("selection").focusedItemIndex(-1);
                     }
+                },
+
+                _applyChange: function(change) {
+                    if(change && change.changeType === "updateSelection") {
+                        change.items.forEach((item, index) => {
+                            var currentItem = this._items[index];
+                            if(currentItem) {
+                                currentItem.isSelected = item.isSelected;
+                                currentItem.values = item.values;
+                            }
+                        });
+                        return;
+                    }
+
+                    return this.callBase.apply(this, arguments);
+                },
+
+                _endUpdateCore: function() {
+                    var changes = this._changes;
+                    var isUpdateSelection = changes.length > 1 && changes.every(change => change.changeType === "updateSelection");
+                    if(isUpdateSelection) {
+                        var itemIndexes = changes.map(change => change.itemIndexes || []).reduce((a, b) => a.concat(b));
+                        this._changes = [{ changeType: "updateSelection", itemIndexes }];
+                    }
+                    this.callBase.apply(this, arguments);
                 }
             },
             contextMenu: {
@@ -754,14 +783,14 @@ module.exports = {
                         this.setAria("label", messageLocalization.format("dxDataGrid-ariaSelectRow"), $container);
                         this._renderSelectCheckBox($container, options);
                     } else {
-                        $container.get(0).innerHTML = "&nbsp;";
+                        setEmptyText($container);
                     }
                 },
 
                 _renderSelectCheckBox: function(container, options) {
                     var groupElement = $("<div>")
-                            .addClass(SELECT_CHECKBOX_CLASS)
-                            .appendTo(container);
+                        .addClass(SELECT_CHECKBOX_CLASS)
+                        .appendTo(container);
 
                     this.getController("editorFactory").createEditor(groupElement, extend({}, options.column, {
                         parentType: "dataRow",
@@ -838,7 +867,7 @@ module.exports = {
                     if(selectionMode !== "none") {
                         if(that.option(SHOW_CHECKBOXES_MODE) === "onLongTap" || !support.touch) {
                             // TODO Not working timeout by hold when it is larger than other timeouts by hold
-                            eventsEngine.on($table, eventUtils.addNamespace(holdEvent.name, "dxDataGridRowsView"), "." + DATA_ROW_CLASS, that.createAction(function(e) {
+                            eventsEngine.on($table, addNamespace(holdEvent.name, "dxDataGridRowsView"), "." + DATA_ROW_CLASS, that.createAction(function(e) {
                                 processLongTap(that.component, e.event);
 
                                 e.event.stopPropagation();

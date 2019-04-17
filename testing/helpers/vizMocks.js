@@ -1,5 +1,3 @@
-"use strict";
-
 (function(root, factory) {
     /* global jQuery */
     if(typeof define === 'function' && define.amd) {
@@ -44,7 +42,7 @@
                 if(attrs.indexOf("scale") !== -1) {
                     return this._stored_settings[attrs] || 1;
                 }
-                return this._stored_settings[attrs] || 0;
+                return this._stored_settings[attrs] === undefined ? 0 : this._stored_settings[attrs];
             }
             for(var key in attrs) {
                 this._stored_settings[key] = attrs[key];
@@ -79,7 +77,6 @@
             return this;
         },
         remove: function() {
-            $(this.element).removeData();
             if(this.parent) {
                 for(var i = this.parent.children.length - 1; i >= 0; i--) {
                     if(this.parent.children[i] === this) {
@@ -128,7 +125,19 @@
                 removeEventListener: function() {}
             };
         },
-        $thisReturnFunctions: ["toBackground", "sharp", "rotate", "enableLinks", "virtualLink", "linkOn", "linkOff", "linkAppend", "linkRemove", "data"]
+        $thisReturnFunctions: [
+            "toBackground",
+            "sharp",
+            "rotate",
+            "enableLinks",
+            "virtualLink",
+            "linkOn",
+            "linkOff",
+            "linkAppend",
+            "linkRemove",
+            "data",
+            "animate"
+        ]
     });
 
     var patternCounter = 0,

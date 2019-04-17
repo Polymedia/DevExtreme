@@ -1,5 +1,3 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
 '<div>\
@@ -12,17 +10,15 @@ QUnit.testStart(function() {
 });
 
 
-require("common.css!");
+import "common.css!";
 
-require("ui/data_grid/ui.data_grid");
+import "ui/data_grid/ui.data_grid";
 
-var $ = require("jquery"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules,
-    MockDataController = dataGridMocks.MockDataController,
-    dataUtils = require("core/element_data");
+import $ from "jquery";
+import { setupDataGridModules, MockDataController } from "../../helpers/dataGridMocks.js";
+import dataUtils from "core/element_data";
 
-var Pager = require("ui/pager");
+import Pager from "ui/pager";
 
 
 QUnit.module("Pager", {
@@ -252,6 +248,31 @@ QUnit.test("Pager is not rendered on partial update", function(assert) {
     assert.equal(pagerView._createComponent.callCount, 1, "_createComponent call count after partial update");
 });
 
+QUnit.test("pageCount is updated on partial update with repaintChangesOnly", function(assert) {
+    // arrange
+    var testElement = $("#container"),
+        pagerView = this.pagerView;
+
+    sinon.spy(pagerView, "_createComponent");
+
+    pagerView.render(testElement);
+
+    sinon.spy(pagerView._getPager(), "option");
+
+    assert.equal(pagerView._createComponent.callCount, 1, "_createComponent call count before partial update");
+
+    // act
+    this.dataController.changed.fire({ changeType: "update", repaintChangesOnly: true });
+
+    // assert
+    assert.equal(pagerView._createComponent.callCount, 1, "_createComponent call count after partial update");
+    assert.equal(pagerView._getPager().option.callCount, 1, "pager option call count after partial update");
+    assert.deepEqual(pagerView._getPager().option.getCall(0).args, [{
+        hasKnownLastPage: true, // T697587
+        totalCount: 143, // #7259
+        pageCount: 20
+    }], "pager option args");
+});
 
 QUnit.test("get page sizes when pageSizes option is auto and pageSize = 5", function(assert) {
     var pagerView = this.pagerView;

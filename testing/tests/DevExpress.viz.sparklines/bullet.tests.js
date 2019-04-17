@@ -1,5 +1,3 @@
-"use strict";
-
 /* global currentTest, createTestContainer */
 
 var $ = require("jquery"),
@@ -302,8 +300,6 @@ QUnit.test('Prepare options when all options are custom', function(assert) {
                 arrowLength: 10,
                 enabled: false, // false
                 text: 'test',
-                verticalAlignment: 'bottom', // 'bottom'
-                horizontalAlignment: 'right',
                 format: 'fixedPoint', // 'currency', 'fixedPoint', 'decimal', 'exponential', 'largeNumber', 'thousands', 'millions', 'billions', 'trillions'
                 precision: 2,
                 color: '#FF00FF',
@@ -375,10 +371,10 @@ QUnit.test('Implement custom theme', function(assert) {
 });
 
 QUnit.test('Dark theme', function(assert) {
-    var bullet = this.createBullet({ theme: 'desktop.dark' });
+    var bullet = this.createBullet({ theme: 'generic.dark' });
 
     delete bullet._allOptions.size;
-    assert.deepEqual(bullet._allOptions, this.getExpectedTheme(bullet, { theme: 'desktop.dark' }), 'Custom options should be correct');
+    assert.deepEqual(bullet._allOptions, this.getExpectedTheme(bullet, { theme: 'generic.dark' }), 'Custom options should be correct');
 });
 
 QUnit.test('Prepare options whe max level is undefined', function(assert) {
@@ -415,9 +411,10 @@ QUnit.test('Tooltip is not created on widget creation', function(assert) {
 
     assert.equal(tooltipModule.Tooltip.callCount, 0);
     assert.ok(!("_tooltip" in bullet));
-    assert.deepEqual(this.renderer.root.attr.lastCall.args, [{ "pointer-events": "visible" }]);
+    assert.strictEqual(this.renderer.root.attr.callCount, 2);
+    assert.deepEqual(this.renderer.root.attr.getCall(0).args, [{ "pointer-events": "visible" }]);
+    assert.deepEqual(this.renderer.root.attr.getCall(1).args, ["pointer-events"]);
 });
-
 
 QUnit.module('Structure', environment);
 

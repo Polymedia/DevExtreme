@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     Class = require("../../core/class"),
     getPublicElement = require("../../core/utils/dom").getPublicElement,
@@ -385,8 +383,8 @@ exports.AreaItem = Class.inherit({
             colgroupElementHTML += '<col style="width: ' + columnWidth[i] + 'px">';
         }
         this._colgroupElement.html(colgroupElementHTML);
-        this._tableWidth = totalWidth;
-        tableElement.style.width = totalWidth + 'px';
+        this._tableWidth = totalWidth - this._groupWidth > 0.01 ? Math.ceil(totalWidth) : totalWidth;
+        tableElement.style.width = this._tableWidth + 'px';
         tableElement.style.tableLayout = 'fixed';
     },
 
@@ -575,7 +573,7 @@ exports.AreaItem = Class.inherit({
 
         if(scrollable) {
             scrollable.on(eventName, function(e) {
-                if(that.option("rtlEnabled")) {
+                if(that.option("rtlEnabled") && isDefined(e.scrollOffset.left)) {
                     e.scrollOffset.left = scrollable.$content().width() - scrollable._container().width() - e.scrollOffset.left;
                 }
                 handler(e);

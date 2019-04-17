@@ -1,5 +1,3 @@
-"use strict";
-
 var themeModule = require("../../themes"),
     IOS7_DEFAULT = "ios7.default",
     SECONDARY_TEXT_COLOR = "#767676",
@@ -61,5 +59,3 @@ themeModule.registerTheme({
         }
     }
 }, "generic.light");
-
-themeModule.registerThemeAlias("ios", IOS7_DEFAULT);

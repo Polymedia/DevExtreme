@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 QUnit.testStart(function() {
@@ -12,15 +10,14 @@ QUnit.testStart(function() {
 require("common.css!");
 require("generic_light.css!");
 
-
-var $ = require("jquery"),
-    dblclickEvent = require("events/dblclick"),
+var dblclickEvent = require("events/dblclick"),
     Color = require("color"),
     fx = require("animation/fx"),
     pointerMock = require("../../helpers/pointerMock.js"),
     dragEvents = require("events/drag"),
     DataSource = require("data/data_source/data_source").DataSource,
-    subscribes = require("ui/scheduler/ui.scheduler.subscribes");
+    subscribes = require("ui/scheduler/ui.scheduler.subscribes"),
+    dateSerialization = require("core/utils/date_serialization");
 
 require("ui/scheduler/ui.scheduler");
 
@@ -43,8 +40,8 @@ QUnit.module("Integration: Recurring Appointments", {
 
 QUnit.test("Tasks should be duplicated according to recurrence rule", function(assert) {
     var tasks = [
-            { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 16, 2), recurrenceRule: "FREQ=DAILY;INTERVAL=4" },
-            { text: "Two", startDate: new Date(2015, 2, 17), endDate: new Date(2015, 2, 17, 0, 30) }
+        { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 16, 2), recurrenceRule: "FREQ=DAILY;INTERVAL=4" },
+        { text: "Two", startDate: new Date(2015, 2, 17), endDate: new Date(2015, 2, 17, 0, 30) }
     ];
     var dataSource = new DataSource({
         store: tasks
@@ -61,7 +58,7 @@ QUnit.test("Tasks should be duplicated according to recurrence rule", function(a
 
 QUnit.test("Tasks should be duplicated according to recurrence rule, if firstDayOfWeek was set", function(assert) {
     var tasks = [
-            { text: "One", startDate: new Date(2015, 2, 12), endDate: new Date(2015, 2, 12, 2), recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TH,SA" }
+        { text: "One", startDate: new Date(2015, 2, 12), endDate: new Date(2015, 2, 12, 2), recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TH,SA" }
     ];
     var dataSource = new DataSource({
         store: tasks
@@ -78,7 +75,7 @@ QUnit.test("Tasks should be duplicated according to recurrence rule, if firstDay
 
 QUnit.test("Tasks should be duplicated according to recurrence rule and recurrence exception", function(assert) {
     var tasks = [
-            { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 16, 2), recurrenceRule: "FREQ=DAILY", recurrenceException: "20150317" }
+        { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 16, 2), recurrenceRule: "FREQ=DAILY", recurrenceException: "20150317" }
     ];
     var dataSource = new DataSource({
         store: tasks
@@ -250,14 +247,15 @@ QUnit.test("Recurrent Task dragging with 'occurrence' recurrenceEditMode", funct
     $(this.instance.$element()).find(".dx-scheduler-appointment").eq(0).trigger(dragEvents.end);
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 9, 1, 0, 0, 0);
 
     delete updatedSingleItem.initialCoordinates;
     delete updatedSingleItem.initialSize;
 
     assert.deepEqual(updatedSingleItem, updatedItem, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150209T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Updated single item should not have recurrenceException ", function(assert) {
@@ -325,7 +323,8 @@ QUnit.test("Recurrent Task dragging, single mode", function(assert) {
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 9, 17, 0, 0, 0);
 
     assert.equal(updatedSingleItem.text, updatedItem.text, "New data is correct");
     assert.equal(updatedSingleItem.allDay, updatedItem.allDay, "New data is correct");
@@ -333,7 +332,7 @@ QUnit.test("Recurrent Task dragging, single mode", function(assert) {
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150209T170000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrent Task dragging, single mode - recurrenceException updating ", function(assert) {
@@ -344,7 +343,7 @@ QUnit.test("Recurrent Task dragging, single mode - recurrenceException updating 
                 startDate: new Date(2015, 1, 9, 1, 0),
                 endDate: new Date(2015, 1, 9, 2, 0),
                 recurrenceRule: "FREQ=DAILY",
-                recurrenceException: "20150214T010000"
+                recurrenceException: "20150214T010000Z"
             }
         ]
     });
@@ -362,9 +361,10 @@ QUnit.test("Recurrent Task dragging, single mode - recurrenceException updating 
     $(this.instance.$element()).find(".dx-scheduler-appointment").eq(1).trigger(dragEvents.end);
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
-    var updatedRecurringItem = this.instance.option("dataSource").items()[0];
+    var updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 10, 1);
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150214T010000,20150210T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, "20150214T010000Z," + dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrent Task resizing, single mode", function(assert) {
@@ -403,13 +403,14 @@ QUnit.test("Recurrent Task resizing, single mode", function(assert) {
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 10, 1, 0, 0, 0);
 
     assert.equal(updatedSingleItem.recurrenceRule, updatedItem.recurrenceRule, "New data is correct");
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150210T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrence task resizing when currentDate != recStartDate (T488760)", function(assert) {
@@ -461,9 +462,10 @@ QUnit.test("Recurrent Task deleting, single mode", function(assert) {
     $(".dx-scheduler-appointment-tooltip-buttons .dx-button").eq(0).trigger("dxclick");
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
-    var updatedRecurringItem = this.instance.option("dataSource").items()[0];
+    var updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 10, 1, 0, 0, 0);
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150210T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
     assert.equal(this.instance.option("dataSource").items().length, 1, "Single item was deleted");
 });
 
@@ -537,14 +539,15 @@ QUnit.test("Recurrent Task editing, single mode", function(assert) {
     this.clock.tick(300);
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 11, 1, 0, 0, 0);
 
     assert.equal(updatedSingleItem.text, updatedItem.text, "New data is correct");
     assert.equal(updatedSingleItem.recurrenceRule, updatedItem.recurrenceRule, "New data is correct");
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150211T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrent Task edition canceling, single mode", function(assert) {
@@ -684,14 +687,15 @@ QUnit.test("Recurrent Task editing, single mode - double click", function(assert
     this.clock.tick(300);
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 11, 1, 0, 0, 0);
 
     assert.equal(updatedSingleItem.text, updatedItem.text, "New data is correct");
     assert.equal(updatedSingleItem.recurrenceRule, updatedItem.recurrenceRule, "New data is correct");
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150211T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrent allDay task dragging on month view, single mode", function(assert) {
@@ -730,7 +734,8 @@ QUnit.test("Recurrent allDay task dragging on month view, single mode", function
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 9, 1, 0, 0, 0);
 
     assert.equal(updatedSingleItem.text, updatedItem.text, "New data is correct");
     assert.equal(updatedSingleItem.allDay, updatedItem.allDay, "New data is correct");
@@ -738,7 +743,7 @@ QUnit.test("Recurrent allDay task dragging on month view, single mode", function
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150209T010000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrent allDay task dragging on month view, single mode, 24h appointment duration", function(assert) {
@@ -778,7 +783,8 @@ QUnit.test("Recurrent allDay task dragging on month view, single mode, 24h appoi
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
     var updatedSingleItem = this.instance.option("dataSource").items()[1],
-        updatedRecurringItem = this.instance.option("dataSource").items()[0];
+        updatedRecurringItem = this.instance.option("dataSource").items()[0],
+        exceptionDate = new Date(2015, 1, 9, 0, 0, 0, 0);
 
     assert.equal(updatedSingleItem.text, updatedItem.text, "New data is correct");
     assert.equal(updatedSingleItem.allDay, updatedItem.allDay, "New data is correct");
@@ -786,7 +792,7 @@ QUnit.test("Recurrent allDay task dragging on month view, single mode, 24h appoi
     assert.deepEqual(updatedSingleItem.startDate, updatedItem.startDate, "New data is correct");
     assert.deepEqual(updatedSingleItem.endDate, updatedItem.endDate, "New data is correct");
 
-    assert.equal(updatedRecurringItem.recurrenceException, "20150209T000000", "Exception for recurrence appointment is correct");
+    assert.equal(updatedRecurringItem.recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "Exception for recurrence appointment is correct");
 });
 
 QUnit.test("Recurrence item in form should have a special css class", function(assert) {
@@ -806,7 +812,7 @@ QUnit.test("Recurrence item in form should have a special css class", function(a
 
     assert.notOk($recurrenceItem.hasClass(openedRecurrenceItemClass));
 
-    form.$element().find(".dx-recurrence-switch").dxSwitch("instance").option("value", true);
+    form.$element().find(".dx-switch").eq(1).dxSwitch("instance").option("value", true);
     $recurrenceItem = form.$element().find("." + recurrenceItemClass);
 
     assert.ok($recurrenceItem.hasClass(openedRecurrenceItemClass));
@@ -825,15 +831,13 @@ QUnit.test("Recurrence editor should work correctly after toggling repeat and en
 
     this.instance.showAppointmentPopup(appointment);
 
-    var $popup = $(".dx-scheduler-appointment-popup"),
-        switchEditor = $popup.find(".dx-recurrence-switch").dxSwitch("instance");
+    var form = this.instance.getAppointmentDetailsForm(),
+        repeatOnEditor = form.getEditor("repeatOnOff"),
+        repeatEndEditor = form.getEditor("recurrenceRule")._switchEndEditor;
 
-    switchEditor.option("value", true);
-
-    var switchEndEditor = $popup.find(".dx-recurrence-switch-repeat-end").dxSwitch("instance");
-
-    switchEndEditor.option("value", true);
-    switchEditor.option("value", false);
+    repeatOnEditor.option("value", true);
+    repeatEndEditor.option("value", true);
+    repeatOnEditor.option("value", false);
 
     assert.ok(true, "recurrence editor works correctly");
 });
@@ -858,10 +862,10 @@ QUnit.test("Recurrence editor should work correctly after switch off the recurre
 
     this.instance.showAppointmentPopup(appointment);
 
-    var $popup = $(".dx-scheduler-appointment-popup"),
-        switchEditor = $popup.find(".dx-recurrence-switch").dxSwitch("instance");
+    var form = this.instance.getAppointmentDetailsForm(),
+        repeatOnEditor = form.getEditor("repeatOnOff");
 
-    switchEditor.option("value", false);
+    repeatOnEditor.option("value", false);
 
     assert.ok(true, "recurrence editor works correctly");
 });
@@ -869,7 +873,7 @@ QUnit.test("Recurrence editor should work correctly after switch off the recurre
 
 QUnit.test("AllDay recurrence appointments should be rendered correctly after changing currentDate", function(assert) {
     var tasks = [
-            { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 17), allDay: true, recurrenceRule: "FREQ=DAILY" }
+        { text: "One", startDate: new Date(2015, 2, 16), endDate: new Date(2015, 2, 17), allDay: true, recurrenceRule: "FREQ=DAILY" }
     ];
     var dataSource = new DataSource({
         store: tasks
@@ -989,6 +993,61 @@ QUnit.test("The second appointment in recurring series in Week view should have 
     assert.roughEqual($appointments.eq(1).outerWidth(), cellWidth * 2, 1.001, "2d appt has correct width");
 });
 
+QUnit.test("The second appointment in recurring series in Week view should be rendered correctly", function(assert) {
+    this.createInstance({
+        dataSource: [
+            {
+                startDate: new Date(2019, 9, 20, 8, 30),
+                endDate: new Date(2019, 9, 21, 8, 29),
+                recurrenceRule: "FREQ=DAILY;COUNT=2",
+                text: "Test2"
+            }
+        ],
+        views: ["week"],
+        currentView: "week",
+        currentDate: new Date(2019, 9, 26),
+        startDayHour: 9,
+        height: 600
+    });
+
+    var $appointments = this.instance.$element().find(".dx-scheduler-appointment"),
+        $dropDown = this.instance.$element().find(".dx-scheduler-dropdown-appointments");
+
+    assert.equal($appointments.length, 2, "Two appointments are rendered");
+    assert.equal($dropDown.length, 0, "There is no dropDown appointment");
+});
+
+QUnit.test("The second weekend appointment in recurring series in Week view should be rendered correctly", function(assert) {
+    this.createInstance({
+        dataSource: [
+            {
+                startDate: new Date(2019, 9, 26, 8, 30),
+                endDate: new Date(2019, 9, 27, 8, 29),
+                recurrenceRule: "FREQ=DAILY;COUNT=2"
+            },
+        ],
+        views: ["week"],
+        currentView: "week",
+        currentDate: new Date(2019, 9, 26),
+        startDayHour: 9,
+        height: 600
+    });
+
+    var $appointments = this.instance.$element().find(".dx-scheduler-appointment"),
+        $dropDown = this.instance.$element().find(".dx-scheduler-dropdown-appointments");
+
+    assert.equal($appointments.length, 1, "One appointment is rendered");
+    assert.equal($dropDown.length, 0, "There is no dropDown appointment");
+
+    this.instance.option("currentDate", new Date(2019, 9, 26));
+
+    $appointments = this.instance.$element().find(".dx-scheduler-appointment");
+    $dropDown = this.instance.$element().find(".dx-scheduler-dropdown-appointments");
+
+    assert.equal($appointments.length, 1, "One appointment is rendered");
+    assert.equal($dropDown.length, 0, "There is no dropDown appointment");
+});
+
 QUnit.test("Reduced reccuring appt should have right left position in first column in Month view", function(assert) {
     this.createInstance({
         dataSource: [{
@@ -1069,6 +1128,33 @@ QUnit.test("Recurrence exception should be adjusted by scheduler timezone", func
     }
 });
 
+QUnit.test("T697037. Recurrence exception date should equal date of appointment, which excluded from recurrence", function(assert) {
+    this.createInstance({
+        dataSource: [ {
+            text: "Increase Price - North Region",
+            startDate: "2018-11-26T02:00:00Z",
+            endDate: "2018-11-26T02:15:00Z",
+            recurrenceRule: "FREQ=DAILY;COUNT=5",
+            recurrenceException: ""
+        }],
+        views: ["week"],
+        currentView: "week",
+        currentDate: new Date(2018, 10, 26),
+        dateSerializationFormat: "yyyy-MM-ddTHH:mm:ssZ",
+        timeZone: "Etc/UTC",
+        editing: true,
+        onAppointmentUpdating: function(e) {
+            assert.equal(e.newData.recurrenceException, "20181128T020000Z", "correct recurrence exception date");
+        }
+    });
+    var $appointment = $(this.instance.$element()).find(".dx-scheduler-appointment").eq(2),
+        pointer = pointerMock($appointment).start();
+
+    pointer.dragStart().drag(0, -30).dragEnd();
+
+    $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
+});
+
 QUnit.test("Recurrence exception should be adjusted by scheduler timezone after deleting of the single appt", function(assert) {
     this.createInstance({
         dataSource: [{
@@ -1110,15 +1196,56 @@ QUnit.test("Recurrence exception should be adjusted by appointment timezone afte
         currentDate: new Date(2018, 3, 1)
     });
 
-
     $(this.instance.$element()).find(".dx-scheduler-appointment").eq(0).trigger("dxclick");
     this.clock.tick(300);
 
     $(".dx-scheduler-appointment-tooltip-buttons .dx-button").eq(0).trigger("dxclick");
     $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
 
-    var $appointment = this.instance.$element().find(".dx-scheduler-appointment");
+    var $appointment = this.instance.$element().find(".dx-scheduler-appointment"),
+        exceptionDate = new Date(2018, 3, 1, 10),
+        timezoneDiff = new Date(2018, 2, 26).getTimezoneOffset() - exceptionDate.getTimezoneOffset();
+
+    timezoneDiff = timezoneDiff * 60000;
+    exceptionDate = new Date(exceptionDate.getTime() - timezoneDiff);
 
     assert.notOk($appointment.length, "appt is deleted");
-    assert.equal(this.instance.option("dataSource")[0].recurrenceException, "20180401T100000", "exception is correct");
+    assert.equal(this.instance.option("dataSource")[0].recurrenceException, dateSerialization.serializeDate(exceptionDate, "yyyyMMddTHHmmssZ"), "exception is correct");
 });
+
+QUnit.test("Single changed appointment should be rendered correctly in specified timeZone", function(assert) {
+    var tzOffsetStub = sinon.stub(subscribes, "getClientTimezoneOffset").returns(-10800000);
+    try {
+        this.createInstance({
+            dataSource: [{
+                text: "Recurrence",
+                startDate: "2018-05-23T10:00:00Z",
+                endDate: "2018-05-23T10:30:00Z",
+                recurrenceRule: "FREQ=DAILY"
+            }],
+            views: ["week"],
+            currentView: "week",
+            currentDate: new Date(2018, 4, 23),
+            timeZone: "Etc/UTC"
+        });
+
+        $(this.instance.$element()).find(".dx-scheduler-appointment").eq(0).trigger("dxclick").trigger("dxclick");
+
+        $(".dx-dialog-buttons .dx-button").eq(1).trigger("dxclick");
+
+        var $startDate = $(".dx-datebox").eq(0),
+            startDate = $startDate.dxDateBox("instance"),
+            expectedStartDate = new Date(2018, 4, 23, 9, 0);
+
+        startDate.option("value", expectedStartDate);
+        $(".dx-button.dx-popup-done").eq(0).trigger("dxclick");
+        this.clock.tick(300);
+
+        var actualStartDate = $(this.instance.$element()).find(".dx-scheduler-appointment").eq(3).dxSchedulerAppointment("instance").option("startDate");
+
+        assert.deepEqual(actualStartDate, expectedStartDate, "appointment starts in 9AM");
+    } finally {
+        tzOffsetStub.restore();
+    }
+});
+

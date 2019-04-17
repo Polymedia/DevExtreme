@@ -1,5 +1,3 @@
-"use strict";
-
 // TODOs
 // 1. animation
 
@@ -208,7 +206,7 @@ var Toast = Overlay.inherit({
                     return device.platform === "win" && device.version && device.version[0] === 10;
                 },
                 options: {
-                   /**
+                    /**
                    * @name dxToastOptions.position
                    * @default 'bottom right' @for Windows_10_Mobile
                    * @inheritdoc
@@ -312,10 +310,10 @@ var Toast = Overlay.inherit({
                 options: {
                     /**
                     * @name dxToastOptions.minWidth
-                    * @default 288 @for Material
+                    * @default 344 @for Material
                     * @inheritdoc
                     */
-                    minWidth: 288,
+                    minWidth: 344,
                     /**
                     * @name dxToastOptions.maxWidth
                     * @default 568 @for Material
@@ -323,46 +321,10 @@ var Toast = Overlay.inherit({
                     */
                     maxWidth: 568,
                     /**
-                    * @name dxToastOptions.position
-                    * @default { at: 'bottom center', my: 'bottom center', offset: '0 0' } @for Material
-                    * @inheritdoc
+                    * @name dxToastOptions.displayTime
+                    * @default 4000 @for Material
                     */
-                    position: {
-                        at: "bottom center",
-                        my: "bottom center",
-                        offset: "0 0"
-                    },
-                    /**
-                    * @name dxToastOptions.animation
-                    * @default {show: {type: 'slide', duration: 250, easing: 'cubic-bezier(0.4, 0, 1, 1)', from: { position: {my: 'top', at: 'bottom', of: window}}}, hide: { type: 'slide', duration: 250, easing: 'cubic-bezier(0.4, 0, 1, 1)', to: { position: {my: 'top', at: 'bottom', of: window}}}} @for Material
-                    * @inheritdoc
-                    */
-                    animation: {
-                        show: {
-                            type: "slide",
-                            duration: 250,
-                            easing: "cubic-bezier(0.4, 0, 1, 1)",
-                            from: {
-                                position: {
-                                    my: "top",
-                                    at: "bottom",
-                                    of: window
-                                }
-                            },
-                        },
-                        hide: {
-                            type: "slide",
-                            duration: 250,
-                            easing: "cubic-bezier(0.4, 0, 1, 1)",
-                            to: {
-                                position: {
-                                    my: "top",
-                                    at: "bottom",
-                                    of: window
-                                }
-                            },
-                        }
-                    }
+                    displayTime: 4000
                 }
             }
         ]);
@@ -431,7 +393,7 @@ var Toast = Overlay.inherit({
     },
 
     _show: function() {
-        if(visibleToastInstance) {
+        if(visibleToastInstance && visibleToastInstance !== this) {
             clearTimeout(visibleToastInstance._hideTimeout);
             visibleToastInstance.hide();
         }

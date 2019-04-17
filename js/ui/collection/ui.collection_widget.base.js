@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     commonUtils = require("../../core/utils/common"),
@@ -10,6 +8,7 @@ var $ = require("../../core/renderer"),
     extend = require("../../core/utils/extend").extend,
     inArray = require("../../core/utils/array").inArray,
     iteratorUtils = require("../../core/utils/iterator"),
+    isFunction = require("../../core/utils/type").isFunction,
     Action = require("../../core/action"),
     Guid = require("../../core/guid"),
     domUtils = require("../../core/utils/dom"),
@@ -22,6 +21,7 @@ var $ = require("../../core/renderer"),
     selectors = require("../widget/selectors"),
     messageLocalization = require("../../localization/message"),
     holdEvent = require("../../events/hold"),
+    compileGetter = require("../../core/utils/data").compileGetter,
     clickEvent = require("../../events/click"),
     contextMenuEvent = require("../../events/contextmenu"),
     BindableTemplate = require("../widget/bindable_template");
@@ -39,7 +39,7 @@ var COLLECTION_CLASS = "dx-collection",
     EMPTY_COLLECTION = "dx-empty-collection",
     TEMPLATE_WRAPPER_CLASS = "dx-template-wrapper",
 
-    ITEM_PATH_REGEX = /^([^.]+\[\d+\]\.)+([\w\.]+)$/;
+    ITEM_PATH_REGEX = /^([^.]+\[\d+\]\.)+([\w.]+)$/;
 
 var FOCUS_UP = "up",
     FOCUS_DOWN = "down",
@@ -70,10 +70,10 @@ var CollectionWidget = Widget.inherit({
                     return;
                 }
 
-                e.target = $itemElement;
-                e.currentTarget = $itemElement;
-
-                this._itemClickHandler(e);
+                this._itemClickHandler(extend({}, e, {
+                    target: $itemElement,
+                    currentTarget: $itemElement
+                }));
             },
             space = function(e) {
                 e.preventDefault();
@@ -116,7 +116,7 @@ var CollectionWidget = Widget.inherit({
 
             /**
             * @name CollectionWidgetOptions.items
-            * @type Array<string, object>
+            * @type Array<string, CollectionWidgetItem, object>
             * @fires CollectionWidgetOptions.onOptionChanged
             */
             items: [],
@@ -166,6 +166,7 @@ var CollectionWidget = Widget.inherit({
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number
+            * @type_function_param1_field7 event:event
             * @action
             */
             onItemHold: null,
@@ -202,16 +203,16 @@ var CollectionWidget = Widget.inherit({
 
             /**
             * @name CollectionWidgetOptions.dataSource
-            * @type string|Array<string,CollectionWidgetItemTemplate>|DataSource|DataSourceOptions
+            * @type string|Array<string,CollectionWidgetItem>|DataSource|DataSourceOptions
             * @default null
             */
             dataSource: null,
             /**
-            * @name CollectionWidgetItemTemplate
+            * @name CollectionWidgetItem
             * @type object
             */
             /**
-            * @name CollectionWidgetItemTemplate.template
+            * @name CollectionWidgetItem.template
             * @type template|function
             * @type_function_return string|Node|jQuery
             */
@@ -228,24 +229,25 @@ var CollectionWidget = Widget.inherit({
             */
             focusedElement: null,
 
+            displayExpr: undefined,
             disabledExpr: function(data) { return data ? data.disabled : undefined; },
             visibleExpr: function(data) { return data ? data.visible : undefined; }
 
             /**
-            * @name CollectionWidgetItemTemplate.html
+            * @name CollectionWidgetItem.html
             * @type String
             */
             /**
-            * @name CollectionWidgetItemTemplate.text
+            * @name CollectionWidgetItem.text
             * @type String
             */
             /**
-            * @name CollectionWidgetItemTemplate.disabled
+            * @name CollectionWidgetItem.disabled
             * @type boolean
             * @default false
             */
             /**
-            * @name CollectionWidgetItemTemplate.visible
+            * @name CollectionWidgetItem.visible
             * @type boolean
             * @default true
             */
@@ -257,24 +259,47 @@ var CollectionWidget = Widget.inherit({
     },
 
     _init: function() {
+        this._compileDisplayGetter();
         this.callBase();
 
         this._cleanRenderedItems();
         this._refreshDataSource();
     },
 
+    _compileDisplayGetter: function() {
+        var displayExpr = this.option("displayExpr");
+        this._displayGetter = displayExpr ? compileGetter(this.option("displayExpr")) : undefined;
+    },
+
     _initTemplates: function() {
         this._initItemsFromMarkup();
 
         this.callBase();
+        this._initDefaultItemTemplate();
+    },
 
+    _initDefaultItemTemplate: function() {
+        var fieldsMap = this._getFieldsMap();
         this._defaultTemplates["item"] = new BindableTemplate((function($container, data) {
             if(isPlainObject(data)) {
                 this._prepareDefaultItemTemplate(data, $container);
             } else {
-                $container.text(String(data));
+                if(fieldsMap && isFunction(fieldsMap.text)) {
+                    data = fieldsMap.text(data);
+                }
+                $container.text(String(commonUtils.ensureDefined(data, "")));
             }
-        }).bind(this), ["text", "html"], this.option("integrationOptions.watchMethod"));
+        }).bind(this), this._getBindableFields(), this.option("integrationOptions.watchMethod"), fieldsMap);
+    },
+
+    _getBindableFields: function() {
+        return ["text", "html"];
+    },
+
+    _getFieldsMap: function() {
+        if(this._displayGetter) {
+            return { text: this._displayGetter };
+        }
     },
 
     _prepareDefaultItemTemplate: function(data, $container) {
@@ -293,7 +318,7 @@ var CollectionWidget = Widget.inherit({
             return;
         }
 
-        var items = iteratorUtils.map($items, (function(item) {
+        var items = [].slice.call($items).map((item) => {
             var $item = $(item);
             var result = domUtils.getElementOptions(item).dxItem;
             var isTemplateRequired = $item.html().trim() && !result.template;
@@ -305,18 +330,20 @@ var CollectionWidget = Widget.inherit({
             }
 
             return result;
-        }).bind(this));
+        });
 
         this.option("items", items);
     },
 
     _prepareItemTemplate: function($item) {
         var templateId = ITEM_TEMPLATE_ID_PREFIX + new Guid();
-        var templateOptions = "dxTemplate: { name: \"" + templateId + "\" }";
+        var $template = $item
+            .detach()
+            .clone()
+            .removeAttr("data-options")
+            .addClass(TEMPLATE_WRAPPER_CLASS);
 
-        $item.detach().clone()
-            .attr("data-options", templateOptions)
-            .data("options", templateOptions).appendTo(this.$element());
+        this._saveTemplate(templateId, $template);
 
         return templateId;
     },
@@ -418,9 +445,13 @@ var CollectionWidget = Widget.inherit({
         }
     },
 
-    _getAvailableItems: function($itemElements) {
+    _getVisibleItems: function($itemElements) {
         $itemElements = $itemElements || this._itemElements();
-        return $itemElements.filter(":visible").not(".dx-state-disabled");
+        return $itemElements.filter(":visible");
+    },
+
+    _getAvailableItems: function($itemElements) {
+        return this._getVisibleItems($itemElements).not(".dx-state-disabled");
     },
 
     _prevItem: function($items) {
@@ -516,7 +547,7 @@ var CollectionWidget = Widget.inherit({
     _refreshItem: function($item) {
         var itemData = this._getItemData($item),
             index = $item.data(this._itemIndexKey());
-        this._renderItem(index, itemData, null, $item);
+        this._renderItem(this._renderedItemsCount + index, itemData, null, $item);
     },
 
     _optionChanged: function(args) {
@@ -541,7 +572,6 @@ var CollectionWidget = Widget.inherit({
                 this._invalidate();
                 break;
             case "dataSource":
-                this.option("items", []);
                 this._refreshDataSource();
                 this._renderEmptyMessage();
                 break;
@@ -573,6 +603,11 @@ var CollectionWidget = Widget.inherit({
             case "focusedElement":
                 this._removeFocusedItem(args.previousValue);
                 this._setFocusedItem($(args.value));
+                break;
+            case "displayExpr":
+                this._compileDisplayGetter();
+                this._initDefaultItemTemplate();
+                this._invalidate();
                 break;
             case "visibleExpr":
             case "disabledExpr":
@@ -616,7 +651,7 @@ var CollectionWidget = Widget.inherit({
             this._refreshContent();
             this._renderFocusTarget();
         } else {
-            this.option("items", newItems);
+            this.option("items", newItems.slice());
         }
     },
 
@@ -703,13 +738,9 @@ var CollectionWidget = Widget.inherit({
         this._prepareContent();
     },
 
-    _prepareContent: function() {
-        var that = this;
-
-        commonUtils.deferRender(function() {
-            that._renderContentImpl();
-        });
-    },
+    _prepareContent: commonUtils.deferRenderer(function() {
+        this._renderContentImpl();
+    }),
 
     _renderContent: function() {
         this._fireContentReadyAction();
@@ -856,15 +887,15 @@ var CollectionWidget = Widget.inherit({
 
     _renderItems: function(items) {
         if(items.length) {
-            iteratorUtils.each(items, this._renderItem.bind(this));
+            iteratorUtils.each(items, function(index, itemData) {
+                this._renderItem(this._renderedItemsCount + index, itemData);
+            }.bind(this));
         }
 
         this._renderEmptyMessage();
     },
 
     _renderItem: function(index, itemData, $container, $itemToReplace) {
-        index = this._renderedItemsCount + index;
-
         $container = $container || this._itemContainer();
         var $itemFrame = this._renderItemFrame(index, itemData, $container, $itemToReplace);
         this._setElementData($itemFrame, itemData, index);
@@ -943,6 +974,10 @@ var CollectionWidget = Widget.inherit({
         $(args.container).addClass(classes.join(" "));
     },
 
+    _appendItemToContainer: function($container, $itemFrame, index) {
+        $itemFrame.appendTo($container);
+    },
+
     _renderItemFrame: function(index, itemData, $container, $itemToReplace) {
         var $itemFrame = $("<div>");
         new (this.constructor.ItemClass)($itemFrame, this._itemOptions(), itemData || {});
@@ -950,7 +985,7 @@ var CollectionWidget = Widget.inherit({
         if($itemToReplace && $itemToReplace.length) {
             $itemToReplace.replaceWith($itemFrame);
         } else {
-            $itemFrame.appendTo($container);
+            this._appendItemToContainer.call(this, $container, $itemFrame, index);
         }
 
         return $itemFrame;
@@ -1082,6 +1117,18 @@ var CollectionWidget = Widget.inherit({
 
     _getItemData: function(itemElement) {
         return $(itemElement).data(this._itemDataKey());
+    },
+
+    _getSummaryItemsWidth: function(items, includeMargin) {
+        var result = 0;
+
+        if(items) {
+            iteratorUtils.each(items, function(_, item) {
+                result += $(item).outerWidth(includeMargin || false);
+            });
+        }
+
+        return result;
     },
 
     /**

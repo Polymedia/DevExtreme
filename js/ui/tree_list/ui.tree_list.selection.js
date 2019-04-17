@@ -1,12 +1,10 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    treeListCore = require("./ui.tree_list.core"),
-    commonUtils = require("../../core/utils/common"),
-    noop = require("../../core/utils/common").noop,
-    selectionModule = require("../grid_core/ui.grid_core.selection"),
-    errors = require("../widget/ui.errors"),
-    extend = require("../../core/utils/extend").extend;
+import $ from '../../core/renderer';
+import treeListCore from './ui.tree_list.core';
+import commonUtils from '../../core/utils/common';
+import { noop } from '../../core/utils/common';
+import selectionModule from '../grid_core/ui.grid_core.selection';
+import errors from '../widget/ui.errors';
+import { extend } from '../../core/utils/extend';
 
 var TREELIST_SELECT_ALL_CLASS = "dx-treelist-select-all",
     CELL_FOCUS_DISABLED_CLASS = "dx-cell-focus-disabled",
@@ -91,6 +89,7 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
                 _getVisibleNodeKeys: function(isRecursiveSelection) {
                     var component = this.component,
                         root = component.getRootNode(),
+                        cache = {},
                         keys = [];
 
                     root && treeListCore.foreachNodes(root.children, function(node) {
@@ -98,7 +97,7 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
                             keys.push(node.key);
                         }
 
-                        return isRecursiveSelection ? false : component.isRowExpanded(node.key);
+                        return isRecursiveSelection ? false : component.isRowExpanded(node.key, cache);
                     });
 
                     return keys;
@@ -182,26 +181,28 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
                         hasNonSelectedState,
                         hasSelectedState;
 
-                    if(parentNode.children.length > 1) {
-                        if(isSelected === false) {
-                            hasSelectedState = parentNode.children.some(function(childNode, index, children) {
-                                return that._selectionStateByKey[childNode.key];
-                            });
+                    if(parentNode) {
+                        if(parentNode.children.length > 1) {
+                            if(isSelected === false) {
+                                hasSelectedState = parentNode.children.some(function(childNode, index, children) {
+                                    return that._selectionStateByKey[childNode.key];
+                                });
 
-                            state = hasSelectedState ? undefined : false;
-                        } else if(isSelected === true) {
-                            hasNonSelectedState = parentNode.children.some(function(childNode) {
-                                return !that._selectionStateByKey[childNode.key];
-                            });
+                                state = hasSelectedState ? undefined : false;
+                            } else if(isSelected === true) {
+                                hasNonSelectedState = parentNode.children.some(function(childNode) {
+                                    return !that._selectionStateByKey[childNode.key];
+                                });
 
-                            state = hasNonSelectedState ? undefined : true;
+                                state = hasNonSelectedState ? undefined : true;
+                            }
                         }
-                    }
 
-                    this._selectionStateByKey[parentNode.key] = state;
+                        this._selectionStateByKey[parentNode.key] = state;
 
-                    if(parentNode.parent && parentNode.parent.level >= 0) {
-                        this._updateParentSelectionState(parentNode, state);
+                        if(parentNode.parent && parentNode.parent.level >= 0) {
+                            this._updateParentSelectionState(parentNode, state);
+                        }
                     }
                 },
 
@@ -209,7 +210,7 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
                     var that = this,
                         children = node.children;
 
-                    children.forEach(function(childNode) {
+                    children && children.forEach(function(childNode) {
                         that._selectionStateByKey[childNode.key] = isSelected;
 
                         if(childNode.children.length > 0) {
@@ -512,6 +513,11 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
 
                     return selectedRowsData;
                 },
+
+                refresh: function() {
+                    this._selectionStateByKey = {};
+                    return this.callBase.apply(this, arguments);
+                }
             }
         },
         views: {
@@ -523,7 +529,7 @@ treeListCore.registerModule("selection", extend(true, {}, selectionModule, {
 
                     var firstDataColumnIndex = that._columnsController.getFirstDataColumnIndex();
 
-                    if(renderingTemplate && options.column.index === firstDataColumnIndex) {
+                    if(renderingTemplate && options.rowType === "header" && options.column.index === firstDataColumnIndex) {
                         resultTemplate = {
                             render: function(options) {
                                 if(that.option("selection.mode") === "multiple") {

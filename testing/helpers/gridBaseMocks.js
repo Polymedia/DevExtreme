@@ -1,5 +1,3 @@
-"use strict";
-
 module.exports = function($, gridCore, columnResizingReordering, domUtils, commonUtils, typeUtils, ArrayStore, nameWidget) {
     var exports = {};
 
@@ -92,7 +90,15 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
                 return 0;
             },
 
+            getRowIndexDelta: function() {
+                return 0;
+            },
+
             items: function() {
+                return options.items;
+            },
+
+            getVisibleRows: function() {
                 return options.items;
             },
 
@@ -190,6 +196,8 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
                 });
             },
 
+            reset: function() {},
+
             footerItems: function() {
                 var result = [];
                 options.totalItem && result.push(options.totalItem);
@@ -211,7 +219,8 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
             changed: $.Callbacks(),
             loadingChanged: $.Callbacks(),
             pageChanged: $.Callbacks(),
-            dataSourceChanged: $.Callbacks()
+            dataSourceChanged: $.Callbacks(),
+            fireError: function() { },
         };
     };
 
@@ -246,7 +255,11 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
             isEditing: function() {
                 return this._isEditing;
             },
-            getEditMode: commonUtils.noop
+            isEditRow: function(visibleIndex) {
+                return this._isEditing;
+            },
+            getEditMode: commonUtils.noop,
+            allowUpdating: commonUtils.noop
         };
     };
 
@@ -577,6 +590,10 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
             },
 
             isAllDataTypesDefined: function() {
+            },
+
+            getColumnId: function(column) {
+                return column.command ? "command:" + column.command : column.index;
             }
         };
     };
@@ -683,7 +700,8 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
                         return data;
                     },
                     on: commonUtils.noop,
-                    off: commonUtils.noop
+                    off: commonUtils.noop,
+                    key: commonUtils.noop
                 };
             },
             dispose: function() {
@@ -894,19 +912,26 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
             that.options.legacyRendering = false;
         }
 
+        that.optionCalled = $.Callbacks();
+
         that.option = function(options, value) {
             var result = that.options,
-                path;
+                path,
+                changed;
 
             if(typeUtils.isString(options)) {
                 path = options.split('.');
                 while(result && path.length) {
                     if(arguments.length > 1 && path.length === 1) {
-                        result[path[0]] = value;
+                        if(result[path[0]] !== value) {
+                            changed = true;
+                            result[path[0]] = value;
+                        }
                     }
                     result = result[path[0]];
                     path.shift();
                 }
+                changed && that.optionCalled.fire(options, value);
                 return result;
             }
 
@@ -1021,6 +1046,16 @@ module.exports = function($, gridCore, columnResizingReordering, domUtils, commo
                 this.init && this.init();
             });
         }
+    };
+
+    exports.generateItems = function(itemCount) {
+        var items = [];
+
+        for(var i = 1; i <= itemCount; i++) {
+            items.push({ id: i, field1: "test1" + i, field2: "test2" + i, field3: "test3" + i, field4: "test4" + i });
+        }
+
+        return items;
     };
 
     return exports;

@@ -1,16 +1,13 @@
-"use strict";
-
-require("./ui.tree_list.editor_factory");
-
-var $ = require("../../core/renderer"),
-    errors = require("../widget/ui.errors"),
-    isDefined = require("../../core/utils/type").isDefined,
-    extend = require("../../core/utils/extend").extend,
-    Deferred = require("../../core/utils/deferred").Deferred,
-    messageLocalization = require("../../localization/message"),
-    treeListCore = require("./ui.tree_list.core"),
-    gridCoreUtils = require("../grid_core/ui.grid_core.utils"),
-    editingModule = require("../grid_core/ui.grid_core.editing");
+import './ui.tree_list.editor_factory';
+import $ from '../../core/renderer';
+import errors from '../widget/ui.errors';
+import { isDefined } from '../../core/utils/type';
+import { extend } from '../../core/utils/extend';
+import { Deferred } from '../../core/utils/deferred';
+import messageLocalization from '../../localization/message';
+import treeListCore from './ui.tree_list.core';
+import gridCoreUtils from '../grid_core/ui.grid_core.utils';
+import editingModule from '../grid_core/ui.grid_core.editing';
 
 var TREELIST_EXPAND_ICON_CONTAINER_CLASS = "dx-treelist-icon-container",
     SELECT_CHECKBOX_CLASS = "dx-select-checkbox",
@@ -51,15 +48,25 @@ var EditingController = editingModule.controllers.editing.inherit((function() {
             return result || editingOptions && editingOptions.allowAdding;
         },
 
-        _createEditingLinks: function(container, options, editingOptions) {
-            var callBase = this.callBase,
-                editingTexts = editingOptions.texts || {};
+        _isDefaultButtonVisible: function(button, options) {
+            var result = this.callBase.apply(this, arguments),
+                row = options.row;
 
-            if(editingOptions.allowAdding && !(options.row.removed || options.row.inserted)) {
-                this._createLink(container, editingTexts.addRowToNode, "addRowByRowIndex", options, editingOptions.useIcons);
+            if(button.name === "add") {
+                return this.allowAdding(options) && row.rowIndex !== this._getVisibleEditRowIndex() && !(row.removed || row.inserted);
             }
 
-            callBase.apply(this, arguments);
+            return result;
+        },
+
+        _getEditingButtons: function(options) {
+            var buttons = this.callBase.apply(this, arguments);
+
+            if(!options.column.buttons) {
+                buttons.unshift(this._getButtonConfig("add", options));
+            }
+
+            return buttons;
         },
 
         _beforeSaveEditData: function(editData) {
@@ -120,6 +127,14 @@ var EditingController = editingModule.controllers.editing.inherit((function() {
             parentIdSetter(options.data, parentKey);
 
             this.callBase.apply(this, arguments);
+        },
+
+        allowAdding: function(options) {
+            return this._allowEditAction("allowAdding", options);
+        },
+
+        _needToCloseEditableCell: function($targetElement) {
+            return this.callBase.apply(this, arguments) || $targetElement.closest("." + TREELIST_EXPAND_ICON_CONTAINER_CLASS).length && this.isEditing();
         }
     };
 })());

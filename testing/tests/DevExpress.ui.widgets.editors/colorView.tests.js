@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     Color = require("color"),
@@ -253,12 +251,26 @@ QUnit.test("Position of alpha channel handle with rgba(255, 0, 0, 0)", function(
 QUnit.test("Render colors preview", function(assert) {
     showColorView.call(this);
     var $colorPreviewContainer = this.element.find(".dx-colorview-color-preview-container"),
-        $colorPreviewContainerInner = this.element.find(".dx-colorview-color-preview-container-inner");
+        $colorPreviewContainerInner = this.element.find(".dx-colorview-color-preview-container-inner"),
+        $baseColor = $colorPreviewContainerInner.find(".dx-colorview-color-preview-color-current"),
+        $newColor = $colorPreviewContainerInner.find(".dx-colorview-color-preview-color-new");
 
     assert.equal($colorPreviewContainer.length, 1);
     assert.equal($colorPreviewContainerInner.length, 1);
-    assert.equal($colorPreviewContainerInner.find(".dx-colorview-color-preview-color-current").length, 1);
-    assert.equal($colorPreviewContainerInner.find(".dx-colorview-color-preview-color-new").length, 1);
+    assert.equal($baseColor.length, 1);
+    assert.equal($newColor.length, 1);
+    assert.equal(new Color($baseColor.css("backgroundColor")).toHex(), "#000000");
+    assert.equal(new Color($newColor.css("backgroundColor")).toHex(), "#000000");
+});
+
+QUnit.test("Render colors preview with predefined values", function(assert) {
+    showColorView.call(this, { value: "#fafafa", matchValue: "#dadada" });
+    var $colorPreviewContainerInner = this.element.find(".dx-colorview-color-preview-container-inner"),
+        $baseColor = $colorPreviewContainerInner.find(".dx-colorview-color-preview-color-current"),
+        $newColor = $colorPreviewContainerInner.find(".dx-colorview-color-preview-color-new");
+
+    assert.equal(new Color($baseColor.css("backgroundColor")).toHex(), "#dadada");
+    assert.equal(new Color($newColor.css("backgroundColor")).toHex(), "#fafafa");
 });
 
 QUnit.test("In 'instantly' mode 'OK' and 'Cancel' buttons should not be rendered", function(assert) {
@@ -719,11 +731,15 @@ QUnit.test("Markup should be updated when value was changed", function(assert) {
 
 QUnit.test("Preview for current color should be updated when value was changed", function(assert) {
     var colorView = showColorView.call(this, {
-        value: "red"
+        value: "red",
+        matchValue: "red"
     }).dxColorView("instance");
+    var $baseColor = this.element.find(".dx-colorview-color-preview-color-current");
+    var $newColor = this.element.find(".dx-colorview-color-preview-color-new");
 
     colorView.option("value", "green");
-    assert.equal(new Color(colorView._$currentColor.css("backgroundColor")).toHex(), "#008000");
+    assert.equal(new Color($baseColor.css("backgroundColor")).toHex(), "#ff0000", "base preview keeps initial match value");
+    assert.equal(new Color($newColor.css("backgroundColor")).toHex(), "#008000", "new color preview show selected value");
 });
 
 QUnit.test("Click on label should not focus the input (T179488)", function(assert) {
@@ -738,6 +754,22 @@ QUnit.test("Click on label should not focus the input (T179488)", function(asser
     $label.trigger("dxclick");
 
     assert.ok(isDefaultPrevented, "PreventDefault on label click is enabled");
+});
+
+QUnit.test("Color view renders the editors with default stylingMode", function(assert) {
+    this.$element = $("#color-view").dxColorView({});
+    var $editors = this.$element.find(".dx-editor-outlined");
+
+    assert.equal($editors.length, 4, "the number of outlined editors is correct");
+});
+
+QUnit.test("Color view renders the editors according to stylingMode option", function(assert) {
+    this.$element = $("#color-view").dxColorView({ stylingMode: "underlined" });
+    var $editors = this.$element.find(".dx-editor-underlined");
+    var $outlinedEditors = this.$element.find(".dx-editor-outlined");
+
+    assert.equal($editors.length, 4, "the number of underlined editors is correct");
+    assert.equal($outlinedEditors.length, 0, "there are no outlined editors");
 });
 
 QUnit.module("keyboard navigation", {
@@ -758,20 +790,20 @@ QUnit.module("keyboard navigation", {
         this.$alphaMarker = this.$element.find(".dx-colorview-alpha-channel-handle");
         this.$paletteMarker = this.$element.find(".dx-colorview-palette-handle");
 
-        this.ctrlLeft = $.Event("keydown", { which: 37, ctrlKey: true });
-        this.ctrlUp = $.Event("keydown", { which: 38, ctrlKey: true });
-        this.ctrlRight = $.Event("keydown", { which: 39, ctrlKey: true });
-        this.ctrlDown = $.Event("keydown", { which: 40, ctrlKey: true });
+        this.ctrlLeft = $.Event("keydown", { key: "ArrowLeft", ctrlKey: true });
+        this.ctrlUp = $.Event("keydown", { key: "ArrowUp", ctrlKey: true });
+        this.ctrlRight = $.Event("keydown", { key: "ArrowRight", ctrlKey: true });
+        this.ctrlDown = $.Event("keydown", { key: "ArrowDown", ctrlKey: true });
 
-        this.shiftLeft = $.Event("keydown", { which: 37, shiftKey: true });
-        this.shiftUp = $.Event("keydown", { which: 38, shiftKey: true });
-        this.shiftRight = $.Event("keydown", { which: 39, shiftKey: true });
-        this.shiftDown = $.Event("keydown", { which: 40, shiftKey: true });
+        this.shiftLeft = $.Event("keydown", { key: "ArrowLeft", shiftKey: true });
+        this.shiftUp = $.Event("keydown", { key: "ArrowUp", shiftKey: true });
+        this.shiftRight = $.Event("keydown", { key: "ArrowRight", shiftKey: true });
+        this.shiftDown = $.Event("keydown", { key: "ArrowDown", shiftKey: true });
 
-        this.ctrlShiftLeft = $.Event("keydown", { which: 37, ctrlKey: true, shiftKey: true });
-        this.ctrlShiftUp = $.Event("keydown", { which: 38, ctrlKey: true, shiftKey: true });
-        this.ctrlShiftRight = $.Event("keydown", { which: 39, ctrlKey: true, shiftKey: true });
-        this.ctrlShiftDown = $.Event("keydown", { which: 40, ctrlKey: true, shiftKey: true });
+        this.ctrlShiftLeft = $.Event("keydown", { key: "ArrowLeft", ctrlKey: true, shiftKey: true });
+        this.ctrlShiftUp = $.Event("keydown", { key: "ArrowUp", ctrlKey: true, shiftKey: true });
+        this.ctrlShiftRight = $.Event("keydown", { key: "ArrowRight", ctrlKey: true, shiftKey: true });
+        this.ctrlShiftDown = $.Event("keydown", { key: "ArrowDown", ctrlKey: true, shiftKey: true });
     },
     afterEach: function() {
         this.clock.restore();

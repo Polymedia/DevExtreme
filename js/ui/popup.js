@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     window = require("../core/utils/window").getWindow(),
     translator = require("../animation/translator"),
@@ -10,6 +8,7 @@ var $ = require("../core/renderer"),
     isDefined = require("../core/utils/type").isDefined,
     inArray = require("../core/utils/array").inArray,
     extend = require("../core/utils/extend").extend,
+    browser = require("../core/utils/browser"),
     messageLocalization = require("../localization/message"),
     devices = require("../core/devices"),
     registerComponent = require("../core/component_registrator"),
@@ -18,6 +17,7 @@ var $ = require("../core/renderer"),
     Overlay = require("./overlay"),
     EmptyTemplate = require("./widget/empty_template"),
     domUtils = require("../core/utils/dom"),
+    sizeUtils = require("../core/utils/size"),
     windowUtils = require("../core/utils/window");
 
 require("./toolbar/ui.toolbar.base");
@@ -38,7 +38,14 @@ var POPUP_CLASS = "dx-popup",
 
     TEMPLATE_WRAPPER_CLASS = "dx-template-wrapper",
 
-    ALLOWED_TOOLBAR_ITEM_ALIASES = ["cancel", "clear", "done"];
+    ALLOWED_TOOLBAR_ITEM_ALIASES = ["cancel", "clear", "done"],
+
+    BUTTON_DEFAULT_TYPE = "default",
+    BUTTON_NORMAL_TYPE = "normal",
+    BUTTON_TEXT_MODE = "text",
+    BUTTON_CONTAINED_MODE = "contained";
+
+var isIE11 = (browser.msie && parseInt(browser.version) === 11);
 
 var getButtonPlace = function(name) {
 
@@ -84,6 +91,7 @@ var getButtonPlace = function(name) {
 /**
  * @name dxPopup
  * @inherits dxOverlay
+ * @hasTranscludedContent
  * @module ui/popup
  * @export default
  */
@@ -239,16 +247,20 @@ var Popup = Overlay.inherit({
             */
             showCloseButton: false,
 
-            bottomTemplate: "bottom"
+            bottomTemplate: "bottom",
+            useDefaultToolbarButtons: false,
+            useFlatToolbarButtons: false,
+            autoResizeEnabled: true
         });
     },
 
     _defaultOptionsRules: function() {
+        var themeName = themes.current();
+
         return this.callBase().concat([
             {
                 device: function(device) {
-                    var currentTheme = (themes.current() || "").split(".")[0];
-                    return device.phone && currentTheme === "win8";
+                    return device.phone && themes.isWin8(themeName);
                 },
                 options: {
                     position: {
@@ -319,6 +331,15 @@ var Popup = Overlay.inherit({
                     * @inheritdoc
                     */
                     focusStateEnabled: true
+                }
+            },
+            {
+                device: function() {
+                    return themes.isMaterial(themeName);
+                },
+                options: {
+                    useDefaultToolbarButtons: true,
+                    useFlatToolbarButtons: true
                 }
             }
         ]);
@@ -405,8 +426,8 @@ var Popup = Overlay.inherit({
     },
 
     _renderContentImpl: function() {
-        this.callBase();
         this._renderTitle();
+        this.callBase();
         this._renderBottom();
     },
 
@@ -433,15 +454,17 @@ var Popup = Overlay.inherit({
         }
     },
 
-    _renderTemplateByType: function(optionName, data, $container) {
+    _renderTemplateByType: function(optionName, data, $container, additionalToolbarOptions) {
         var template = this._getTemplateByOption(optionName),
             toolbarTemplate = template instanceof EmptyTemplate;
 
         if(toolbarTemplate) {
-            var toolbarOptions = {
+            var toolbarOptions = extend(additionalToolbarOptions, {
                 items: data,
-                rtlEnabled: this.option("rtlEnabled")
-            };
+                rtlEnabled: this.option("rtlEnabled"),
+                useDefaultButtons: this.option("useDefaultToolbarButtons"),
+                useFlatButtons: this.option("useFlatToolbarButtons")
+            });
 
             this._getTemplate("dx-polymorph-widget").render({
                 container: $container,
@@ -555,7 +578,9 @@ var Popup = Overlay.inherit({
         var itemConfig = extend({
             text: messageLocalization.format(camelize(itemType, true)),
             onClick: this._createToolbarItemAction(data.onClick),
-            integrationOptions: {}
+            integrationOptions: {},
+            type: that.option("useDefaultToolbarButtons") ? BUTTON_DEFAULT_TYPE : BUTTON_NORMAL_TYPE,
+            stylingMode: that.option("useFlatToolbarButtons") ? BUTTON_TEXT_MODE : BUTTON_CONTAINED_MODE
         }, data.options || {});
 
         var itemClass = POPUP_CLASS + "-" + itemType;
@@ -584,7 +609,7 @@ var Popup = Overlay.inherit({
         if(items.length) {
             this._$bottom && this._$bottom.remove();
             var $bottom = $("<div>").addClass(POPUP_BOTTOM_CLASS).insertAfter(this.$content());
-            this._$bottom = this._renderTemplateByType("bottomTemplate", items, $bottom).addClass(POPUP_BOTTOM_CLASS);
+            this._$bottom = this._renderTemplateByType("bottomTemplate", items, $bottom, { compactMode: true }).addClass(POPUP_BOTTOM_CLASS);
             this._toggleClasses();
         } else {
             this._$bottom && this._$bottom.detach();
@@ -608,7 +633,7 @@ var Popup = Overlay.inherit({
     },
 
     _getDragTarget: function() {
-        return this._$title;
+        return this.topToolbar();
     },
 
     _renderGeometryImpl: function() {
@@ -642,28 +667,50 @@ var Popup = Overlay.inherit({
     _setContentHeight: function() {
         (this.option("forceApplyBindings") || noop)();
 
-        if(this._disallowUpdateContentHeight()) {
-            return;
+        var popupHeightParts = this._splitPopupHeight(),
+            toolbarsAndVerticalOffsetsHeight = popupHeightParts.header
+                + popupHeightParts.footer
+                + popupHeightParts.contentVerticalOffsets
+                + popupHeightParts.popupVerticalOffsets,
+            overlayContent = this.overlayContent().get(0),
+            cssStyles = {},
+            contentMaxHeight = this._getOptionValue("maxHeight", overlayContent),
+            contentMinHeight = this._getOptionValue("minHeight", overlayContent),
+            isAutoResizable = !isIE11 || (!contentMaxHeight && !contentMinHeight);
+
+        if(this.option("autoResizeEnabled") && this._isAutoHeight() && isAutoResizable) {
+            if(!isIE11) {
+                var container = $(this._getContainer()).get(0),
+                    maxHeightValue = sizeUtils.addOffsetToMaxHeight(contentMaxHeight, -toolbarsAndVerticalOffsetsHeight, container),
+                    minHeightValue = sizeUtils.addOffsetToMinHeight(contentMinHeight, -toolbarsAndVerticalOffsetsHeight, container);
+
+                cssStyles = extend(cssStyles, {
+                    minHeight: minHeightValue,
+                    maxHeight: maxHeightValue
+                });
+            }
+        } else {
+            var contentHeight = overlayContent.getBoundingClientRect().height - toolbarsAndVerticalOffsetsHeight;
+            cssStyles = { height: Math.max(0, contentHeight) };
         }
 
-        var contentPaddings = this._$content.outerHeight() - this._$content.height(),
-            contentHeight = this._$content.get(0).getBoundingClientRect().height - contentPaddings;
-        if(this._$title && this._$title.is(":visible")) {
-            contentHeight -= this._$title.get(0).getBoundingClientRect().height || 0;
-        }
-        if(this._$bottom && this._$bottom.is(":visible")) {
-            contentHeight -= this._$bottom.get(0).getBoundingClientRect().height || 0;
-        }
-
-        this._$popupContent.css("height", contentHeight < 0 ? 0 : contentHeight);
+        this.$content().css(cssStyles);
     },
 
-    _disallowUpdateContentHeight: function() {
-        var isHeightAuto = this._$content.get(0).style.height === "auto",
-            maxHeightSpecified = this._$content.css("maxHeight") !== "none",
-            minHeightSpecified = parseInt(this._$content.css("minHeight")) > 0;
+    _isAutoHeight: function() {
+        return this.overlayContent().get(0).style.height === "auto";
+    },
 
-        return isHeightAuto && !(maxHeightSpecified || minHeightSpecified);
+    _splitPopupHeight: function() {
+        var topToolbar = this.topToolbar(),
+            bottomToolbar = this.bottomToolbar();
+
+        return {
+            header: sizeUtils.getVisibleHeight(topToolbar && topToolbar.get(0)),
+            footer: sizeUtils.getVisibleHeight(bottomToolbar && bottomToolbar.get(0)),
+            contentVerticalOffsets: sizeUtils.getVerticalOffsets(this.overlayContent().get(0), true),
+            popupVerticalOffsets: sizeUtils.getVerticalOffsets(this.$content().get(0), true)
+        };
     },
 
     _renderDimensions: function() {
@@ -728,6 +775,8 @@ var Popup = Overlay.inherit({
                 this._createTitleRenderAction(args.value);
                 break;
             case "toolbarItems":
+            case "useDefaultToolbarButtons":
+            case "useFlatToolbarButtons":
                 var isPartialUpdate = args.fullName.search(".options") !== -1;
                 this._renderTitle();
                 this._renderBottom();
@@ -738,6 +787,10 @@ var Popup = Overlay.inherit({
                 break;
             case "dragEnabled":
                 this._renderDrag();
+                break;
+            case "autoResizeEnabled":
+                this._renderGeometry();
+                domUtils.triggerResizeEvent(this._$content);
                 break;
             case "fullScreen":
                 this._toggleFullScreenClass(args.value);
@@ -756,6 +809,10 @@ var Popup = Overlay.inherit({
         return this._$bottom;
     },
 
+    topToolbar: function() {
+        return this._$title;
+    },
+
     $content: function() {
         return this._$popupContent;
     },
@@ -767,7 +824,6 @@ var Popup = Overlay.inherit({
     overlayContent: function() {
         return this._$content;
     }
-
 });
 
 registerComponent("dxPopup", Popup);

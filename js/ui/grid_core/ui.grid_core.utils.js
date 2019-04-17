@@ -1,19 +1,17 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    commonUtils = require("../../core/utils/common"),
-    typeUtils = require("../../core/utils/type"),
-    filterUtils = require("../shared/filtering"),
-    stringUtils = require("../../core/utils/string"),
-    iteratorUtils = require("../../core/utils/iterator"),
-    extend = require("../../core/utils/extend").extend,
-    extendFromObject = require("../../core/utils/extend").extendFromObject,
-    toComparable = require("../../core/utils/data").toComparable,
-    LoadPanel = require("../load_panel"),
-    dataUtils = require("../../data/utils"),
-    formatHelper = require("../../format_helper"),
-    objectUtils = require("../../core/utils/object"),
-    window = require("../../core/utils/window").getWindow();
+import $ from "../../core/renderer";
+import { equalByValue } from "../../core/utils/common";
+import { isDefined, isFunction } from "../../core/utils/type";
+import { getGroupInterval } from "../shared/filtering";
+import { format } from "../../core/utils/string";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import { extendFromObject } from "../../core/utils/extend";
+import { toComparable } from "../../core/utils/data";
+import LoadPanel from "../load_panel";
+import { normalizeSortingInfo } from "../../data/utils";
+import formatHelper from "../../format_helper";
+import { deepExtendArraySafe } from "../../core/utils/object";
+import { getWindow } from "../../core/utils/window";
 
 var DATAGRID_SELECTION_DISABLED_CLASS = "dx-selection-disabled",
     DATAGRID_GROUP_OPENED_CLASS = "dx-datagrid-group-opened",
@@ -51,7 +49,7 @@ module.exports = (function() {
             nameIntervalSelector,
             value = this.calculateCellValue(data);
 
-        if(!typeUtils.isDefined(value)) {
+        if(!isDefined(value)) {
             return null;
         } else if(isDateType(this.dataType)) {
             nameIntervalSelector = arguments[0];
@@ -63,7 +61,7 @@ module.exports = (function() {
     };
 
     var equalSelectors = function(selector1, selector2) {
-        if(typeUtils.isFunction(selector1) && typeUtils.isFunction(selector2)) {
+        if(isFunction(selector1) && isFunction(selector2)) {
             if(selector1.originalCallback && selector2.originalCallback) {
                 return selector1.originalCallback === selector2.originalCallback;
             }
@@ -74,6 +72,10 @@ module.exports = (function() {
 
     var isDateType = function(dataType) {
         return dataType === "date" || dataType === "datetime";
+    };
+
+    var setEmptyText = function($container) {
+        $container.get(0).textContent = "\u00A0";
     };
 
     return {
@@ -118,9 +120,10 @@ module.exports = (function() {
                     shading: false,
                     message: loadPanelOptions.text,
                     position: function() {
-                        if($element.height() > $(window).height()) {
+                        var $window = $(getWindow());
+                        if($element.height() > $window.height()) {
                             return {
-                                of: $(window),
+                                of: $window,
                                 boundary: $element,
                                 collision: "fit"
                             };
@@ -140,12 +143,12 @@ module.exports = (function() {
             var index = -1,
                 item;
 
-            if(Array.isArray(items)) {
+            if(key !== undefined && Array.isArray(items)) {
                 keyName = arguments.length <= 2 ? "key" : keyName;
                 for(var i = 0; i < items.length; i++) {
-                    item = typeUtils.isDefined(keyName) ? items[i][keyName] : items[i];
+                    item = isDefined(keyName) ? items[i][keyName] : items[i];
 
-                    if(commonUtils.equalByValue(key, item)) {
+                    if(equalByValue(key, item)) {
                         index = i;
                         break;
                     }
@@ -203,10 +206,10 @@ module.exports = (function() {
                     }
                 }
                 return true;
-            } else if(typeUtils.isFunction(filter1) && filter1.columnIndex >= 0 && typeUtils.isFunction(filter2) && filter2.columnIndex >= 0) {
-                return filter1.columnIndex === filter2.columnIndex;
+            } else if(isFunction(filter1) && filter1.columnIndex >= 0 && isFunction(filter2) && filter2.columnIndex >= 0) {
+                return filter1.columnIndex === filter2.columnIndex && toComparable(filter1.filterValue) === toComparable(filter2.filterValue);
             } else {
-                return toComparable(filter1) == toComparable(filter2); // jshint ignore:line
+                return toComparable(filter1) == toComparable(filter2); // eslint-disable-line eqeqeq
             }
         },
 
@@ -220,7 +223,7 @@ module.exports = (function() {
         },
 
         formatValue: function(value, options) {
-            var valueText = formatHelper.format(value, options.format, options.precision) || (value && value.toString()) || "",
+            var valueText = formatHelper.format(value, options.format) || (value && value.toString()) || "",
                 formatObject = {
                     value: value,
                     valueText: options.getDisplayFormat ? options.getDisplayFormat(valueText) : valueText,
@@ -234,7 +237,6 @@ module.exports = (function() {
         getFormatOptionsByColumn: function(column, target) {
             return {
                 format: column.format,
-                precision: column.precision,
                 getDisplayFormat: column.getDisplayFormat,
                 customizeText: column.customizeText,
                 target: target,
@@ -271,9 +273,8 @@ module.exports = (function() {
 
             return this.formatValue(summaryItem.value, {
                 format: summaryItem.valueFormat,
-                precision: summaryItem.precision,
                 getDisplayFormat: function(valueText) {
-                    return displayFormat ? stringUtils.format(displayFormat, valueText, summaryItem.columnCaption) : valueText;
+                    return displayFormat ? format(displayFormat, valueText, summaryItem.columnCaption) : valueText;
                 },
                 customizeText: summaryItem.customizeText
             });
@@ -285,7 +286,7 @@ module.exports = (function() {
             var result,
                 i;
 
-            result = dataUtils.normalizeSortingInfo(sort);
+            result = normalizeSortingInfo(sort);
             for(i = 0; i < sort.length; i++) {
                 if(sort && sort[i] && sort[i].isExpanded !== undefined) {
                     result[i].isExpanded = sort[i].isExpanded;
@@ -309,10 +310,10 @@ module.exports = (function() {
         getHeaderFilterGroupParameters: function(column, remoteGrouping) {
             var result = [],
                 dataField = column.dataField || column.name,
-                groupInterval = filterUtils.getGroupInterval(column);
+                groupInterval = getGroupInterval(column);
 
             if(groupInterval) {
-                iteratorUtils.each(groupInterval, function(index, interval) {
+                each(groupInterval, function(index, interval) {
                     result.push(remoteGrouping ? { selector: dataField, groupInterval: interval, isExpanded: index < groupInterval.length - 1 } : getIntervalSelector.bind(column, interval));
                 });
 
@@ -381,8 +382,8 @@ module.exports = (function() {
 
                 point = {
                     index: columnIndex,
-                    x: offset ? offset.left + ((!isVertical && (rtlEnabled ^ (i === cellsLength))) ? item.outerWidth() : 0) : 0,
-                    y: offset ? offset.top + ((isVertical && i === cellsLength) ? item.outerHeight() : 0) : 0,
+                    x: offset ? offset.left + ((!isVertical && (rtlEnabled ^ (i === cellsLength))) ? item[0].getBoundingClientRect().width : 0) : 0,
+                    y: offset ? offset.top + ((isVertical && i === cellsLength) ? item[0].getBoundingClientRect().height : 0) : 0,
                     columnIndex: columnIndex
                 };
 
@@ -410,8 +411,8 @@ module.exports = (function() {
             var result = target ? Object.create(Object.getPrototypeOf(target)) : {},
                 targetWithoutPrototype = extendFromObject({}, target);
 
-            objectUtils.deepExtendArraySafe(result, targetWithoutPrototype, false, true);
-            return objectUtils.deepExtendArraySafe(result, changes, false, true);
+            deepExtendArraySafe(result, targetWithoutPrototype, true, true);
+            return deepExtendArraySafe(result, changes, true, true);
         },
 
         getExpandCellTemplate: function() {
@@ -421,7 +422,7 @@ module.exports = (function() {
                     var rowsView,
                         $container = $(container);
 
-                    if(typeUtils.isDefined(options.value) && !(options.data && options.data.isContinuation) && !options.row.inserted) {
+                    if(isDefined(options.value) && !(options.data && options.data.isContinuation) && !options.row.inserted) {
                         rowsView = options.component.getView("rowsView");
                         $container
                             .addClass(DATAGRID_EXPAND_CLASS)
@@ -433,12 +434,51 @@ module.exports = (function() {
 
                         rowsView.setAria("label", options.value ? rowsView.localize("dxDataGrid-ariaCollapse") : rowsView.localize("dxDataGrid-ariaExpand"), $container);
                     } else {
-                        $container.get(0).innerHTML = "&nbsp;";
+                        setEmptyText($container);
                     }
                 }
             };
         },
 
-        isDateType: isDateType
+        setEmptyText: setEmptyText,
+
+        isDateType: isDateType,
+
+        getSelectionRange: function(focusedElement) {
+            try {
+                if(focusedElement) {
+                    return {
+                        selectionStart: focusedElement.selectionStart,
+                        selectionEnd: focusedElement.selectionEnd
+                    };
+                }
+            } catch(e) {}
+
+            return {};
+        },
+
+        setSelectionRange: function(focusedElement, selectionRange) {
+            try {
+                if(focusedElement && focusedElement.setSelectionRange) {
+                    focusedElement.setSelectionRange(selectionRange.selectionStart, selectionRange.selectionEnd);
+                }
+            } catch(e) {}
+        },
+
+        getLastResizableColumnIndex: function(columns, resultWidths) {
+            var hasResizableColumns = columns.some(column => column && !column.command && !column.fixed && column.allowResizing !== false);
+
+            for(var lastColumnIndex = columns.length - 1; columns[lastColumnIndex]; lastColumnIndex--) {
+                var column = columns[lastColumnIndex],
+                    width = resultWidths && resultWidths[lastColumnIndex],
+                    allowResizing = !hasResizableColumns || column.allowResizing !== false;
+
+                if(!column.command && !column.fixed && width !== "adaptiveHidden" && allowResizing) {
+                    break;
+                }
+            }
+
+            return lastColumnIndex;
+        }
     };
 })();

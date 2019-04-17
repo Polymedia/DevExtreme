@@ -1,5 +1,3 @@
-"use strict";
-
 var errorUtils = require("../../core/utils/error"),
     errors = require("../../core/errors");
 
@@ -163,12 +161,12 @@ module.exports = errorUtils(errors.ERROR_MESSAGES, {
     /**
      * @name ErrorsUIWidgets.E1041
      */
-    E1041: "The JSZip script is referenced after the DevExtreme scripts or not referenced at all",
+    E1041: "The '{0}' script is referenced after the DevExtreme scripts or not referenced at all",
 
     /**
     * @name ErrorsUIWidgets.E1042
     */
-    E1042: 'Deferred selection cannot be performed. Set the "key" field for the data store',
+    E1042: '{0} requires the key field to be specified',
 
     /**
     * @name ErrorsUIWidgets.E1043
@@ -201,6 +199,26 @@ module.exports = errorUtils(errors.ERROR_MESSAGES, {
     E1048: "The \"{0}\" operation is not found in the filterOperations array",
 
     /**
+    * @name ErrorsUIWidgets.E1049
+    */
+    E1049: `Column '{0}': filtering is allowed but the 'dataField' or 'name' option is not specified`,
+
+    /**
+    * @name ErrorsUIWidgets.E1050
+    */
+    E1050: "The validationRules option does not apply to third-party editors defined in the editCellTemplate",
+
+    /**
+     * @name ErrorsUIWidgets.E1051
+     */
+    E1051: "HtmlEditor's valueType is \"{0}\", but the {0} converter was not imported.",
+
+    /**
+    * @name ErrorsUIWidgets.E1052
+    */
+    E1052: '{0} should have the "dataSource" option specified',
+
+    /**
     * @name ErrorsUIWidgets.W1001
     */
     W1001: "The \"key\" option cannot be modified after initialization",
@@ -228,7 +246,7 @@ module.exports = errorUtils(errors.ERROR_MESSAGES, {
     /**
     * @name ErrorsUIWidgets.W1006
     */
-    W1006: "The map service returned the '{0}' error",
+    W1006: "The map service returned the following error: '{0}'",
 
     /**
      * @name ErrorsUIWidgets.W1007
@@ -253,5 +271,10 @@ module.exports = errorUtils(errors.ERROR_MESSAGES, {
      */
     W1011: "The \"keyExpr\" option is not applied when dataSource is not an array",
 
-    W1012: "The '{0}' key field is not found in data objects"
+    W1012: "The '{0}' key field is not found in data objects",
+
+    /**
+    * @name ErrorsUIWidgets.W1013
+    */
+    W1013: "The \"message\" field in the dialog component was renamed to \"messageHtml\". Change your code correspondingly. In addition, if you used HTML code in the message, make sure that it is secure"
 });

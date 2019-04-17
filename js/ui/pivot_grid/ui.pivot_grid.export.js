@@ -1,12 +1,10 @@
-"use strict";
-
 var Class = require("../../core/class"),
     isDefined = require("../../core/utils/type").isDefined,
     extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
     formatHelper = require("../../format_helper"),
     numberLocalization = require("../../localization/number"),
-    clientExporter = require("../../client_exporter"),
+    clientExporter = require("../../exporter"),
     excelExporter = clientExporter.excel,
     DEFAULT_DATA_TYPE = "string",
     exportMixin = require("../grid_core/ui.grid_core.export_mixin"),
@@ -50,13 +48,38 @@ exports.ExportMixin = extend({}, exportMixin, {
         return cellCount;
     },
 
+    _correctCellsInfoItemLengths: function(cellsInfo, expectedLength) {
+        for(let i = 0; i < cellsInfo.length; i++) {
+            while(cellsInfo[i].length < expectedLength) {
+                cellsInfo[i].push({});
+            }
+        }
+        return cellsInfo;
+    },
+
+    _calculateCellInfoItemLength: function(columnsRow) {
+        let result = 0;
+        for(let columnIndex = 0; columnIndex < columnsRow.length; columnIndex++) {
+            result += isDefined(columnsRow[columnIndex].colspan) ? columnsRow[columnIndex].colspan : 1;
+        }
+        return result;
+    },
+
     _getAllItems: function(columnsInfo, rowsInfoItems, cellsInfo) {
         var cellIndex,
             rowIndex,
-            sourceItems = columnsInfo.concat(cellsInfo),
+            correctedCellsInfo = cellsInfo,
+            sourceItems,
             rowsLength = this._getLength(rowsInfoItems),
-            colsLength = this._getLength(columnsInfo),
             headerRowsCount = columnsInfo.length;
+
+        if(columnsInfo.length > 0 && columnsInfo[0].length > 0 && cellsInfo.length > 0 && cellsInfo[0].length === 0) {
+            const cellInfoItemLength = this._calculateCellInfoItemLength(columnsInfo[0]);
+            if(cellInfoItemLength > 0) {
+                correctedCellsInfo = this._correctCellsInfoItemLengths(cellsInfo, cellInfoItemLength);
+            }
+        }
+        sourceItems = columnsInfo.concat(correctedCellsInfo);
 
         for(rowIndex = 0; rowIndex < rowsInfoItems.length; rowIndex++) {
             for(cellIndex = rowsInfoItems[rowIndex].length - 1; cellIndex >= 0; cellIndex--) {
@@ -76,7 +99,7 @@ exports.ExportMixin = extend({}, exportMixin, {
                 rowspan: headerRowsCount
             }));
 
-        return this._prepareItems(rowsLength + colsLength, sourceItems);
+        return this._prepareItems(sourceItems);
     },
 
     getDataProvider: function() {
@@ -97,7 +120,8 @@ exports.ExportMixin = extend({}, exportMixin, {
         return new exports.DataProvider({
             items: items,
             rtlEnabled: this.option("rtlEnabled"),
-            dataFields: this.getDataSource().getAreaFields("data")
+            dataFields: this.getDataSource().getAreaFields("data"),
+            customizeExcelCell: this.option("export.customizeExcelCell"),
         });
     }
 });
@@ -148,7 +172,6 @@ exports.DataProvider = Class.inherit({
                 dataFields.forEach(function(dataField) {
                     that._styles.push(extend({}, dataItemStyle, {
                         format: dataField.format,
-                        precision: dataField.precision,
                         dataType: getCellDataType(dataField)
                     }));
                 });
@@ -198,15 +221,17 @@ exports.DataProvider = Class.inherit({
         return style && style.dataType || "string";
     },
 
-    getCellValue: function(rowIndex, cellIndex) {
+    getCellData: function(rowIndex, cellIndex) {
+        const result = {};
         var items = this._options.items,
             item = items[rowIndex] && items[rowIndex][cellIndex] || {};
 
         if(this.getCellType(rowIndex, cellIndex) === "string") {
-            return item.text;
+            result.value = item.text;
         } else {
-            return item.value;
+            result.value = item.value;
         }
+        return result;
     },
 
     getStyles: function() {
@@ -228,5 +253,15 @@ exports.DataProvider = Class.inherit({
         }
 
         return DATA_STYLE_OFFSET + (item.dataIndex || 0);
-    }
+    },
+
+    hasCustomizeExcelCell: function() {
+        return isDefined(this._options.customizeExcelCell);
+    },
+
+    customizeExcelCell: function(e) {
+        if(this._options.customizeExcelCell) {
+            this._options.customizeExcelCell(e);
+        }
+    },
 });

@@ -1,19 +1,17 @@
-"use strict";
+import $ from "jquery";
+import fx from "animation/fx";
+import support from "core/utils/support";
+import domUtils from "core/utils/dom";
+import TabPanel from "ui/tab_panel";
+import pointerMock from "../../helpers/pointerMock.js";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import { isRenderer } from "core/utils/type";
+import config from "core/config";
 
-var $ = require("jquery"),
-    fx = require("animation/fx"),
-    support = require("core/utils/support"),
-    domUtils = require("core/utils/dom"),
-    TabPanel = require("ui/tab_panel"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    isRenderer = require("core/utils/type").isRenderer,
-    config = require("core/config");
+import "common.css!css";
 
-require("common.css!css");
-
-QUnit.testStart(function() {
-    var markup =
+QUnit.testStart(() => {
+    const markup =
         '<div id="tabPanel">\
             <div data-options="dxTemplate: { name: \'title\' }">\
                 <div data-bind="text: $data.text"></div>\
@@ -29,50 +27,50 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-var TABPANEL_CLASS = "dx-tabpanel",
-    TABS_CLASS = "dx-tabs",
-    MULTIVIEW_ITEM_CLASS = "dx-multiview-item",
-    TABS_ITEM_CLASS = "dx-tab",
-    SELECTED_ITEM_CLASS = "dx-item-selected",
-    TABPANEL_CONTAINER_CLASS = "dx-tabpanel-container";
+const TABPANEL_CLASS = "dx-tabpanel";
+const TABS_CLASS = "dx-tabs";
+const MULTIVIEW_ITEM_CLASS = "dx-multiview-item";
+const TABS_ITEM_CLASS = "dx-tab";
+const SELECTED_ITEM_CLASS = "dx-item-selected";
+const TABPANEL_CONTAINER_CLASS = "dx-tabpanel-container";
 
-var toSelector = function(cssClass) {
+const toSelector = cssClass => {
     return "." + cssClass;
 };
 
 QUnit.module("rendering", {
-    beforeEach: function() {
+    beforeEach() {
         this.$tabPanel = $("#tabPanel").dxTabPanel();
     }
 });
 
-QUnit.test("container should consider tabs height", function(assert) {
-    var $tabPanel = $("#tabPanel").dxTabPanel({
+QUnit.test("container should consider tabs height", (assert) => {
+    const $tabPanel = $("#tabPanel").dxTabPanel({
         items: [{ text: "test" }]
     });
 
-    var $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
-    var $tabs = $tabPanel.find("." + TABS_CLASS);
+    const $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
+    const $tabs = $tabPanel.find("." + TABS_CLASS);
     assert.roughEqual(parseFloat($container.css("padding-top")), $tabs.outerHeight(), 0.1, "padding correct");
     assert.roughEqual(parseFloat($container.css("margin-top")), -$tabs.outerHeight(), 0.1, "margin correct");
 });
 
-QUnit.test("container should consider tabs height for async datasource", function(assert) {
-    var clock = sinon.useFakeTimers();
-    var $tabPanel = $("#tabPanel").dxTabPanel({
+QUnit.test("container should consider tabs height for async datasource", (assert) => {
+    const clock = sinon.useFakeTimers();
+    const $tabPanel = $("#tabPanel").dxTabPanel({
         dataSource: {
-            load: function() {
-                var d = $.Deferred();
-                setTimeout(function() {
-                    d.resolve([{ tabTemplate: function() { return $("<div>").height(100); } }]);
+            load() {
+                const d = $.Deferred();
+                setTimeout(() => {
+                    d.resolve([{ tabTemplate() { return $("<div>").height(100); } }]);
                 });
                 return d;
             }
         }
     });
 
-    var $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
-    var $tabs = $tabPanel.find("." + TABS_CLASS);
+    const $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
+    const $tabs = $tabPanel.find("." + TABS_CLASS);
 
     clock.tick();
 
@@ -80,15 +78,15 @@ QUnit.test("container should consider tabs height for async datasource", functio
     assert.roughEqual(parseFloat($container.css("margin-top")), -$tabs.outerHeight(), 0.1, "margin correct");
 });
 
-QUnit.test("container should consider tabs height for async templates", function(assert) {
-    var clock = sinon.useFakeTimers();
-    var $tabPanel = $("#tabPanel").hide().dxTabPanel({
+QUnit.test("container should consider tabs height for async templates", (assert) => {
+    const clock = sinon.useFakeTimers();
+    const $tabPanel = $("#tabPanel").hide().dxTabPanel({
         items: [{ text: "test" }],
         templatesRenderAsynchronously: true
     }).show();
 
-    var $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
-    var $tabs = $tabPanel.find("." + TABS_CLASS);
+    const $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
+    const $tabs = $tabPanel.find("." + TABS_CLASS);
 
     clock.tick();
 
@@ -96,27 +94,27 @@ QUnit.test("container should consider tabs height for async templates", function
     assert.roughEqual(parseFloat($container.css("margin-top")), -$tabs.outerHeight(), 0.1, "margin correct");
 });
 
-QUnit.test("container should consider tabs height when it rendered in hiding area", function(assert) {
-    var $tabPanel = $("<div>").dxTabPanel({
+QUnit.test("container should consider tabs height when it rendered in hiding area", (assert) => {
+    const $tabPanel = $("<div>").dxTabPanel({
         items: [{ text: "test" }]
     });
 
     $tabPanel.appendTo("#qunit-fixture");
     domUtils.triggerShownEvent($tabPanel);
 
-    var $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
-    var $tabs = $tabPanel.find("." + TABS_CLASS);
+    const $container = $tabPanel.find("." + TABPANEL_CONTAINER_CLASS);
+    const $tabs = $tabPanel.find("." + TABS_CLASS);
     assert.roughEqual(parseFloat($container.css("padding-top")), $tabs.outerHeight(), 0.1, "padding correct");
     assert.roughEqual(parseFloat($container.css("margin-top")), -$tabs.outerHeight(), 0.1, "margin correct");
 });
 
 
 QUnit.module("options", {
-    beforeEach: function() {
+    beforeEach() {
         fx.off = true;
 
         this.items = [{ text: "user", icon: "user", title: "Personal Data", firstName: "John", lastName: "Smith" },
-                        { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }];
+            { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }];
 
         this.$tabPanel = $("#tabPanel").dxTabPanel({
             items: this.items
@@ -125,7 +123,7 @@ QUnit.module("options", {
         this.tabPanelInstance = this.$tabPanel.dxTabPanel("instance");
         this.tabWidgetInstance = this.$tabPanel.find(toSelector(TABS_CLASS)).dxTabs("instance");
     },
-    afterEach: function() {
+    afterEach() {
         fx.off = false;
     }
 });
@@ -218,32 +216,32 @@ QUnit.test("loop option (T318329)", function(assert) {
 });
 
 QUnit.module("action handlers", {
-    beforeEach: function() {
+    beforeEach() {
         this.clock = sinon.useFakeTimers();
 
         fx.off = true;
 
         this.$tabPanel = $("#tabPanel").dxTabPanel({
             dataSource: [{ text: "user", icon: "user", title: "Personal Data", firstName: "John", lastName: "Smith" },
-                        { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }],
+                { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }],
 
-            onItemClick: function(e) {
+            onItemClick(e) {
                 QUnit.assert.ok(true, "option 'onItemClick' successfully passed to nested multiview widget and raised on click");
             },
 
-            onTitleClick: function(e) {
+            onTitleClick(e) {
                 QUnit.assert.ok(true, "option 'onTitleClick' successfully passed to nested tabs widget and raised on click");
             },
 
-            onItemHold: function(e) {
+            onItemHold(e) {
                 QUnit.assert.ok(true, "option 'onItemHold' successfully passed to nested multiview widget and raised on hold");
             },
 
-            onTitleHold: function(titleElement, titleData) {
+            onTitleHold(titleElement, titleData) {
                 QUnit.assert.ok(true, "option 'onTitleHold' successfully passed to nested tabs widget and raised on hold");
             },
 
-            onSelectionChanged: function(e) {
+            onSelectionChanged(e) {
                 QUnit.assert.ok(true, "option 'onSelectionChanged' successfully passed to nested multiview and tabs widgets and raised on select");
             },
 
@@ -256,7 +254,7 @@ QUnit.module("action handlers", {
         this.multiViewMouse = pointerMock(this.$tabPanel.find(toSelector(MULTIVIEW_ITEM_CLASS))[0]).start();
         this.tabWidgetMouse = pointerMock(this.$tabPanel.find(toSelector(TABS_ITEM_CLASS))[0]).start();
     },
-    afterEach: function() {
+    afterEach() {
         fx.off = false;
     }
 });
@@ -267,10 +265,10 @@ QUnit.test("'onItemClick' and 'onTitleClick' options test", function(assert) {
     this.multiViewMouse.click();
     this.tabWidgetMouse.click();
 
-    this.tabPanelInstance.option("onItemClick", function(e) {
+    this.tabPanelInstance.option("onItemClick", e => {
         assert.ok(true, "option 'onItemClick' of nested multiview widget successfully changed and raised on click");
     });
-    this.tabPanelInstance.option("onTitleClick", function(e) {
+    this.tabPanelInstance.option("onTitleClick", e => {
         assert.ok(true, "option 'onTitleClick' of nested tabs widget successfully changed and raised on click");
     });
 
@@ -289,10 +287,10 @@ QUnit.test("'onItemHold' and 'onTitleHold' options test", function(assert) {
     this.clock.tick(1000);
     this.tabWidgetMouse.up();
 
-    this.tabPanelInstance.option("onItemHold", function(e) {
+    this.tabPanelInstance.option("onItemHold", e => {
         assert.ok(true, "option 'onItemHold' of nested multiview widget successfully changed and raised on hold");
     });
-    this.tabPanelInstance.option("onTitleHold", function(e) {
+    this.tabPanelInstance.option("onTitleHold", e => {
         assert.ok(true, "option 'onTitleHold' of nested tabs widget successfully changed and raised on hold");
     });
 
@@ -305,18 +303,18 @@ QUnit.test("'onItemHold' and 'onTitleHold' options test", function(assert) {
     this.tabWidgetMouse.up();
 });
 
-QUnit.test("click on tab should be handled correctly when the 'deferRendering' option is true", function(assert) {
-    var items = [
+QUnit.test("click on tab should be handled correctly when the 'deferRendering' option is true", (assert) => {
+    const items = [
         { text: "Greg", title: "Name" },
         { text: "31", title: "Age" },
         { text: "Charlotte", title: "City" },
         { text: "programmer", title: "Job" }
     ];
 
-    var $element = $("<div>").appendTo("body");
+    const $element = $("<div>").appendTo("body");
 
     $element.dxTabPanel({
-        items: items,
+        items,
         deferRendering: true,
         selectedIndex: 0
     });
@@ -324,8 +322,8 @@ QUnit.test("click on tab should be handled correctly when the 'deferRendering' o
     try {
         assert.equal($element.find(toSelector(MULTIVIEW_ITEM_CLASS + "-content")).length, 1, "only one multiView item is rendered on init");
 
-        var index = 2,
-            pointer = pointerMock($element.find(toSelector(TABS_ITEM_CLASS)).eq(index));
+        const index = 2;
+        const pointer = pointerMock($element.find(toSelector(TABS_ITEM_CLASS)).eq(index));
 
         pointer.start().click();
 
@@ -338,28 +336,28 @@ QUnit.test("click on tab should be handled correctly when the 'deferRendering' o
 
 
 QUnit.module("events handlers", {
-    beforeEach: function() {
-        var that = this;
+    beforeEach() {
+        const that = this;
         fx.off = true;
         this.clock = sinon.useFakeTimers();
 
-        that.createTabPanel = function(assert, spies) {
+        that.createTabPanel = (assert, spies) => {
             spies = spies || {};
 
-            that.titleClickSpy = sinon.spy(function() {
+            that.titleClickSpy = sinon.spy(() => {
                 assert.step("titleClick");
             });
-            that.titleHoldSpy = sinon.spy(function() {
+            that.titleHoldSpy = sinon.spy(() => {
                 assert.step("titleHold");
             });
-            that.titleRenderedSpy = sinon.spy(function() {
+            that.titleRenderedSpy = sinon.spy(() => {
                 assert.step("titleRendered");
             });
 
             that.$tabPanel = $("#tabPanel").dxTabPanel({
                 dataSource: [{ text: "user", icon: "user", title: "Personal Data", firstName: "John", lastName: "Smith" },
-                            { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }],
-                onInitialized: function(e) {
+                    { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }],
+                onInitialized(e) {
                     spies.titleClick && e.component.on("titleClick", that.titleClickSpy);
                     spies.titleHold && e.component.on("titleHold", that.titleHoldSpy);
                     spies.titleRendered && e.component.on("titleRendered", that.titleRenderedSpy);
@@ -372,7 +370,7 @@ QUnit.module("events handlers", {
             that.tabWidgetMouse = pointerMock(that.$tabPanel.find(toSelector(TABS_ITEM_CLASS))[0]).start();
         };
     },
-    afterEach: function() {
+    afterEach() {
         fx.off = false;
         this.clock.restore();
     }
@@ -422,39 +420,52 @@ QUnit.test("runtime subscription to 'titleHold' event works fine", function(asse
 
 
 QUnit.module("focus policy", {
-    beforeEach: function() {
+    beforeEach() {
         fx.off = true;
     },
-    afterEach: function() {
+    afterEach() {
         fx.off = false;
     }
 });
 
-QUnit.test("focusing empty tab should not cause infinite loop", function(assert) {
+QUnit.test("focusing empty tab should not cause infinite loop", (assert) => {
     assert.expect(0);
 
-    var tabPanel = new TabPanel($("<div>").appendTo("#qunit-fixture"), {
+    const tabPanel = new TabPanel($("<div>").appendTo("#qunit-fixture"), {
         items: []
     });
     tabPanel.focus();
 });
 
+QUnit.test("click on dxTabPanel should not scroll page to the tabs", (assert) => {
+    const $tabPanel = $("<div>").appendTo("#qunit-fixture");
+
+    const tabPanel = new TabPanel($tabPanel, {
+        items: [{ title: "item 1" }]
+    });
+
+    const tabNativeFocus = sinon.spy(tabPanel._tabs, "focus");
+
+    $tabPanel.trigger("focusin");
+    assert.equal(tabNativeFocus.callCount, 0, "native focus should not be triggered");
+});
+
 
 QUnit.module("keyboard navigation", {
-    beforeEach: function() {
-        var items = [{ text: "user", icon: "user", title: "Personal Data", firstName: "John", lastName: "Smith" },
-                        { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }];
+    beforeEach() {
+        const items = [{ text: "user", icon: "user", title: "Personal Data", firstName: "John", lastName: "Smith" },
+            { text: "comment", icon: "comment", title: "Contacts", phone: "(555)555-5555", email: "John.Smith@example.com" }];
 
         fx.off = true;
         this.$element = $("#tabPanel").dxTabPanel({
             focusStateEnabled: true,
-            items: items
+            items
         });
         this.instance = this.$element.dxTabPanel("instance");
         this.tabs = this.$element.find(toSelector(TABS_CLASS)).dxTabs("instance");
         this.clock = sinon.useFakeTimers();
     },
-    afterEach: function() {
+    afterEach() {
         fx.off = false;
         this.clock.restore();
     }
@@ -477,7 +488,7 @@ QUnit.test("tabs focusedElement dependence on tabPanels focusedElement", functio
     $(toSelector(MULTIVIEW_ITEM_CLASS)).eq(1).trigger("dxpointerdown");
     this.clock.tick();
 
-    var multiViewFocusedIndex = $(this.instance.option("focusedElement")).index();
+    const multiViewFocusedIndex = $(this.instance.option("focusedElement")).index();
 
     assert.equal(isRenderer(this.instance.option("focusedElement")), !!config().useJQuery, "focusedElement is correct");
     assert.equal(isRenderer(this.tabs.option("focusedElement")), !!config().useJQuery, "focusedElement is correct");
@@ -492,7 +503,7 @@ QUnit.test("tabPanels focusedElement dependence on tabs focusedElement", functio
     $(toSelector(TABS_ITEM_CLASS)).eq(1).trigger("dxpointerdown");
     this.clock.tick();
 
-    var tabsFocusedIndex = $(this.instance.option("focusedElement")).index();
+    const tabsFocusedIndex = $(this.instance.option("focusedElement")).index();
 
     assert.equal(isRenderer(this.instance.option("focusedElement")), !!config().useJQuery, "focusedElement is correct");
     assert.equal(tabsFocusedIndex, 1, "second tabs element has been focused");
@@ -514,15 +525,16 @@ QUnit.testInActiveWindow("tabs focusedElement lose focused class", function(asse
 
 QUnit.module("aria accessibility");
 
-QUnit.test("active tab should have aria-controls attribute pointing to active multiview item", function(assert) {
-    var $element = $("#tabPanel").dxTabPanel({
-            focusStateEnabled: true,
-            items: [1, 2],
-            selectedIndex: 0
-        }),
-        tabs = $element.find(".dx-tab"),
-        views = $element.find(".dx-multiview-item"),
-        keyboard = new keyboardMock($element.find(".dx-tabs"));
+QUnit.test("active tab should have aria-controls attribute pointing to active multiview item", (assert) => {
+    const $element = $("#tabPanel").dxTabPanel({
+        focusStateEnabled: true,
+        items: [1, 2],
+        selectedIndex: 0
+    });
+
+    const tabs = $element.find(".dx-tab");
+    const views = $element.find(".dx-multiview-item");
+    const keyboard = new keyboardMock($element.find(".dx-tabs"));
 
     $element.find(".dx-tabs").focusin();
 
@@ -538,13 +550,13 @@ QUnit.test("active tab should have aria-controls attribute pointing to active mu
 
 QUnit.module("dataSource integration");
 
-QUnit.test("dataSource loading should be fired once", function(assert) {
-    var deferred = $.Deferred();
-    var dataSourceLoadCalled = 0;
+QUnit.test("dataSource loading should be fired once", (assert) => {
+    const deferred = $.Deferred();
+    let dataSourceLoadCalled = 0;
 
     $("#tabPanel").dxTabPanel({
         dataSource: {
-            load: function() {
+            load() {
                 dataSourceLoadCalled++;
 
                 return deferred.promise();

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     devices = require("core/devices"),
@@ -26,6 +24,15 @@ QUnit.module("Navigator", {
     afterEach: function() {
         fx.off = false;
     }
+});
+
+QUnit.test("customizeDateNavigatorText should have right context", function(assert) {
+    var date = new Date(2018, 11, 14, 9, 20);
+
+    this.instance.option("date", date);
+    this.instance.option("customizeDateNavigatorText", function() {
+        assert.deepEqual(this, window, "context is ok");
+    });
 });
 
 QUnit.test("Click on 'next' button should notify observer", function(assert) {
@@ -417,6 +424,42 @@ QUnit.test("Caption should be OK for 'agenda' view if agendaDuration = 0", funct
         caption = devices.real().generic ? "24-30 January 2015" : "24-30 Jan 2015";
 
     assert.equal(button.option("text"), caption, "Step is agenda: Caption is OK");
+});
+
+QUnit.test("Caption should be OK for 'agenda' view if years is different", function(assert) {
+    this.instance.invoke = function(subject) {
+        if(subject === "getAgendaDuration") {
+            return 360;
+        }
+    };
+
+    this.instance.option({
+        step: "agenda",
+        date: new Date(2018, 5, 20)
+    });
+
+    var $element = this.instance.$element(),
+        button = $element.find(".dx-scheduler-navigator-caption").dxButton("instance");
+
+    assert.equal(button.option("text"), "20 Jun 2018-14 Jun 2019", "Step is agenda: Caption is OK");
+});
+
+QUnit.test("Caption should be OK for 'agenda' view if year is same, but months is different", function(assert) {
+    this.instance.invoke = function(subject) {
+        if(subject === "getAgendaDuration") {
+            return 60;
+        }
+    };
+
+    this.instance.option({
+        step: "agenda",
+        date: new Date(2018, 5, 20)
+    });
+
+    var $element = this.instance.$element(),
+        button = $element.find(".dx-scheduler-navigator-caption").dxButton("instance");
+
+    assert.equal(button.option("text"), "20 Jun-18 Aug 2018", "Step is agenda: Caption is OK");
 });
 
 QUnit.module("Navigator Min & Max Options", {

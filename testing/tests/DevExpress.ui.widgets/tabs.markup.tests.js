@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "jquery";
 import Tabs from "ui/tabs";
 
@@ -78,11 +76,11 @@ QUnit.module("Widget sizing render", () => {
     QUnit.test("constructor", (assert) => {
         const $element = $("#widget").dxTabs({
                 items: [
-                { text: "user" },
-                { text: "analytics" },
-                { text: "customers" },
-                { text: "search" },
-                { text: "favorites" }
+                    { text: "user" },
+                    { text: "analytics" },
+                    { text: "customers" },
+                    { text: "search" },
+                    { text: "favorites" }
                 ], width: 400
             }),
             instance = $element.dxTabs("instance");
@@ -94,11 +92,11 @@ QUnit.module("Widget sizing render", () => {
     QUnit.test("root with custom width", (assert) => {
         const $element = $("#widthRootStyle").dxTabs({
                 items: [
-                { text: "user" },
-                { text: "analytics" },
-                { text: "customers" },
-                { text: "search" },
-                { text: "favorites" }
+                    { text: "user" },
+                    { text: "analytics" },
+                    { text: "customers" },
+                    { text: "search" },
+                    { text: "favorites" }
                 ]
             }),
             instance = $element.dxTabs("instance");

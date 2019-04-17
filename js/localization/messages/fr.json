@@ -62,12 +62,14 @@
         "dxFileUploader-uploaded": "Téléchargé",
         "dxFileUploader-readyToUpload": "Pret à télécharger",
         "dxFileUploader-uploadFailedMessage": "Echec du téléchargement",
+        "dxFileUploader-invalidFileExtension": "Type de fichier non autorisé",
+        "dxFileUploader-invalidMaxFileSize": "Fichier trop volumineux",
+        "dxFileUploader-invalidMinFileSize": "Fichier trop petit",
 
         "dxRangeSlider-ariaFrom": "De {0}",
         "dxRangeSlider-ariaTill": "à {0}",
-
-        "dxSwitch-onText": "ON",
-        "dxSwitch-offText": "OFF",
+        "dxSwitch-switchedOnText": "ON",
+        "dxSwitch-switchedOffText": "OFF",
 
         "dxForm-optionalMark": "optionnel",
         "dxForm-requiredMessage": "{0} est obligatoire",
@@ -266,6 +268,20 @@
         "dxFilterBuilder-filterOperationIsNotBlank": "N'est pas vide",
         "dxFilterBuilder-filterOperationBetween": "Entre",
         "dxFilterBuilder-filterOperationAnyOf": "Est parmi",
-        "dxFilterBuilder-filterOperationNoneOf": "N'est pas parmi"
+        "dxFilterBuilder-filterOperationNoneOf": "N'est pas parmi",
+
+        "dxHtmlEditor-dialogColorCaption": "Changer couleur police",
+        "dxHtmlEditor-dialogBackgroundCaption": "Changer couleur fond",
+        "dxHtmlEditor-dialogLinkCaption": "Ajouter un hyperlien",
+        "dxHtmlEditor-dialogLinkUrlField": "URL",
+        "dxHtmlEditor-dialogLinkTextField": "Texte",
+        "dxHtmlEditor-dialogLinkTargetField": "Ouvrir le lien dans une nouvelle fenêtre",
+        "dxHtmlEditor-dialogImageCaption": "Ajouter image",
+        "dxHtmlEditor-dialogImageUrlField": "URL",
+        "dxHtmlEditor-dialogImageAltField": "Texte alternatif",
+        "dxHtmlEditor-dialogImageWidthField": "Largeur (px)",
+        "dxHtmlEditor-dialogImageHeightField": "Hauteur (px)",
+        "dxHtmlEditor-heading": "Titre",
+        "dxHtmlEditor-normalText": "Texte normal"
     }
 }

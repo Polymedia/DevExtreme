@@ -1,5 +1,3 @@
-"use strict";
-
 var themeModule = require("../../themes"),
     registerTheme = themeModule.registerTheme,
 
@@ -98,6 +96,9 @@ registerTheme({
     chart: {
         commonSeriesSettings: {
         },
+        crosshair: {
+            color: "#cf00d7"
+        },
         commonPaneSettings: {
             backgroundColor: BLACK,
             border: {
@@ -110,6 +111,12 @@ registerTheme({
         commonAxisSettings: {
             breakStyle: {
                 color: "#cf00d7"
+            }
+        },
+        zoomAndPan: {
+            dragBoxStyle: {
+                color: WHITE,
+                opacity: 0.7
             }
         }
     },
@@ -256,9 +263,6 @@ registerTheme({
             hoveredBorderColor: WHITE,
             selectedBorderColor: WHITE
         },
-        legend: {
-            markerColor: MARKER_COLOR
-        },
         controlBar: {
             borderColor: WHITE,
             color: BLACK,
@@ -291,6 +295,34 @@ registerTheme({
         label: {
             connector: {
                 opacity: 1
+            }
+        }
+    },
+    sankey: {
+        label: {
+            font: {
+                color: WHITE
+            },
+            shadow: {
+                opacity: 0
+            }
+        },
+        node: {
+            border: {
+                visible: true,
+                width: 1,
+                color: WHITE
+            }
+        },
+        link: {
+            opacity: 0.5,
+            border: {
+                visible: true,
+                width: 1,
+                color: WHITE
+            },
+            hoverStyle: {
+                opacity: 0.9
             }
         }
     }

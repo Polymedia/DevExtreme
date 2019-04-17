@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../../core/renderer"),
     window = require("../../../core/utils/window").getWindow(),
     Class = require("../../../core/class"),
@@ -528,7 +526,7 @@ exports.XmlaStore = Class.inherit((function() {
 
     function preparePathValue(pathValue, dataField) {
         if(pathValue) {
-            pathValue = typeUtils.isString(pathValue) && pathValue.indexOf("&[") !== -1 ? pathValue : "[" + pathValue + "]";
+            pathValue = typeUtils.isString(pathValue) && pathValue.indexOf("&") !== -1 ? pathValue : "[" + pathValue + "]";
 
             if(dataField && pathValue.indexOf(dataField + ".") === 0) {
                 pathValue = pathValue.slice(dataField.length + 1, pathValue.length);
@@ -545,7 +543,7 @@ exports.XmlaStore = Class.inherit((function() {
             hash[name] = item;
         }
 
-        if(!item.value && member) {
+        if(!typeUtils.isDefined(item.value) && member) {
             item.text = member.caption;
             item.value = member.value;
             item.key = name ? name : '';
@@ -561,15 +559,13 @@ exports.XmlaStore = Class.inherit((function() {
 
     function getVisibleChildren(item, visibleLevels) {
         var result = [],
-            children = item.children && (item.children.length ? item.children : iteratorUtils.map(item.children.grandTotalHash || [], function(e) {
-                return e.children;
-            })),
+            children = item.children && (item.children.length ? item.children : Object.keys(item.children.grandTotalHash || {}).reduce((result, name) => {
+                return result.concat(item.children.grandTotalHash[name].children);
+            }, [])),
             firstChild = children && children[0];
 
         if(firstChild && (visibleLevels[firstChild.hierarchyName] && (inArray(firstChild.levelName, visibleLevels[firstChild.hierarchyName]) !== -1) || !visibleLevels[firstChild.hierarchyName] || firstChild.level === 0)) {
-            var newChildren = iteratorUtils.map(children, function(child) {
-                return child.hierarchyName === firstChild.hierarchyName ? child : null;
-            });
+            var newChildren = children.filter(child => child.hierarchyName === firstChild.hierarchyName);
             newChildren.grandTotalHash = children.grandTotalHash;
             return newChildren;
         } else if(firstChild) {
@@ -615,7 +611,7 @@ exports.XmlaStore = Class.inherit((function() {
         var grandTotalIndex;
         if(parentItem.children.length === 1 && parentItem.children[0].parentName === "") {
             grandTotalIndex = parentItem.children[0].index;
-        // TODO - refactoring
+            // TODO - refactoring
             var grandTotalHash = parentItem.children.grandTotalHash;
             parentItem.children = parentItem.children[0].children || [];
 

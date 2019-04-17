@@ -1,14 +1,13 @@
-"use strict";
-
 var commonUtils = require("../../core/utils/common"),
     noop = commonUtils.noop,
     eventsEngine = require("../../events/core/events_engine"),
     typeUtils = require("../../core/utils/type"),
-    each = require("../../core/utils/iterator").each,
+    iteratorModule = require("../../core/utils/iterator"),
     extend = require("../../core/utils/extend").extend,
     inArray = require("../../core/utils/array").inArray,
     eventUtils = require("../../events/utils"),
     BaseWidget = require("../core/base_widget"),
+    coreDataUtils = require("../../core/utils/data"),
     legendModule = require("../components/legend"),
     dataValidatorModule = require("../components/data_validator"),
     seriesModule = require("../series/base_series"),
@@ -26,7 +25,8 @@ var commonUtils = require("../../core/utils/common"),
 
     vizUtils = require("../core/utils"),
     _map = vizUtils.map,
-    _each = each,
+    _each = iteratorModule.each,
+    _reverseEach = iteratorModule.reverseEach,
     _extend = extend,
     _isArray = Array.isArray,
     _isDefined = typeUtils.isDefined,
@@ -385,8 +385,8 @@ var BaseChart = BaseWidget.inherit({
         return this._themeManager.getOptions("adaptiveLayout");
     },
 
-    _reinit: function() {
-        var that = this;
+    _reinit() {
+        const that = this;
         // _skipRender = !that._initialized;
 
         _setCanvasValues(that._canvas);
@@ -395,14 +395,14 @@ var BaseChart = BaseWidget.inherit({
         // Changing the `_initialized` flag prevents `_render` which is synchronously called from the `_updateDataSource` when data source is local and series rendering is synchronous
         // This is possible because `_render` checks the `_initialized` flag
         // if (!_skipRender) {
-        that._skipRender = true;        // T273635, T351032
+        that._skipRender = true; // T273635, T351032
         // }
         that._updateDataSource();
-        if(!that.series) {
+        if(!that.series || that.needToPopulateSeries) {
             that._dataSpecificInit(false);
         }
         // if (!_skipRender) {
-        that._skipRender = false;       // T273635, T351032
+        that._skipRender = false; // T273635, T351032
         // }
         that._correctAxes();
         /* _skipRender || */that._forceRender();
@@ -418,13 +418,13 @@ var BaseChart = BaseWidget.inherit({
         that._backgroundRect = renderer.rect().attr({ fill: "gray", opacity: 0.0001 }).append(root);
         that._panesBackgroundGroup = renderer.g().attr({ "class": "dxc-background" }).append(root);
 
-        that._stripsGroup = renderer.g().attr({ "class": "dxc-strips-group" }).linkOn(root, "strips");                         // TODO: Must be created in the same place where used (advanced chart)
-        that._gridGroup = renderer.g().attr({ "class": "dxc-grids-group" }).linkOn(root, "grids");                              // TODO: Must be created in the same place where used (advanced chart)
-        that._axesGroup = renderer.g().attr({ "class": "dxc-axes-group" }).linkOn(root, "axes");                                // TODO: Must be created in the same place where used (advanced chart)
-        that._labelAxesGroup = renderer.g().attr({ "class": "dxc-strips-labels-group" }).linkOn(root, "strips-labels");         // TODO: Must be created in the same place where used (advanced chart)
-        that._panesBorderGroup = renderer.g().attr({ "class": "dxc-border" }).linkOn(root, "border");                           // TODO: Must be created in the same place where used (chart)
+        that._stripsGroup = renderer.g().attr({ "class": "dxc-strips-group" }).linkOn(root, "strips"); // TODO: Must be created in the same place where used (advanced chart)
+        that._gridGroup = renderer.g().attr({ "class": "dxc-grids-group" }).linkOn(root, "grids"); // TODO: Must be created in the same place where used (advanced chart)
+        that._axesGroup = renderer.g().attr({ "class": "dxc-axes-group" }).linkOn(root, "axes"); // TODO: Must be created in the same place where used (advanced chart)
+        that._labelAxesGroup = renderer.g().attr({ "class": "dxc-strips-labels-group" }).linkOn(root, "strips-labels"); // TODO: Must be created in the same place where used (advanced chart)
+        that._panesBorderGroup = renderer.g().attr({ "class": "dxc-border" }).linkOn(root, "border"); // TODO: Must be created in the same place where used (chart)
         that._seriesGroup = renderer.g().attr({ "class": "dxc-series-group" }).linkOn(root, "series");
-        that._constantLinesGroup = renderer.g().attr({ "class": "dxc-constant-lines-group" }).linkOn(root, "constant-lines");   // TODO: Must be created in the same place where used (advanced chart)
+        that._constantLinesGroup = renderer.g().attr({ "class": "dxc-constant-lines-group" }).linkOn(root, "constant-lines"); // TODO: Must be created in the same place where used (advanced chart)
         that._scaleBreaksGroup = renderer.g().attr({ "class": "dxc-scale-breaks" }).linkOn(root, "scale-breaks");
         that._labelsGroup = renderer.g().attr({ "class": "dxc-labels-group" }).linkOn(root, "labels");
         that._crosshairCursorGroup = renderer.g().attr({ "class": "dxc-crosshair-cursor" }).linkOn(root, "crosshair");
@@ -461,7 +461,6 @@ var BaseChart = BaseWidget.inherit({
 
         that._renderer.stopAllAnimations();
 
-        that.businessRanges = null;
         disposeObjectsInArray.call(that, "series");
 
         disposeObject("_headerBlock");
@@ -590,7 +589,7 @@ var BaseChart = BaseWidget.inherit({
 
         // T207665
         that.__originalCanvas = that._canvas;
-        that._canvas = extend({}, that._canvas);  // NOTE: Instance of the original canvas must be preserved
+        that._canvas = extend({}, that._canvas); // NOTE: Instance of the original canvas must be preserved
 
         // T207665
         if(recreateCanvas) {
@@ -608,7 +607,9 @@ var BaseChart = BaseWidget.inherit({
         that._renderer.stopAllAnimations(true);
         _setCanvasValues(that._canvas);
         that._cleanGroups();
+        const startTime = new Date();
         that._renderElements(drawOptions);
+        that._lastRenderingTime = new Date() - startTime;
     },
 
     _renderElements: function(drawOptions) {
@@ -640,7 +641,7 @@ var BaseChart = BaseWidget.inherit({
             that._canvas,
             function(sizeShortage) {
                 var panesCanvases = that._renderAxes(drawOptions, preparedOptions, isRotated);
-                that._shrinkAxes(drawOptions, sizeShortage, panesCanvases);
+                that._shrinkAxes(sizeShortage, panesCanvases);
             },
             layoutTargets,
             isRotated
@@ -663,7 +664,8 @@ var BaseChart = BaseWidget.inherit({
 
         if(that._scrollBar) {
             argBusinessRange = that._argumentAxes[0].getTranslator().getBusinessRange();
-            if(argBusinessRange.axisType === "discrete" && argBusinessRange.categories && argBusinessRange.categories.length <= 1) {
+            if(argBusinessRange.axisType === "discrete" && argBusinessRange.categories && argBusinessRange.categories.length <= 1 ||
+                argBusinessRange.axisType !== "discrete" && argBusinessRange.min === argBusinessRange.max) {
                 zoomMinArg = zoomMaxArg = undefined;
             } else {
                 zoomMinArg = argBusinessRange.minVisible;
@@ -795,11 +797,11 @@ var BaseChart = BaseWidget.inherit({
 
     _cleanGroups: function() {
         var that = this;
-        that._stripsGroup.linkRemove().clear();             // TODO: Must be removed in the same place where appended (advanced chart)
-        that._gridGroup.linkRemove().clear();               // TODO: Must be removed in the same place where appended (advanced chart)
-        that._axesGroup.linkRemove().clear();               // TODO: Must be removed in the same place where appended (advanced chart)
-        that._constantLinesGroup.linkRemove().clear();      // TODO: Must be removed in the same place where appended (advanced chart)
-        that._labelAxesGroup.linkRemove().clear();          // TODO: Must be removed in the same place where appended (advanced chart)
+        that._stripsGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
+        that._gridGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
+        that._axesGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
+        that._constantLinesGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
+        that._labelAxesGroup.linkRemove().clear(); // TODO: Must be removed in the same place where appended (advanced chart)
         // that._seriesGroup.linkRemove().clear();
         that._labelsGroup.linkRemove().clear();
         that._crosshairCursorGroup.linkRemove().clear();
@@ -827,7 +829,7 @@ var BaseChart = BaseWidget.inherit({
             legendData = that._getLegendData();
 
         legendOptions.containerBackgroundColor = themeManager.getOptions("containerBackgroundColor");
-        legendOptions._incidentOccurred = that._incidentOccurred;     // TODO: Why is `_` used?
+        legendOptions._incidentOccurred = that._incidentOccurred; // TODO: Why is `_` used?
         that._legend.update(legendData, legendOptions);
     },
 
@@ -843,7 +845,7 @@ var BaseChart = BaseWidget.inherit({
                 animate: animationOptions.enabled,
                 animationPointsLimit: animationOptions.maxPointCountSupported
             },
-            drawOptions, this.__renderOptions);     // NOTE: This is to support `render` method options
+            drawOptions, this.__renderOptions); // NOTE: This is to support `render` method options
         if(!_isDefined(options.recreateCanvas)) {
             options.recreateCanvas = options.adjustAxes && options.drawLegend && options.drawTitle;
         }
@@ -894,14 +896,40 @@ var BaseChart = BaseWidget.inherit({
         };
     },
 
-    _disposeSeries: function() {
-        var that = this;
-        _each(that.series || [], function(_, series) { series.dispose(); });
-        that.series = null;
+    _disposeSeries(seriesIndex) {
+        const that = this;
+        if(that.series) {
+            if(_isDefined(seriesIndex)) {
+                that.series[seriesIndex].dispose();
+                that.series.splice(seriesIndex, 1);
+            } else {
+                _each(that.series, (_, s) => s.dispose());
+                that.series.length = 0;
+            }
+        }
+        if(!that.series || !that.series.length) {
+            that.series = [];
+        }
+    },
 
+    _disposeSeriesFamilies() {
+        const that = this;
         _each(that.seriesFamilies || [], function(_, family) { family.dispose(); });
         that.seriesFamilies = null;
         that._needHandleRenderComplete = true;
+    },
+
+    _simulateOptionChange(fullName, value, previousValue) {
+        const that = this;
+        const optionSetter = coreDataUtils.compileSetter(fullName);
+
+        optionSetter(that._options, value, {
+            functionsAsIs: true,
+            merge: !that._getOptionsByReference()[fullName]
+        });
+
+        that._notifyOptionChanged(fullName, value, previousValue);
+        that._changes.reset();
     },
 
     _optionChanged: function(arg) {
@@ -909,8 +937,8 @@ var BaseChart = BaseWidget.inherit({
         this.callBase.apply(this, arguments);
     },
 
-    _applyChanges: function() {
-        var that = this;
+    _applyChanges() {
+        const that = this;
         that._themeManager.update(that._options);
         that.callBase.apply(that, arguments);
         that._doRefresh();
@@ -944,7 +972,7 @@ var BaseChart = BaseWidget.inherit({
     },
 
     _customChangesOrder: ["ANIMATION", "REFRESH_SERIES_FAMILIES", "DATA_SOURCE", "PALETTE", "REFRESH_SERIES_DATA_INIT", "DATA_INIT",
-        "FORCE_RENDER", "AXES_AND_PANES", "ROTATED", "REFRESH_SERIES_REINIT", "SCROLL_BAR", "CHART_TOOLTIP", "REINIT"],
+        "FORCE_RENDER", "VISUAL_RANGE", "AXES_AND_PANES", "ROTATED", "REFRESH_SERIES_REINIT", "SCROLL_BAR", "CHART_TOOLTIP", "REINIT"],
 
     _change_ANIMATION: function() {
         this._renderer.updateAnimationOptions(this._getAnimationOptions());
@@ -970,7 +998,7 @@ var BaseChart = BaseWidget.inherit({
 
     _change_REFRESH_SERIES_FAMILIES: function() {
         this._processSeriesFamilies();
-        this._populateBusinessRange(true);
+        this._populateBusinessRange();
         this._processRefreshData(FORCE_RENDER_REFRESH_ACTION);
     },
 
@@ -1005,7 +1033,7 @@ var BaseChart = BaseWidget.inherit({
     },
 
     _refreshSeries: function(actionName) {
-        this._disposeSeries();
+        this.needToPopulateSeries = true;
         this._processRefreshData(actionName);
     },
 
@@ -1035,8 +1063,11 @@ var BaseChart = BaseWidget.inherit({
     },
 
     _dataSourceChangedHandler: function() {
-        this._resetZoom();
-        this._dataInit();
+        if(this._applyingChanges) {
+            this._dataInit();
+        } else {
+            this._requestChange(["DATA_INIT"]);
+        }
     },
 
     _dataInit: function() {
@@ -1055,13 +1086,15 @@ var BaseChart = BaseWidget.inherit({
         this.series.forEach(s => this._processSingleSeries(s), this);
     },
 
-    _dataSpecificInit: function(needRedraw) {
-        var that = this;
-        that.series = that.series || that._populateSeries();
+    _dataSpecificInit(needRedraw) {
+        const that = this;
+        if(!that.series || that.needToPopulateSeries) {
+            that.series = that._populateSeries();
+        }
         that._repopulateSeries();
         that._seriesPopulatedHandlerCore();
-        that._populateBusinessRange(true);
-        that._tracker.updateSeries(that.series);
+        that._populateBusinessRange();
+        that._tracker.updateSeries(that.series, that._skipRender);
         that._updateLegend();
         needRedraw && that._forceRender();
     },
@@ -1156,44 +1189,31 @@ var BaseChart = BaseWidget.inherit({
         return drawElements;
     },
 
-    _resetZoom: noop,
-
     _dataIsReady: function() {
         // In order to support scenario when chart is created without "dataSource" and it is considered
         // as data is being loaded the check for state of "dataSource" option is added
         return _isDefined(this.option("dataSource")) && this._dataIsLoaded();
     },
 
-    _populateSeries: function(data) {
-        var that = this,
-            themeManager = that._themeManager,
-            seriesTemplate = themeManager.getOptions("seriesTemplate"),
-            seriesOptions = seriesTemplate ? vizUtils.processSeriesTemplate(seriesTemplate, data || []) : that.option("series"),
-            allSeriesOptions = (_isArray(seriesOptions) ? seriesOptions : (seriesOptions ? [seriesOptions] : [])),
-            extraOptions = that._getExtraOptions(),
-            particularSeriesOptions,
-            particularSeries,
-            seriesTheme,
-            i,
-            seriesVisibilityChanged = function() {
-                that._specialProcessSeries();
-                that._populateBusinessRange(false);
-                that._renderer.stopAllAnimations(true);
-                that._updateLegend();
-                that._doRender({ force: true });
-            },
-            eventPipe;
-
-        that._disposeSeries();
-        that.series = [];
-        themeManager.resetPalette();
-        eventPipe = function(data) {
-            that.series.forEach(function(currentSeries) {
-                currentSeries.notify(data);
-            });
+    _populateSeriesOptions(data) {
+        const that = this;
+        const themeManager = that._themeManager;
+        const seriesTemplate = themeManager.getOptions("seriesTemplate");
+        const seriesOptions = seriesTemplate ? vizUtils.processSeriesTemplate(seriesTemplate, data || []) : that.option("series");
+        const allSeriesOptions = (_isArray(seriesOptions) ? seriesOptions : (seriesOptions ? [seriesOptions] : []));
+        const extraOptions = that._getExtraOptions();
+        let particularSeriesOptions;
+        let seriesTheme;
+        let seriesThemes = [];
+        const seriesVisibilityChanged = (target) => {
+            that._specialProcessSeries();
+            that._populateBusinessRange(target && target.getValueAxis());
+            that._renderer.stopAllAnimations(true);
+            that._updateLegend();
+            that._doRender({ force: true });
         };
 
-        for(i = 0; i < allSeriesOptions.length; i++) {
+        for(let i = 0; i < allSeriesOptions.length; i++) {
             particularSeriesOptions = _extend(true, {}, allSeriesOptions[i], extraOptions);
 
             if(!particularSeriesOptions.name) {
@@ -1208,34 +1228,89 @@ var BaseChart = BaseWidget.inherit({
 
             seriesTheme = themeManager.getOptions("series", particularSeriesOptions, allSeriesOptions.length);
 
-            if(!that._checkPaneName(seriesTheme)) {
-                continue;
+            if(that._checkPaneName(seriesTheme)) {
+                seriesThemes.push(seriesTheme);
             }
+        }
 
-            particularSeries = new seriesModule.Series({
-                renderer: that._renderer,
-                seriesGroup: that._seriesGroup,
-                labelsGroup: that._labelsGroup,
-                eventTrigger: that._eventTrigger,
+        return seriesThemes;
+    },
+
+    _populateSeries(data) {
+        const that = this;
+        const seriesBasis = [];
+        const incidentOccurred = that._incidentOccurred;
+        let seriesThemes = that._populateSeriesOptions(data);
+        let particularSeries;
+        let changedStateSeriesCount = 0;
+
+        that.needToPopulateSeries = false;
+
+        _each(seriesThemes, (_, theme) => {
+            const curSeries = that.series && that.series.filter(s =>
+                s.name === theme.name && seriesBasis.map(sb => sb.series).indexOf(s) === -1
+            )[0];
+            if(curSeries && curSeries.type === theme.type) {
+                seriesBasis.push({ series: curSeries, options: theme });
+            } else {
+                seriesBasis.push({ options: theme });
+                changedStateSeriesCount++;
+            }
+        });
+
+        that._tracker.clearHover();
+
+        _reverseEach(that.series, (index, series) => {
+            if(!seriesBasis.some(s => series === s.series)) {
+                that._disposeSeries(index);
+                changedStateSeriesCount++;
+            }
+        });
+
+        that.series = [];
+
+        changedStateSeriesCount > 0 && that._disposeSeriesFamilies();
+        that._themeManager.resetPalette();
+        const eventPipe = function(data) {
+            that.series.forEach(function(currentSeries) {
+                currentSeries.notify(data);
+            });
+        };
+
+        _each(seriesBasis, (_, basis) => {
+            let seriesTheme = basis.options;
+            let renderSettings = {
                 commonSeriesModes: that._getSelectionModes(),
-                eventPipe: eventPipe,
-                argumentAxis: that._getArgumentAxis(),
+                argumentAxis: that.getArgumentAxis(),
                 valueAxis: that._getValueAxis(seriesTheme.pane, seriesTheme.axis)
-            }, seriesTheme);
-
+            };
+            if(basis.series) {
+                particularSeries = basis.series;
+                particularSeries.updateOptions(seriesTheme, renderSettings);
+            } else {
+                particularSeries = new seriesModule.Series(_extend({
+                    renderer: that._renderer,
+                    seriesGroup: that._seriesGroup,
+                    labelsGroup: that._labelsGroup,
+                    eventTrigger: that._eventTrigger,
+                    eventPipe: eventPipe,
+                    incidentOccurred: incidentOccurred
+                }, renderSettings), seriesTheme);
+            }
             if(!particularSeries.isUpdated) {
-                that._incidentOccurred("E2101", [seriesTheme.type]);
+                incidentOccurred("E2101", [seriesTheme.type]);
             } else {
                 particularSeries.index = that.series.length;
                 that.series.push(particularSeries);
             }
-        }
+        });
+
         return that.series;
     },
 
     // API
     getAllSeries: function getAllSeries() {
-        return this.series.slice();
+        return (this.series || []).slice();
     },
 
     getSeriesByName: function getSeriesByName(name) {
@@ -1250,7 +1325,7 @@ var BaseChart = BaseWidget.inherit({
     },
 
     getSeriesByPos: function getSeriesByPos(pos) {
-        return this.series[pos];
+        return (this.series || [])[pos];
     },
 
     clearSelection: function clearSelection() {
@@ -1268,6 +1343,13 @@ var BaseChart = BaseWidget.inherit({
         that.callBase.apply(that, arguments);
         that.__renderOptions = that.__forceRender = null;
         return that;
+    },
+
+    refresh: function() {
+        this._disposeSeries();
+        this._disposeSeriesFamilies();
+        this._change(["CONTAINER_SIZE"]);
+        this._requestChange(["REFRESH_SERIES_REINIT"]);
     }
 });
 

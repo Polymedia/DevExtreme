@@ -1,5 +1,3 @@
-"use strict";
-
 var seriesNS = {},
     typeUtils = require("../../core/utils/type"),
     _extend = require("../../core/utils/extend").extend,
@@ -97,9 +95,6 @@ function getLabelOptions(labelOptions, defaultColor) {
         alignment: opt.alignment,
         format: opt.format,
         argumentFormat: opt.argumentFormat,
-        precision: opt.precision,   // DEPRECATED_16_1
-        argumentPrecision: opt.argumentPrecision,   // DEPRECTATED_16_1
-        percentPrecision: opt.percentPrecision, // DEPRECATED_16_1
         customizeText: typeUtils.isFunction(opt.customizeText) ? opt.customizeText : undefined,
         attributes: { font: labelFont },
         visible: labelFont.size !== 0 ? opt.visible : false,
@@ -157,13 +152,10 @@ function Series(settings, options) {
     that._group = settings.renderer.g().attr({ "class": "dxc-series" });
     that._eventTrigger = settings.eventTrigger;
     that._eventPipe = settings.eventPipe;
-    that._seriesModes = settings.commonSeriesModes;
-    that._valueAxis = settings.valueAxis;
+    that._incidentOccurred = settings.incidentOccurred;
 
-    that.axis = that._valueAxis && that._valueAxis.name;
-    that._argumentAxis = settings.argumentAxis;
     that._legendCallback = _noop;
-    that.updateOptions(options);
+    that.updateOptions(options, settings);
 }
 
 function getData(pointData) {
@@ -279,11 +271,11 @@ Series.prototype = {
         }
     },
 
-    updateOptions: function(newOptions) {
-        var that = this,
-            widgetType = newOptions.widgetType,
-            oldType = that.type,
-            newType = newOptions.type;
+    updateOptions(newOptions, settings) {
+        const that = this;
+        const widgetType = newOptions.widgetType;
+        const oldType = that.type;
+        const newType = newOptions.type;
 
         that.type = newType && _normalizeEnum(newType.toString());
 
@@ -297,17 +289,24 @@ Series.prototype = {
             that._firstDrawing = true;
             that._resetType(oldType, widgetType);
             that._setType(that.type, widgetType);
+        } else {
+            that._defineDrawingState();
         }
 
         that._options = newOptions;
         that._pointOptions = null;
 
-        that._renderer.initHatching();
-
         that.name = newOptions.name;
         that.pane = newOptions.pane;
 
         that.tag = newOptions.tag;
+
+        if(settings) {
+            that._seriesModes = settings.commonSeriesModes || that._seriesModes;
+            that._valueAxis = settings.valueAxis || that._valueAxis;
+            that.axis = that._valueAxis && that._valueAxis.name;
+            that._argumentAxis = settings.argumentAxis || that._argumentAxis;
+        }
 
         that._createStyles(newOptions);
 
@@ -318,6 +317,10 @@ Series.prototype = {
         that._visible = newOptions.visible;
         that.isUpdated = true;
         that._createGroups();
+    },
+
+    _defineDrawingState() {
+        this._firstDrawing = true;
     },
 
     _disposePoints: function(points) {
@@ -354,8 +357,9 @@ Series.prototype = {
     },
 
     updateData: function(data) {
-        var that = this,
-            options = that._options;
+        const that = this;
+        const options = that._options;
+        const nameField = options.nameField;
 
         data = data || [];
 
@@ -364,16 +368,24 @@ Series.prototype = {
         }
 
         const dataSelector = this._getPointDataSelector();
+        let itemsWithoutArgument = 0;
 
         that._data = data.reduce((data, dataItem, index) => {
             const pointDataItem = dataSelector(dataItem);
-            if(_isDefined(pointDataItem.argument) && (!options.nameField || dataItem[options.nameField] === this.name)) {
-                pointDataItem.index = index;
-                data.push(pointDataItem);
+            if(_isDefined(pointDataItem.argument)) {
+                if((!nameField || dataItem[nameField] === options.nameFieldValue)) {
+                    pointDataItem.index = index;
+                    data.push(pointDataItem);
+                }
+            } else {
+                itemsWithoutArgument++;
             }
             return data;
         }, []);
 
+        if(itemsWithoutArgument && itemsWithoutArgument === data.length) {
+            that._incidentOccurred("W2002", [that.name, that.getArgumentField()]);
+        }
         that._endUpdateData();
     },
 
@@ -412,8 +424,9 @@ Series.prototype = {
 
         that._calculateErrorBars(data);
 
+        const skippedFields = {};
         points = data.reduce((points, pointDataItem) => {
-            if(that._checkData(pointDataItem)) {
+            if(that._checkData(pointDataItem, skippedFields)) {
                 const pointIndex = points.length;
                 const oldPoint = that._getOldPoint(pointDataItem, oldPointsByArgument, pointIndex);
                 const point = that._createPoint(pointDataItem, pointIndex, oldPoint);
@@ -423,6 +436,11 @@ Series.prototype = {
             return points;
         }, []);
 
+        for(let field in skippedFields) {
+            if(skippedFields[field] === data.length) {
+                that._incidentOccurred("W2002", [that.name, field]);
+            }
+        }
         Object.keys(oldPointsByArgument).forEach((key) => that._disposePoints(oldPointsByArgument[key]));
 
         that._points = points;
@@ -463,13 +481,13 @@ Series.prototype = {
                 p.translate();
                 !translateAllPoints && p.setDefaultCoords();
             }
-            const pointHasCoords = p.hasCoords();
-            if(p.hasValue() && pointHasCoords) {
+            if(p.hasValue() && p.hasCoords()) {
                 translateAllPoints && that._drawPoint({ point: p, groups: groupForPoint, hasAnimation: animationEnabled, firstDrawing });
                 segment.push(p);
-            } else {
-                !pointHasCoords && p.setInvisibility();
+            } else if(!p.hasValue()) {
                 segment.length && segments.push([]);
+            } else {
+                p.setInvisibility();
             }
 
             return segments;
@@ -572,7 +590,7 @@ Series.prototype = {
 
     _resetNearestPoint: function() {
         var that = this;
-        that._nearestPoint && that._nearestPoint.resetView(HOVER);
+        that._nearestPoint && that._nearestPoint.series !== null && that._nearestPoint.resetView(HOVER);
         that._nearestPoint = null;
     },
 
@@ -723,7 +741,7 @@ Series.prototype = {
         that._visible = that._options.visible = visibility;
         that._updatePointsVisibility();
         that.hidePointTooltip();
-        that._options.visibilityChanged();
+        that._options.visibilityChanged(that);
     },
 
     // TODO. Problem related to 'point' option for bar-like series. Revisit this code once options parsing is changed

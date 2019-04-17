@@ -1,17 +1,16 @@
-"use strict";
+import $ from "jquery";
+import { ERROR_MESSAGES as dxErrors } from "viz/core/errors_warnings";
+import translator2DModule from "viz/translators/translator2d";
+import { Range } from "viz/translators/range";
+import tickGeneratorModule from "viz/axes/tick_generator";
+import { Axis } from "viz/axes/base_axis";
+import vizMocks from "../../helpers/vizMocks.js";
 
-var $ = require("jquery"),
-    errors = require("viz/core/errors_warnings"),
-    translator2DModule = require("viz/translators/translator2d"),
-    tickGeneratorModule = require("viz/axes/tick_generator"),
-    dxErrors = errors.ERROR_MESSAGES,
-    Axis = require("viz/axes/base_axis").Axis,
-    vizMocks = require("../../helpers/vizMocks.js"),
-    StubTranslator = vizMocks.stubClass(translator2DModule.Translator2D, {
-        updateBusinessRange: function(range) {
-            this.getBusinessRange.returns(range);
-        }
-    });
+var StubTranslator = vizMocks.stubClass(translator2DModule.Translator2D, {
+    updateBusinessRange: function(range) {
+        this.getBusinessRange.returns(range);
+    }
+});
 
 var environment = {
     beforeEach: function() {
@@ -59,8 +58,8 @@ var environment = {
         });
 
         this.translator = new StubTranslator();
-        this.translator.stub("getBusinessRange").returns({ addRange: sinon.stub() });
         this.translator.stub("getCanvasVisibleArea").returns({ min: 10, max: 90 }); // for horizontal only
+        this.translator.stub("getBusinessRange").returns(new Range());
     },
     createAxis: function(options) {
         var stripsGroup = this.renderer.g(),
@@ -118,7 +117,7 @@ var environment = {
         this.axis.updateOptions($.extend(true, {
             crosshairMargin: 0,
             label: {
-                visible: false, indentFromAxis: 10, overlappingBehavior: { mode: "ignore" }
+                visible: false, indentFromAxis: 10, overlappingBehavior: "ignore"
             },
             isHorizontal: options.isHorizontal !== undefined ? options.isHorizontal : true,
             grid: {},
@@ -129,6 +128,7 @@ var environment = {
             marker: {}
         }, options));
         this.axis.validate();
+        this.axis.setBusinessRange({ min: 0, max: 30 });
     }
 };
 
@@ -411,16 +411,16 @@ QUnit.test("Horizontal top", function(assert) {
     assert.deepEqual(path.getCall(0).args, [[], "line"]);
     assert.deepEqual(path.getCall(1).args, [[], "line"]);
     assert.deepEqual(path.getCall(2).args, [[], "line"]);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
     assert.deepEqual(path.getCall(0).returnValue.append.getCall(0).args[0], group);
     assert.deepEqual(path.getCall(1).returnValue.append.getCall(0).args[0], group);
     assert.deepEqual(path.getCall(2).returnValue.append.getCall(0).args[0], group);
 
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Horizontal bottom", function(assert) {
@@ -448,9 +448,9 @@ QUnit.test("Horizontal bottom", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 70 - 5, 50, 70 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 70 - 5, 50, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("Vertical left", function(assert) {
@@ -478,9 +478,9 @@ QUnit.test("Vertical left", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 40, 10 + 5, 40] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 50, 10 + 5, 50] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 60, 10 + 5, 60] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 40, 10 + 5, 40], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 50, 10 + 5, 50], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10 - 5, 60, 10 + 5, 60], opacity: 1 });
 });
 
 QUnit.test("Vertical right", function(assert) {
@@ -508,9 +508,9 @@ QUnit.test("Vertical right", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 40, 90 + 5, 40] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 50, 90 + 5, 50] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 60, 90 + 5, 60] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 40, 90 + 5, 40], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 50, 90 + 5, 50], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [90 - 5, 60, 90 + 5, 60], opacity: 1 });
 });
 
 QUnit.test("Horizontal, tickOrientation top", function(assert) {
@@ -539,9 +539,9 @@ QUnit.test("Horizontal, tickOrientation top", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 10, 30, 30] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 10, 50, 30] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 10, 70, 30] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 10, 30, 30], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 10, 50, 30], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 10, 70, 30], opacity: 1 });
 });
 
 QUnit.test("Horizontal, tickOrientation bottom", function(assert) {
@@ -570,9 +570,9 @@ QUnit.test("Horizontal, tickOrientation bottom", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30, 30, 30 + 10] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30, 50, 30 + 10] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30, 70, 30 + 10] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30, 30, 30 + 10], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30, 50, 30 + 10], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30, 70, 30 + 10], opacity: 1 });
 });
 
 QUnit.test("Vertical, tickOrientation left", function(assert) {
@@ -601,9 +601,9 @@ QUnit.test("Vertical, tickOrientation left", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 30, 10, 30] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 50, 10, 50] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 70, 10, 70] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 30, 10, 30], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 50, 10, 50], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10 - 10, 70, 10, 70], opacity: 1 });
 });
 
 QUnit.test("Vertical, tickOrientation right", function(assert) {
@@ -632,9 +632,9 @@ QUnit.test("Vertical, tickOrientation right", function(assert) {
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10, 30, 10 + 10, 30] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10, 50, 10 + 10, 50] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10, 70, 10 + 10, 70] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [10, 30, 10 + 10, 30], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [10, 50, 10 + 10, 50], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [10, 70, 10 + 10, 70], opacity: 1 });
 });
 
 QUnit.test("Do not draw minor ticks if minorTick.visible = false but calculateMinors = true", function(assert) {
@@ -687,12 +687,12 @@ QUnit.test("Horizontal top, minor tick marks", function(assert) {
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 3);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Categories. DiscreteAxisDivisionMode - betweenLabels. Do not draw last tick mark", function(assert) {
@@ -727,9 +727,9 @@ QUnit.test("Categories. DiscreteAxisDivisionMode - betweenLabels. Do not draw la
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 3);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 30 - 5, 30, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 30 - 5, 50, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Categories. DiscreteAxisDivisionMode - crossLabels. Draw all grid lines", function(assert) {
@@ -764,10 +764,10 @@ QUnit.test("Categories. DiscreteAxisDivisionMode - crossLabels. Draw all grid li
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 4);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [20, 30 - 5, 20, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [40, 30 - 5, 40, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [60, 30 - 5, 60, 30 + 5] });
-    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [80, 30 - 5, 80, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [20, 30 - 5, 20, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [40, 30 - 5, 40, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [60, 30 - 5, 60, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [80, 30 - 5, 80, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Check calls to translator. Major ticks. Non categories", function(assert) {
@@ -790,10 +790,10 @@ QUnit.test("Check calls to translator. Major ticks. Non categories", function(as
     // act
     this.axis.draw(this.canvas);
 
-    assert.deepEqual(this.translator.translate.callCount, 6); // 3 for labels
-    assert.deepEqual(this.translator.translate.getCall(0).args, [1, 1, false]);
-    assert.deepEqual(this.translator.translate.getCall(2).args, [2, 1, false]);
-    assert.deepEqual(this.translator.translate.getCall(4).args, [3, 1, false]);
+    assert.deepEqual(this.translator.translate.callCount, 10); // 3 for labels
+    assert.deepEqual(this.translator.translate.getCall(4).args, [1, 1, false]);
+    assert.deepEqual(this.translator.translate.getCall(6).args, [2, 1, false]);
+    assert.deepEqual(this.translator.translate.getCall(8).args, [3, 1, false]);
 });
 
 QUnit.test("Check calls to translator. Minor ticks", function(assert) {
@@ -816,10 +816,10 @@ QUnit.test("Check calls to translator. Minor ticks", function(assert) {
     // act
     this.axis.draw(this.canvas);
 
-    assert.deepEqual(this.translator.translate.callCount, 6); // 3 for labels
-    assert.deepEqual(this.translator.translate.getCall(0).args, [1, 1, false]);
-    assert.deepEqual(this.translator.translate.getCall(2).args, [2, 1, false]);
-    assert.deepEqual(this.translator.translate.getCall(4).args, [3, 1, false]);
+    assert.deepEqual(this.translator.translate.callCount, 10); // 3 for labels
+    assert.deepEqual(this.translator.translate.getCall(4).args, [1, 1, false]);
+    assert.deepEqual(this.translator.translate.getCall(6).args, [2, 1, false]);
+    assert.deepEqual(this.translator.translate.getCall(8).args, [3, 1, false]);
 });
 
 QUnit.test("Check calls to translator. Major ticks. Categories, discreteAxisDivisionMode betweenLabels", function(assert) {
@@ -938,74 +938,6 @@ QUnit.test("Vertical. Ticks (major and minor) are outside canvas (on zoom) - do 
     assert.strictEqual(this.renderer.stub("path").callCount, 0);
 });
 
-// DEPRECATED IN 15_2
-QUnit.test("hideFirstTick", function(assert) {
-    // arrange
-    this.createAxis();
-    this.updateOptions({
-        isHorizontal: true,
-        position: "bottom",
-        label: {
-            overlappingBehavior: { hideFirstTick: true }
-        },
-        tick: {
-            visible: true,
-            color: "#123456",
-            opacity: 0.3,
-            width: 5,
-            length: 10
-        }
-    });
-
-    this.generatedTicks = [1, 2, 3];
-
-    this.translator.stub("translate").withArgs(1).returns(30);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(70);
-
-    // act
-    this.axis.draw(this.canvas);
-
-    var path = this.renderer.path;
-    assert.deepEqual(path.callCount, 2);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [50, 70 - 5, 50, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
-});
-
-// DEPRECATED IN 15_2
-QUnit.test("hideLastTick", function(assert) {
-    // arrange
-    this.createAxis();
-    this.updateOptions({
-        isHorizontal: true,
-        position: "bottom",
-        label: {
-            overlappingBehavior: { hideLastTick: true }
-        },
-        tick: {
-            visible: true,
-            color: "#123456",
-            opacity: 0.3,
-            width: 5,
-            length: 10
-        }
-    });
-
-    this.generatedTicks = [1, 2, 3];
-
-    this.translator.stub("translate").withArgs(1).returns(30);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(70);
-
-    // act
-    this.axis.draw(this.canvas);
-
-    var path = this.renderer.path;
-    assert.deepEqual(path.callCount, 2);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [50, 70 - 5, 50, 70 + 5] });
-});
-
 QUnit.module("XY linear axis. Draw. Check tick marks. Boundary ticks", environment);
 
 QUnit.test("showCustomBoundaryTicks true, majorTicks not on bounds - render boundary ticks", function(assert) {
@@ -1024,7 +956,7 @@ QUnit.test("showCustomBoundaryTicks true, majorTicks not on bounds - render boun
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.generatedTicks = [1.5, 2, 2.5];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1035,10 +967,10 @@ QUnit.test("showCustomBoundaryTicks true, majorTicks not on bounds - render boun
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 5);
-    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("Tick visible false, but showCustomBoundaryTicks true - render boundary ticks", function(assert) {
@@ -1057,7 +989,7 @@ QUnit.test("Tick visible false, but showCustomBoundaryTicks true - render bounda
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.generatedTicks = [1.5, 2, 2.5];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1067,8 +999,8 @@ QUnit.test("Tick visible false, but showCustomBoundaryTicks true - render bounda
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("No ticks, showCustomBoundaryTicks true - render boundary ticks", function(assert) {
@@ -1087,7 +1019,7 @@ QUnit.test("No ticks, showCustomBoundaryTicks true - render boundary ticks", fun
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.generatedTicks = [];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1097,8 +1029,8 @@ QUnit.test("No ticks, showCustomBoundaryTicks true - render boundary ticks", fun
     this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("Boundary ticks, discrete axis, betweenLabels - render boundary categories", function(assert) {
@@ -1119,7 +1051,7 @@ QUnit.test("Boundary ticks, discrete axis, betweenLabels - render boundary categ
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: "a", maxVisible: "e" });
+    this.axis.setBusinessRange({ min: "a", max: "e" });
     this.generatedTicks = ["b", "c", "d"];
 
     this.translator.stub("translate").withArgs("a").returns(10);
@@ -1133,8 +1065,8 @@ QUnit.test("Boundary ticks, discrete axis, betweenLabels - render boundary categ
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 2);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] }); // b
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] }); // d
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 }); // b
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 }); // d
 });
 
 QUnit.test("Boundary ticks, discrete axis, visible categories, crossLabels - do not render boundary categories", function(assert) {
@@ -1156,7 +1088,7 @@ QUnit.test("Boundary ticks, discrete axis, visible categories, crossLabels - do 
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: "a", maxVisible: "e" });
+    this.axis.setBusinessRange({ min: "a", max: "e" });
     this.generatedTicks = ["b", "c", "d"];
 
     // act
@@ -1183,7 +1115,7 @@ QUnit.test("Boundary ticks, discrete axis, no ticks - do not render boundary tic
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: "a", maxVisible: "e", addRange: function() { } });
+    this.axis.setBusinessRange({ min: "a", max: "e" });
     this.generatedTicks = [];
 
     // act
@@ -1198,13 +1130,14 @@ QUnit.test("Check calls to translator. Boundary ticks", function(assert) {
     this.updateOptions({
         isHorizontal: true,
         position: "bottom",
+        visualRangeUpdateMode: "reset",
         showCustomBoundaryTicks: true,
         tick: {
             visible: true
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
 
     this.translator.stub("translate").withArgs(1).returns(30);
     this.translator.stub("translate").withArgs(3).returns(70);
@@ -1233,7 +1166,7 @@ QUnit.test("showCustomBoundaryTicks true, first majorTick on bound - do not rend
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.generatedTicks = [1, 2];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1244,7 +1177,7 @@ QUnit.test("showCustomBoundaryTicks true, first majorTick on bound - do not rend
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 3);
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0].points, [70, 70 - 5, 70, 70 + 5]);
 });
 
 QUnit.test("showCustomBoundaryTicks true, last majorTick on bound - do not render last boundary tick", function(assert) {
@@ -1263,7 +1196,7 @@ QUnit.test("showCustomBoundaryTicks true, last majorTick on bound - do not rende
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.generatedTicks = [2, 3];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1274,7 +1207,7 @@ QUnit.test("showCustomBoundaryTicks true, last majorTick on bound - do not rende
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 3);
-    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
+    assert.deepEqual(path.getCall(2).returnValue.attr.getCall(1).args[0].points, [30, 70 - 5, 30, 70 + 5]);
 });
 
 QUnit.test("showCustomBoundaryTicks true, customBoundTicks - render first two customBoundTicks ticks", function(assert) {
@@ -1294,7 +1227,7 @@ QUnit.test("showCustomBoundaryTicks true, customBoundTicks - render first two cu
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
 
     this.translator.stub("translate").withArgs(1).returns(30);
     this.translator.stub("translate").withArgs(3).returns(70);
@@ -1304,10 +1237,10 @@ QUnit.test("showCustomBoundaryTicks true, customBoundTicks - render first two cu
 
     var path = this.renderer.path;
     assert.equal(path.callCount, 2);
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(0).args[0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("showCustomBoundaryTicks true, customBoundTicks, double drawing, second with no data - no boundary ticks should render. T615270", function(assert) {
@@ -1327,7 +1260,7 @@ QUnit.test("showCustomBoundaryTicks true, customBoundTicks, double drawing, seco
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
     this.translator.stub("translate").withArgs(1).returns(30);
     this.translator.stub("translate").withArgs(3).returns(70);
 
@@ -1336,7 +1269,7 @@ QUnit.test("showCustomBoundaryTicks true, customBoundTicks, double drawing, seco
     this.updateOptions({
         customBoundTicks: [undefined]
     });
-    this.axis.setBusinessRange({ minVisible: undefined, maxVisible: undefined, addRange: function() { } });
+    this.axis.setBusinessRange({ min: undefined, max: undefined });
     this.translator.stub("translate").reset();
     this.renderer.path.reset();
 
@@ -1364,7 +1297,7 @@ QUnit.test("showCustomBoundaryTicks true, range inside ticks (endOnTick = true) 
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1.5, maxVisible: 3.5, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1.5, max: 3.5 });
     this.generatedTicks = [1, 2, 3, 4];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1396,7 +1329,7 @@ QUnit.test("Boundary points coincide with minor ticks - remove minor ticks", fun
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5 });
     this.generatedMinorTicks = [1, 2, 3, 4, 5];
 
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -1412,8 +1345,8 @@ QUnit.test("Boundary points coincide with minor ticks - remove minor ticks", fun
     assert.strictEqual(path.getCall(2).returnValue.attr.getCall(0).args[0]["stroke-opacity"], 0.1);
     assert.strictEqual(path.getCall(3).returnValue.attr.getCall(0).args[0]["stroke-opacity"], 0.9);
     assert.strictEqual(path.getCall(4).returnValue.attr.getCall(0).args[0]["stroke-opacity"], 0.9);
-    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(3).returnValue.attr.getCall(1).args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(4).returnValue.attr.getCall(1).args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.module("XY linear axis. Draw. Check tick labels", environment);
@@ -2053,7 +1986,7 @@ QUnit.test("Labels with hints. Check callback's param", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: -1, maxVisible: 4, addRange: function() { } });
+    this.axis.setBusinessRange({ min: -1, max: 4 });
 
     this.generatedTicks = [1];
 
@@ -2079,7 +2012,7 @@ QUnit.test("Labels with hints. Check callback's param", function(assert) {
     });
 });
 
-QUnit.test("Stub data. Do not draw labels", function(assert) {
+QUnit.test("Do not draw labels with empty range", function(assert) {
     // arrange
     this.createAxis();
     this.updateOptions({
@@ -2095,7 +2028,34 @@ QUnit.test("Stub data. Do not draw labels", function(assert) {
     this.generatedTicks = [1];
 
     this.translator.stub("translate").withArgs(1).returns(40);
-    this.axis.setBusinessRange({ stubData: true });
+    this.axis.setBusinessRange({ });
+
+    // act
+    this.axis.draw(this.canvas);
+
+    // assert
+    assert.equal(this.renderer.stub("text").callCount, 0);
+});
+
+QUnit.test("Do not draw labels nor check format for discrete datetime axis with empty range", function(assert) {
+    // arrange
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        argumentType: "datetime",
+        type: "discrete",
+        position: "bottom",
+        label: {
+            visible: true,
+            indentFromAxis: 10,
+            alignment: "left"
+        }
+    });
+
+    this.generatedTicks = [1];
+
+    this.translator.stub("translate").withArgs(1).returns(40);
+    this.axis.setBusinessRange({ });
 
     // act
     this.axis.draw(this.canvas);
@@ -2187,7 +2147,7 @@ QUnit.test("Without text, all variations. Do not draw labels", function(assert) 
                         return undefined;
                     case 3:
                         return "";
-                    case 1:
+                    case 4:
                         return "      ";
                 }
             }
@@ -2247,10 +2207,10 @@ QUnit.test("Check calls to translator", function(assert) {
     // act
     this.axis.draw(this.canvas);
 
-    assert.deepEqual(this.translator.translate.callCount, 6);
-    assert.deepEqual(this.translator.translate.getCall(1).args, [1, undefined, false]);
-    assert.deepEqual(this.translator.translate.getCall(3).args, [2, undefined, false]);
-    assert.deepEqual(this.translator.translate.getCall(5).args, [3, undefined, false]);
+    assert.deepEqual(this.translator.translate.callCount, 10);
+    assert.deepEqual(this.translator.translate.getCall(5).args, [1, undefined, false]);
+    assert.deepEqual(this.translator.translate.getCall(7).args, [2, undefined, false]);
+    assert.deepEqual(this.translator.translate.getCall(9).args, [3, undefined, false]);
 });
 
 QUnit.test("Labels are outside canvas (on zoom) - do not draw outside labels", function(assert) {
@@ -2274,72 +2234,6 @@ QUnit.test("Labels are outside canvas (on zoom) - do not draw outside labels", f
     this.axis.draw(this.canvas);
 
     assert.equal(this.renderer.stub("text").callCount, 0);
-});
-
-// DEPRECATED IN 15_2
-QUnit.test("hideFirstLabel", function(assert) {
-    // arrange
-    this.createAxis();
-    this.updateOptions({
-        isHorizontal: true,
-        position: "bottom",
-        label: {
-            visible: true,
-            indentFromAxis: 10,
-            alignment: "left",
-            overlappingBehavior: { hideFirstLabel: true }
-        }
-    });
-
-    this.generatedTicks = [1, 2, 3];
-
-    this.translator.stub("translate").withArgs(1).returns(30);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(70);
-
-    // act
-    this.axis.draw(this.canvas);
-
-    var text = this.renderer.text;
-    assert.deepEqual(text.callCount, 2);
-    assert.deepEqual(text.getCall(0).args, ["2"]);
-    assert.deepEqual(text.getCall(1).args, ["3"]);
-
-    assert.deepEqual(text.getCall(0).returnValue.attr.getCall(1).args[0], { x: 50, y: 70 });
-    assert.deepEqual(text.getCall(1).returnValue.attr.getCall(1).args[0], { x: 70, y: 70 });
-});
-
-// DEPRECATED IN 15_2
-QUnit.test("hideLastLabel", function(assert) {
-    // arrange
-    this.createAxis();
-    this.updateOptions({
-        isHorizontal: true,
-        position: "bottom",
-        label: {
-            visible: true,
-            indentFromAxis: 10,
-            alignment: "left",
-            overlappingBehavior: { hideLastLabel: true }
-        }
-    });
-
-    this.generatedTicks = [1, 2, 3];
-
-    this.translator.stub("translate").withArgs(1).returns(30);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(70);
-
-    // act
-    this.axis.draw(this.canvas);
-
-    var text = this.renderer.text;
-    assert.deepEqual(text.callCount, 2);
-    assert.deepEqual(text.getCall(0).args, ["1"]);
-    assert.deepEqual(text.getCall(1).args, ["2"]);
-
-    assert.deepEqual(text.getCall(0).returnValue.attr.getCall(1).args[0], { x: 30, y: 70 });
-    assert.deepEqual(text.getCall(1).returnValue.attr.getCall(1).args[0], { x: 50, y: 70 });
 });
 
 QUnit.module("XY linear axis. Draw. Check constant lines", environment);
@@ -2660,9 +2554,7 @@ QUnit.test("With stub data", function(assert) {
         }]
     });
 
-    this.axis.setBusinessRange({
-        stubData: true
-    });
+    this.axis.setBusinessRange({});
     this.translator.stub("translate").withArgs(1).returns(40);
     this.axis.parser = function(value) {
         return value;
@@ -3754,7 +3646,7 @@ QUnit.test("Horizontal. Inverted", function(assert) {
             }
         }
     });
-    this.axis.setBusinessRange({ invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ invert: true });
 
     this.renderer.bBoxTemplate = { x: 1, y: 2, width: 12, height: 6 };
 
@@ -3785,7 +3677,7 @@ QUnit.test("Vertical. Inverted", function(assert) {
             }
         }
     });
-    this.axis.setBusinessRange({ invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ invert: true });
 
     this.renderer.bBoxTemplate = { x: 2, y: 1, width: 6, height: 12 };
 
@@ -3833,7 +3725,7 @@ QUnit.test("Full markers", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -3919,7 +3811,7 @@ QUnit.test("Full markers. Inverted", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: true });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -3990,7 +3882,7 @@ QUnit.test("First marker without line", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4063,7 +3955,7 @@ QUnit.test("First marker without line and label", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4131,7 +4023,7 @@ QUnit.test("First marker without line and label, inverted", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: true });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4200,7 +4092,7 @@ QUnit.test("Last marker without label", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4262,7 +4154,7 @@ QUnit.test("Last marker without label, inverted", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: true });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4324,7 +4216,7 @@ QUnit.test("Second marker is too wide, draw without label and line", function(as
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date2];
     this.generatedTickInterval = "hour";
@@ -4402,7 +4294,7 @@ QUnit.test("Second marker is too wide, draw without label and line, inverted", f
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: true, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: true });
 
     this.generatedTicks = [date0, date2];
     this.generatedTickInterval = "hour";
@@ -4478,7 +4370,7 @@ QUnit.test("T402810. Do not render markers if there is only one on start of scal
             }
         }
     });
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "day";
@@ -4524,7 +4416,7 @@ QUnit.test("T402810. Render 2 markers if there is only one in the middle of scal
             }
         }
     });
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "day";
@@ -4573,7 +4465,7 @@ QUnit.test("Draw date marker with customizeText", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4619,7 +4511,7 @@ QUnit.test("Do not draw date marker when axis type is discrete", function(assert
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4627,6 +4519,49 @@ QUnit.test("Do not draw date marker when axis type is discrete", function(assert
     this.translator.stub("translate").withArgs(date0).returns(10);
     this.translator.stub("translate").withArgs(date1).returns(50);
     this.translator.stub("translate").withArgs(date2).returns(90);
+
+    // act
+    this.axis.draw(this.canvas);
+
+    // assert
+    assert.notOk(this.renderer.text.called);
+    assert.notOk(this.renderer.path.called);
+});
+
+QUnit.test("Do not draw date marker if business range is empty", function(assert) {
+    // arrange
+    var date0 = new Date(2011, 5, 25, 23, 21, 33, 123),
+        date1 = new Date(2011, 5, 26, 1, 21, 33, 123),
+        date2 = new Date(2011, 5, 26, 2, 21, 33, 123);
+
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        argumentType: "datetime",
+        type: "continuous",
+        position: "bottom",
+        marker: {
+            visible: true,
+            separatorHeight: 33,
+            textLeftIndent: 5,
+            textTopIndent: 11,
+            topIndent: 10,
+            color: "black",
+            width: 2,
+            opacity: 0.1,
+            label: {
+                font: {
+                    size: 12,
+                    color: "green"
+                }
+            }
+        }
+    });
+
+    this.axis.setBusinessRange({ });
+
+    this.generatedTicks = [date0, date1, date2];
+    this.generatedTickInterval = "hour";
 
     // act
     this.axis.draw(this.canvas);
@@ -4666,7 +4601,7 @@ QUnit.test("Date marker with millisecond delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "millisecond";
@@ -4715,7 +4650,7 @@ QUnit.test("Date marker with second delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "second";
@@ -4763,7 +4698,7 @@ QUnit.test("Date marker with minute delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "minute";
@@ -4811,7 +4746,7 @@ QUnit.test("Date marker with hour delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "hour";
@@ -4859,7 +4794,7 @@ QUnit.test("Date marker with day delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "day";
@@ -4907,7 +4842,7 @@ QUnit.test("Date marker with week delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "week";
@@ -4956,7 +4891,7 @@ QUnit.test("Date marker with month delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "month";
@@ -5005,7 +4940,7 @@ QUnit.test("Date marker with quarter delta", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "quarter";
@@ -5053,7 +4988,7 @@ QUnit.test("Date marker with day delta and month boundary tick", function(assert
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "day";
@@ -5101,7 +5036,7 @@ QUnit.test("T448590. If tickInterval is 'year' and markers are visible set marke
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedTickInterval = "year";
@@ -5203,7 +5138,7 @@ QUnit.test("Horizontal bottom. With date markers, last marker without label", fu
     });
     this.axis.validate();
 
-    this.axis.setBusinessRange({ minVisible: date0, maxVisible: date2, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: date0, max: date2, invert: false });
 
     this.generatedTicks = [date0, date1, date2];
     this.generatedMinorTicks = [date0m, date1m];
@@ -5227,7 +5162,7 @@ QUnit.test("Horizontal bottom. With date markers, last marker without label", fu
         var idx = 0;
         return function() {
             return [
-                { x: 0, y: 0, width: 10, height: 10 },  // title
+                { x: 0, y: 0, width: 10, height: 10 }, // title
                 { x: 0, y: 0, width: 10, height: 10 }, // tick label
                 { x: 0, y: 0, width: 10, height: 11 }, // tick label
                 { x: 0, y: 0, width: 10, height: 12 }, // tick label
@@ -5335,7 +5270,7 @@ QUnit.test("Horizontal top", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5355,7 +5290,7 @@ QUnit.test("Horizontal top", function(assert) {
         var idx = 0;
         return function() {
             return [
-                { x: 0, y: 0, width: 10, height: 10 },  // title
+                { x: 0, y: 0, width: 10, height: 10 }, // title
                 { x: 0, y: 0, width: 10, height: 10 }, // tick label
                 { x: 0, y: 0, width: 10, height: 11 }, // tick label
                 { x: 0, y: 0, width: 10, height: 12 }, // tick label
@@ -5449,7 +5384,7 @@ QUnit.test("Vertical left", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5469,7 +5404,7 @@ QUnit.test("Vertical left", function(assert) {
         var idx = 0;
         return function() {
             return [
-                { x: 0, y: 0, width: 14, height: 10 },  // title
+                { x: 0, y: 0, width: 14, height: 10 }, // title
                 { x: 0, y: 0, width: 11, height: 10 }, // tick label
                 { x: 0, y: 0, width: 12, height: 10 }, // tick label
                 { x: 0, y: 0, width: 13, height: 10 }, // tick label
@@ -5563,7 +5498,7 @@ QUnit.test("Vertical right", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5583,7 +5518,7 @@ QUnit.test("Vertical right", function(assert) {
         var idx = 0;
         return function() {
             return [
-                { x: 0, y: 0, width: 14, height: 10 },  // title
+                { x: 0, y: 0, width: 14, height: 10 }, // title
                 { x: 0, y: 0, width: 11, height: 10 }, // tick label
                 { x: 0, y: 0, width: 12, height: 10 }, // tick label
                 { x: 0, y: 0, width: 13, height: 10 }, // tick label
@@ -5660,7 +5595,7 @@ QUnit.test("Horizontal. Constant line labels on both sides - labels on opposite 
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5753,7 +5688,7 @@ QUnit.test("Vertical. Constant line labels on both sides - labels on opposite do
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5846,7 +5781,7 @@ QUnit.test("Horizontal. All constant line labels on opposite side - do not produ
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 5, invert: false, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 5, invert: false });
 
     this.generatedTicks = [1, 3, 5];
     this.generatedMinorTicks = [2, 4];
@@ -5925,9 +5860,9 @@ QUnit.test("Horizontal. Major grids", function(assert) {
     assert.deepEqual(path.getCall(0).args, [[30, 30, 30, 70], "line"]);
     assert.deepEqual(path.getCall(1).args, [[50, 30, 50, 70], "line"]);
     assert.deepEqual(path.getCall(2).args, [[70, 30, 70, 70], "line"]);
-    assert.deepEqual(path.getCall(0).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(1).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(2).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
+    assert.deepEqual(path.getCall(0).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
 
     assert.deepEqual(path.getCall(0).returnValue.append.getCall(0).args[0], group);
     assert.deepEqual(path.getCall(1).returnValue.append.getCall(0).args[0], group);
@@ -5963,9 +5898,9 @@ QUnit.test("Horizontal. Minor grids", function(assert) {
     assert.deepEqual(path.getCall(0).args, [[30, 30, 30, 70], "line"]);
     assert.deepEqual(path.getCall(1).args, [[50, 30, 50, 70], "line"]);
     assert.deepEqual(path.getCall(2).args, [[70, 30, 70, 70], "line"]);
-    assert.deepEqual(path.getCall(0).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(1).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
-    assert.deepEqual(path.getCall(2).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3 });
+    assert.deepEqual(path.getCall(0).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.args[0][0], { stroke: "#123456", "stroke-width": 5, "stroke-opacity": 0.3, opacity: 1 });
 
     assert.deepEqual(path.getCall(0).returnValue.append.getCall(0).args[0], group);
     assert.deepEqual(path.getCall(1).returnValue.append.getCall(0).args[0], group);
@@ -6409,8 +6344,8 @@ QUnit.test("Horizontal axis. Full strips", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -6452,8 +6387,8 @@ QUnit.test("Vertical axis. Full strips", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(8).returns(35);
     this.translator.stub("translate").withArgs(5).returns(40);
@@ -6490,8 +6425,8 @@ QUnit.test("Horizontal axis. Strips without start/end value", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(4).returns(40);
     this.translator.stub("translate").withArgs(5).returns(50);
@@ -6526,8 +6461,8 @@ QUnit.test("Vertical axis. Strips without start/end value", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(4).returns(50);
     this.translator.stub("translate").withArgs(5).returns(40);
@@ -6562,8 +6497,8 @@ QUnit.test("Horizontal axis. Without color", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -6605,8 +6540,8 @@ QUnit.test("Horizontal axis. Some strips out of bounds, some strips partially ou
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(-3).returns(null);
     this.translator.stub("translate").withArgs(-2).returns(null);
@@ -6654,8 +6589,8 @@ QUnit.test("Vertical axis. Some strips out of bounds, some strips partially out 
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(-3).returns(null);
     this.translator.stub("translate").withArgs(-2).returns(null);
@@ -6691,8 +6626,8 @@ QUnit.test("Horizontal axis. End value > start value", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -6721,8 +6656,8 @@ QUnit.test("Vertical axis. End value > start value", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -6867,11 +6802,7 @@ QUnit.test("Stub data - do not create strips", function(assert) {
         }]
     });
 
-    this.axis.setBusinessRange({
-        stubData: true,
-        minVisible: 0,
-        maxVisible: 10
-    });
+    this.axis.setBusinessRange({});
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
     this.axis.parser = function(value) {
@@ -6930,8 +6861,8 @@ QUnit.test("Styles and attributes", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -6999,8 +6930,8 @@ QUnit.test("Horizontal axis. Horizontal alignment - center, Vertical alignment -
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -7065,8 +6996,8 @@ QUnit.test("Horizontal axis. Horizontal alignment - center, Vertical alignment -
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -7131,8 +7062,8 @@ QUnit.test("Horizontal axis. Horizontal alignment - center, Vertical alignment -
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -7197,8 +7128,8 @@ QUnit.test("Horizontal axis. Horizontal alignment - left", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -7263,8 +7194,8 @@ QUnit.test("Horizontal axis. Horizontal alignment - right", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(20);
     this.translator.stub("translate").withArgs(4).returns(40);
@@ -7329,8 +7260,8 @@ QUnit.test("Vertical axis. Vertical alignment - center, Horizontal alignment - l
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(45);
@@ -7395,8 +7326,8 @@ QUnit.test("Vertical axis. Vertical alignment - center, Horizontal alignment - c
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(45);
@@ -7461,8 +7392,8 @@ QUnit.test("Vertical axis. Vertical alignment - center, Horizontal alignment - r
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(45);
@@ -7527,8 +7458,8 @@ QUnit.test("Vertical axis. Vertical alignment - top", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(45);
@@ -7593,8 +7524,8 @@ QUnit.test("Vertical axis. Vertical alignment - bottom", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(35);
     this.translator.stub("translate").withArgs(4).returns(45);
@@ -7656,8 +7587,8 @@ QUnit.test("T441890. First strip is small and without label, second without labe
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 100
+        min: 0,
+        max: 100
     });
 
     this.translator.stub("translate").withArgs(0).returns(30);
@@ -8205,7 +8136,7 @@ QUnit.test("Axis has labels - hideOuterElements removes labels and throws incide
             text: "text"
         },
         label: {
-            visible: true, overlappingBehavior: {}
+            visible: true
         }
     });
     this.axis.draw(this.canvas);
@@ -8229,7 +8160,7 @@ QUnit.test("Axis has outside constantLines - hideOuterElements removes only outs
     this.createAxis({ incidentOccurred: spy });
     this.updateOptions({
         label: {
-            visible: false, overlappingBehavior: {}
+            visible: false
         },
         constantLines: [{
             value: 0,
@@ -8290,7 +8221,7 @@ QUnit.test("Axis has no visible labels nor outside constantLines - hideOuterElem
             text: "text",
         },
         label: {
-            visible: false, overlappingBehavior: {}
+            visible: false
         },
         constantLines: [{
             value: 0,
@@ -8313,7 +8244,7 @@ QUnit.test("Axis has no visible labels nor outside constantLines - hideOuterElem
     assert.ok(!spy.called, "incidentOccurred is not called");
 });
 
-QUnit.test("Axis has stubData - hideOuterElements does nothing", function(assert) {
+QUnit.test("Axis with empty range - hideOuterElements does nothing", function(assert) {
     var spy = sinon.spy();
 
     this.createAxis({ incidentOccurred: spy });
@@ -8323,10 +8254,10 @@ QUnit.test("Axis has stubData - hideOuterElements does nothing", function(assert
             text: "text"
         },
         label: {
-            visible: true, overlappingBehavior: {}
+            visible: true
         }
     });
-    this.axis.setBusinessRange({ stubData: true });
+    this.axis.setBusinessRange({ });
     this.axis.draw(this.canvas);
     this.renderer.g.getCall(3).returnValue.clear.reset();
 
@@ -8387,9 +8318,9 @@ QUnit.test("Update tick mark points", function(assert) {
 
     var path = this.renderer.path;
     assert.deepEqual(this.axis._majorTicks.length, 3);
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30 - 5, 30, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30 - 5, 50, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30 - 5, 70, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30 - 5, 30, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30 - 5, 50, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Update minor tick mark points", function(assert) {
@@ -8420,9 +8351,9 @@ QUnit.test("Update minor tick mark points", function(assert) {
 
     var path = this.renderer.path;
     assert.deepEqual(this.axis._minorTicks.length, 3);
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30 - 5, 30, 30 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30 - 5, 50, 30 + 5] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30 - 5, 70, 30 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30 - 5, 30, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30 - 5, 50, 30 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });
 
 QUnit.test("Update boundary tick mark points", function(assert) {
@@ -8441,7 +8372,7 @@ QUnit.test("Update boundary tick mark points", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 3, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 3 });
 
     this.axis.draw(this.zeroMarginCanvas);
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -8451,8 +8382,8 @@ QUnit.test("Update boundary tick mark points", function(assert) {
     this.axis.updateSize(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 70 - 5, 30, 70 + 5] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [70, 70 - 5, 70, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [70, 70 - 5, 70, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("Update boundary invalid tick mark points", function(assert) {
@@ -8471,7 +8402,7 @@ QUnit.test("Update boundary invalid tick mark points", function(assert) {
         }
     });
 
-    this.axis.setBusinessRange({ minVisible: 1, maxVisible: 4, addRange: function() { } });
+    this.axis.setBusinessRange({ min: 1, max: 4 });
 
     this.axis.draw(this.zeroMarginCanvas);
     this.translator.stub("translate").withArgs(1).returns(30);
@@ -8482,7 +8413,7 @@ QUnit.test("Update boundary invalid tick mark points", function(assert) {
 
     var path = this.renderer.path;
     assert.deepEqual(this.axis._boundaryTicks.length, 1);
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 70 - 5, 30, 70 + 5] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 70 - 5, 30, 70 + 5], opacity: 1 });
 });
 
 QUnit.test("Update tick label coords", function(assert) {
@@ -8784,7 +8715,7 @@ QUnit.test("Vertical. Title fit to canvas - do not apply Ellipsis nor set hint",
     assert.equal(title.restoreText.callCount, 1);
 });
 
-QUnit.test("Update grid points", function(assert) {
+QUnit.test("Do not draw grid outside canvas", function(assert) {
     // arrange
     this.createAxis();
     this.updateOptions({
@@ -8801,23 +8732,15 @@ QUnit.test("Update grid points", function(assert) {
     this.generatedTicks = [1, 2, 3];
 
     this.translator.stub("translate").withArgs(1).returns(0);
-    this.translator.stub("translate").withArgs(2).returns(10);
-    this.translator.stub("translate").withArgs(3).returns(20);
-    this.axis.draw(this.zeroMarginCanvas);
-    this.translator.stub("translate").withArgs(1).returns(30);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(70);
-
-    // act
-    this.axis.updateSize(this.canvas);
+    this.translator.stub("translate").withArgs(2).returns(55);
+    this.translator.stub("translate").withArgs(3).returns(60);
+    this.axis.draw(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30, 30, 70] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30, 50, 70] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30, 70, 70] });
+    assert.equal(path.callCount, 2);
 });
 
-QUnit.test("Update grid points, but distance between grids and borders less than 4px - update all grids", function(assert) {
+QUnit.test("Update grid points", function(assert) {
     // arrange
     this.createAxis();
     this.updateOptions({
@@ -8833,21 +8756,71 @@ QUnit.test("Update grid points, but distance between grids and borders less than
 
     this.generatedTicks = [1, 2, 3];
 
-    this.translator.stub("translate").withArgs(1).returns(4);
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(55);
+    this.translator.stub("translate").withArgs(3).returns(60);
+    this.axis.draw(this.zeroMarginCanvas);
+    this.translator.stub("translate").withArgs(1).returns(30);
     this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(106);
-    this.axis.draw(this.zeroMarginCanvas, { visible: true, left: true, right: true });
-    this.translator.stub("translate").withArgs(1).returns(12);
-    this.translator.stub("translate").withArgs(2).returns(50);
-    this.translator.stub("translate").withArgs(3).returns(88);
+    this.translator.stub("translate").withArgs(3).returns(70);
 
     // act
     this.axis.updateSize(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [12, 30, 12, 70] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30, 50, 70] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [88, 30, 88, 70] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30, 30, 70], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30, 50, 70], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30, 70, 70], opacity: 1 });
+});
+
+QUnit.test("Update grid points, but distance between grids and borders less than 4px - remove grids", function(assert) {
+    // arrange
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        grid: {
+            visible: true,
+            color: "#123456",
+            opacity: 0.3,
+            width: 5
+        }
+    });
+
+    this.generatedTicks = [1, 2, 3];
+
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(55);
+    this.translator.stub("translate").withArgs(3).returns(60);
+    this.axis.draw(this.zeroMarginCanvas, { visible: true, left: true, right: true });
+    this.translator.stub("translate").withArgs(1).returns(12);
+    this.translator.stub("translate").withArgs(2).returns(50);
+    this.translator.stub("translate").withArgs(3).returns(88);
+
+    const path = this.renderer.path;
+    const grid1 = path.getCall(0).returnValue;
+    const grid2 = path.getCall(1).returnValue;
+    const grid3 = path.getCall(2).returnValue;
+
+    grid1.attr.reset();
+    grid2.attr.reset();
+    grid3.attr.reset();
+
+    grid1.stub("remove").reset();
+    grid2.stub("remove").reset();
+    grid3.stub("remove").reset();
+
+    // act
+    this.axis.updateSize(this.canvas);
+
+
+    assert.equal(grid1.attr.callCount, 0);
+    assert.deepEqual(grid2.attr.lastCall.args[0], { points: [50, 30, 50, 70], opacity: 1 });
+    assert.equal(grid3.attr.callCount, 0);
+
+    assert.equal(grid1.remove.callCount, 1);
+    assert.deepEqual(grid2.remove.callCount, 0);
+    assert.equal(grid3.remove.callCount, 1);
 });
 
 QUnit.test("Update minor grid points", function(assert) {
@@ -8866,9 +8839,9 @@ QUnit.test("Update minor grid points", function(assert) {
 
     this.generatedMinorTicks = [1, 2, 3];
 
-    this.translator.stub("translate").withArgs(1).returns(0);
-    this.translator.stub("translate").withArgs(2).returns(10);
-    this.translator.stub("translate").withArgs(3).returns(20);
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(55);
+    this.translator.stub("translate").withArgs(3).returns(60);
     this.axis.draw(this.zeroMarginCanvas);
     this.translator.stub("translate").withArgs(1).returns(30);
     this.translator.stub("translate").withArgs(2).returns(50);
@@ -8878,9 +8851,9 @@ QUnit.test("Update minor grid points", function(assert) {
     this.axis.updateSize(this.canvas);
 
     var path = this.renderer.path;
-    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30, 30, 70] });
-    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30, 50, 70] });
-    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30, 70, 70] });
+    assert.deepEqual(path.getCall(0).returnValue.attr.lastCall.args[0], { points: [30, 30, 30, 70], opacity: 1 });
+    assert.deepEqual(path.getCall(1).returnValue.attr.lastCall.args[0], { points: [50, 30, 50, 70], opacity: 1 });
+    assert.deepEqual(path.getCall(2).returnValue.attr.lastCall.args[0], { points: [70, 30, 70, 70], opacity: 1 });
 });
 
 QUnit.test("Update strip coords", function(assert) {
@@ -8901,8 +8874,8 @@ QUnit.test("Update strip coords", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(1);
     this.translator.stub("translate").withArgs(4).returns(2);
@@ -8957,8 +8930,8 @@ QUnit.test("Update strip labels coords", function(assert) {
     });
 
     this.axis.setBusinessRange({
-        minVisible: 0,
-        maxVisible: 10
+        min: 0,
+        max: 10
     });
     this.translator.stub("translate").withArgs(2).returns(1);
     this.translator.stub("translate").withArgs(4).returns(2);
@@ -9466,7 +9439,9 @@ QUnit.test("The scale break shouldn't created if break is out of the range", fun
 
 QUnit.test("Datetime. Drawing user breaks with generated workday breaks. Should drawn only user scale break", function(assert) {
     this.createAxis({ scaleBreaksGroup: this.renderer.g() });
-    this.updateOptions({
+    this.axis.updateOptions({
+        label: {
+        },
         isHorizontal: false,
         isArgumentAxis: true,
         containerColor: "#ffffff",
@@ -9480,6 +9455,7 @@ QUnit.test("Datetime. Drawing user breaks with generated workday breaks. Should 
             width: 10
         }
     });
+    this.axis.validate();
     this.axis.setBusinessRange({ min: new Date(2017, 10, 6), max: new Date(2017, 10, 15) });
     this.axis.draw(this.zeroMarginCanvas);
 
@@ -9545,4 +9521,1392 @@ QUnit.test("Do not draw addition break line if axis line is not visible", functi
     assert.deepEqual(this.renderer.path.getCall(0).args[0], [10, 21, 90, 21]);
     assert.deepEqual(this.renderer.path.getCall(1).args[0], [10, 20, 90, 20]);
     assert.deepEqual(this.renderer.path.getCall(2).args[0], [10, 22, 90, 22]);
+});
+
+QUnit.module("XY axis animation", environment);
+
+QUnit.test("Do not animate tick mark on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 0);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [40, 27, 40, 33],
+        opacity: 1
+    });
+});
+
+QUnit.test("Animate tick to the new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 1);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [40, 27, 40, 33]
+    });
+
+    assert.deepEqual(tick.animate.lastCall.args[0], {
+        points: [50, 27, 50, 33],
+        opacity: 1
+    });
+});
+
+QUnit.test("Fade in new tick on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedTicks = [1, 2];
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 2);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 1);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [70, 27, 70, 33],
+        opacity: 0
+    });
+
+    assert.deepEqual(tick.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade out unnecessary tick", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    const tick = renderer.path.lastCall.returnValue;
+
+    // act
+    this.generatedTicks = [];
+    tick.append.reset();
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+
+    assert.equal(tick.stub("animate").callCount, 1);
+
+    assert.deepEqual(tick.append.callCount, 1);
+    assert.equal(tick.append.lastCall.args[0], this.axis._axisLineGroup);
+    assert.deepEqual(tick.animate.lastCall.args, [{ opacity: 0 }, { partitionDuration: 0.5 }]);
+});
+
+QUnit.test("Do not animate grid line on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        grid: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const gridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(gridLine.stub("animate").callCount, 0);
+    assert.deepEqual(gridLine.attr.lastCall.args[0], {
+        points: [40, 30, 40, 70],
+        opacity: 1
+    });
+});
+
+QUnit.test("Animate grid line to the new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        grid: {
+            visible: true,
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const gridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(gridLine.stub("animate").callCount, 1);
+    assert.deepEqual(gridLine.attr.lastCall.args[0], {
+        points: [40, 30, 40, 70]
+    });
+
+    assert.deepEqual(gridLine.animate.lastCall.args[0], {
+        points: [50, 30, 50, 70],
+        opacity: 1
+    });
+});
+
+QUnit.test("Fade-in new grid line on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        grid: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedTicks = [1, 2];
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 2);
+    const gridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(gridLine.stub("animate").callCount, 1);
+    assert.deepEqual(gridLine.attr.lastCall.args[0], {
+        points: [70, 30, 70, 70],
+        opacity: 0
+    });
+
+    assert.deepEqual(gridLine.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade-in grid line if distance was less then 4px from border, now greater then 4px", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        grid: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(3);
+
+    this.axis.draw(this.zeroMarginCanvas, { visible: true, left: true, right: true, top: true, bottom: true });
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const gridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(gridLine.stub("animate").callCount, 1);
+    assert.deepEqual(gridLine.attr.lastCall.args[0], {
+        points: [70, 30, 70, 70],
+        opacity: 0
+    });
+
+    assert.deepEqual(gridLine.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade out unnecessary grid line", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        grid: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    const gridLine = renderer.path.lastCall.returnValue;
+
+    // act
+    this.generatedTicks = [];
+    gridLine.append.reset();
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+
+    assert.equal(gridLine.stub("animate").callCount, 1);
+
+    assert.deepEqual(gridLine.append.callCount, 1);
+    assert.equal(gridLine.append.lastCall.args[0], this.axis._axisGridGroup);
+    assert.deepEqual(gridLine.animate.lastCall.args, [{ opacity: 0 }, { partitionDuration: 0.5 }]);
+});
+
+QUnit.test("Do not animate label on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.text.callCount, 1);
+    const label = renderer.text.lastCall.returnValue;
+
+    assert.equal(label.stub("animate").callCount, 0);
+    assert.deepEqual(label.attr.lastCall.args[0], {
+        x: 40,
+        y: 30
+    });
+});
+
+QUnit.test("Animate label to the new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true,
+            opacity: 0.8
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    const label = renderer.text.lastCall.returnValue;
+    label.append.reset();
+    label.attr.reset();
+    // act
+    this.translator.stub("translate").withArgs(1).returns(45);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.text.callCount, 1);
+
+    assert.deepEqual(label.attr.firstCall.args[0], { text: "1", rotate: 0 });
+
+    assert.deepEqual(label.attr.secondCall.args[0], {
+        x: 45,
+        y: 0
+    });
+
+    assert.equal(label.append.callCount, 1);
+    assert.equal(label.append.lastCall.args[0], this.axis._axisElementsGroup);
+
+    assert.equal(label.stub("animate").callCount, 1);
+    assert.deepEqual(label.attr.lastCall.args[0], {
+        x: 40,
+        y: 30
+    }, "from positioin");
+
+    assert.deepEqual(label.animate.lastCall.args[0], {
+        x: 50,
+        y: 30
+    });
+});
+
+QUnit.test("Fade in new label on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true,
+            opacity: 0.8
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedTicks = [1, 2];
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.text.callCount, 2);
+    const label = renderer.text.lastCall.returnValue;
+
+    assert.equal(label.stub("animate").callCount, 0);
+    assert.deepEqual(label.attr.lastCall.args[0], {
+        x: 70,
+        y: 30
+    });
+
+    const parent = label.parent;
+
+    assert.equal(parent.stub("animate").callCount, 1);
+
+    assert.equal(parent.parent, this.axis._axisElementsGroup);
+
+    assert.deepEqual(parent.attr.lastCall.args, [{
+        opacity: 0
+    }]);
+    assert.deepEqual(parent.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade out unnecessary label", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    const label = renderer.text.lastCall.returnValue;
+
+    // act
+    this.generatedTicks = [];
+    label.append.reset();
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.text.callCount, 1);
+
+    const parent = label.parent;
+
+    assert.equal(parent.stub("animate").callCount, 1);
+
+    assert.equal(parent.parent, this.axis._axisElementsGroup);
+
+    assert.deepEqual(parent.attr.lastCall.args, [{
+        opacity: 1
+    }]);
+    assert.deepEqual(parent.animate.lastCall.args, [{
+        opacity: 0
+    }, {
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Do not animate axis if animation is disabled", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        },
+        grid: {
+            visible: true
+        },
+        tick: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, false);
+
+    // act
+    this.generatedTicks = [1];
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, false);
+    // assert
+    const label = renderer.text.lastCall.returnValue;
+    assert.equal(label.stub("animate").callCount, 0);
+    const gridLine = renderer.path.lastCall.returnValue;
+    assert.equal(gridLine.stub("animate").callCount, 0);
+    const tick = renderer.path.lastCall.returnValue;
+    assert.equal(tick.stub("animate").callCount, 0);
+});
+
+QUnit.test("Do not animate axis if animation is disabled. Remove tick", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        },
+        grid: {
+            visible: true
+        },
+        tick: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, false);
+
+    // act
+    this.generatedTicks = [];
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, false);
+    // assert
+    const label = renderer.text.lastCall.returnValue;
+    assert.equal(label.stub("animate").callCount, 0);
+    const gridLine = renderer.path.lastCall.returnValue;
+    assert.equal(gridLine.stub("animate").callCount, 0);
+    const tick = renderer.path.lastCall.returnValue;
+    assert.equal(tick.stub("animate").callCount, 0);
+});
+
+QUnit.test("Do not animate minor tick mark on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorTick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 0);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [40, 27, 40, 33],
+        opacity: 1
+    });
+});
+
+QUnit.test("Animate minor Tick to the new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorTick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedMinorTicks = [2];
+    this.translator.stub("translate").withArgs(2).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 1);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [40, 27, 40, 33]
+    });
+
+    assert.deepEqual(tick.animate.lastCall.args[0], {
+        points: [50, 27, 50, 33],
+        opacity: 1
+    }, "animate attrs");
+});
+
+QUnit.test("Fade in new minor tick on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorTick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedMinorTicks = [1, 2];
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 2);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 1);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [70, 27, 70, 33],
+        opacity: 0
+    });
+
+    assert.deepEqual(tick.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade out unnecessary minor tick", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorTick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    const tick = renderer.path.lastCall.returnValue;
+
+    // act
+    this.generatedMinorTicks = [];
+    tick.append.reset();
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+
+    assert.equal(tick.stub("animate").callCount, 1);
+
+    assert.deepEqual(tick.append.callCount, 1);
+    assert.equal(tick.append.lastCall.args[0], this.axis._axisLineGroup);
+    assert.deepEqual(tick.animate.lastCall.args, [{ opacity: 0 }, { partitionDuration: 0.5 }]);
+});
+
+QUnit.test("Do not animate minor grid line on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorGrid: {
+            visible: true
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const minorGridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(minorGridLine.stub("animate").callCount, 0);
+    assert.deepEqual(minorGridLine.attr.lastCall.args[0], {
+        points: [40, 30, 40, 70],
+        opacity: 1
+    });
+});
+
+QUnit.test("Animate minor grid line to the new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorGrid: {
+            visible: true
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedMinorTicks = [2];
+    this.translator.stub("translate").withArgs(2).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const minorGridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(minorGridLine.stub("animate").callCount, 1);
+    assert.deepEqual(minorGridLine.attr.lastCall.args[0], {
+        points: [40, 30, 40, 70]
+    });
+
+    assert.deepEqual(minorGridLine.animate.lastCall.args[0], {
+        points: [50, 30, 50, 70],
+        opacity: 1
+    });
+});
+
+QUnit.test("Fade in new grid line on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorGrid: {
+            visible: true
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.generatedMinorTicks = [1, 2];
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.translator.stub("translate").withArgs(2).returns(70);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 2);
+    const minorGridLine = renderer.path.lastCall.returnValue;
+
+    assert.equal(minorGridLine.stub("animate").callCount, 1);
+    assert.deepEqual(minorGridLine.attr.lastCall.args[0], {
+        points: [70, 30, 70, 70],
+        opacity: 0
+    });
+
+    assert.deepEqual(minorGridLine.animate.lastCall.args, [{
+        opacity: 1
+    }, {
+        delay: 0.5,
+        partitionDuration: 0.5
+    }]);
+});
+
+QUnit.test("Fade out unnecessary minor grid line", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        minorGrid: {
+            visible: true
+        }
+    });
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    const minorGridLine = renderer.path.lastCall.returnValue;
+
+    // act
+    this.generatedMinorTicks = [];
+    minorGridLine.append.reset();
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+
+    assert.equal(minorGridLine.stub("animate").callCount, 1);
+
+    assert.deepEqual(minorGridLine.append.callCount, 1);
+    assert.equal(minorGridLine.append.lastCall.args[0], this.axis._axisGridGroup);
+    assert.deepEqual(minorGridLine.animate.lastCall.args, [{ opacity: 0 }, { partitionDuration: 0.5 }]);
+});
+
+QUnit.test("Draw tick mark and grid line in new position", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        },
+        grid: {
+            visible: true
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(50);
+
+    this.axis.draw(this.canvas);
+
+    // assert
+    const tick = renderer.path.firstCall.returnValue;
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [50, 27, 50, 33],
+        opacity: 1
+    });
+
+    const gridLine = renderer.path.lastCall.returnValue;
+    assert.deepEqual(gridLine.attr.lastCall.args[0], {
+        points: [50, 30, 50, 70],
+        opacity: 1
+    });
+});
+
+QUnit.test("Do not animate constant line on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        constantLines: [{
+            value: 1,
+            label: {
+                position: "inside",
+                visible: true
+            }
+        }]
+    });
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+    const line = renderer.path.lastCall.returnValue;
+    const text = renderer.text.lastCall.returnValue;
+
+    assert.equal(line.stub("animate").callCount, 0);
+    assert.equal(text.stub("animate").callCount, 0);
+});
+
+QUnit.test("Animate constant line on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        constantLines: [{
+            value: 1,
+            label: {
+                position: "inside",
+                visible: true
+            }
+        }]
+    });
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(50);
+    this.axis.draw(this.zeroMarginCanvas);
+    const line = renderer.path.lastCall.returnValue;
+    const text = renderer.text.lastCall.returnValue;
+
+    line.attr.reset();
+    text.attr.reset();
+
+    this.translator.stub("translate").withArgs(1).returns(60);
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(line.stub("animate").callCount, 1);
+    assert.equal(text.stub("animate").callCount, 1);
+
+    assert.deepEqual(line.attr.lastCall.args, [{
+        points: [40, 30, 40, 70]
+    }]);
+    assert.deepEqual(line.animate.lastCall.args, [{
+        points: [60, 30, 60, 70]
+    }]);
+
+    assert.deepEqual(text.attr.lastCall.args, [{
+        x: 40,
+        y: 30
+    }]);
+    assert.deepEqual(text.animate.lastCall.args, [{
+        x: 60,
+        y: 30
+    }]);
+});
+
+QUnit.test("Do not animate constant line if it position go out from canvas", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        constantLines: [{
+            value: 1,
+            label: {
+                position: "inside",
+                visible: true
+            }
+        }]
+    });
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(null);
+    this.axis.draw(this.zeroMarginCanvas);
+    const line = renderer.path.lastCall.returnValue;
+    const text = renderer.text.lastCall.returnValue;
+
+    line.attr.reset();
+    text.attr.reset();
+
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(line.stub("animate").callCount, 0);
+    assert.equal(text.stub("animate").callCount, 0);
+
+    assert.equal(line.attr.callCount, 0);
+    assert.equal(text.attr.callCount, 0);
+});
+
+QUnit.test("Do not animate strip on first drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        strips: [{
+            color: "lightgray",
+            startValue: 1,
+            endValue: 4,
+            label: {
+                text: "text"
+            }
+        }]
+    });
+    this.translator.stub("translate").withArgs(1).returns(40);
+    this.translator.stub("translate").withArgs(4).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+
+    // act
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    const rect = renderer.rect.lastCall.returnValue;
+    const text = renderer.text.lastCall.returnValue;
+
+    assert.equal(rect.stub("animate").callCount, 0);
+    assert.equal(text.stub("animate").callCount, 0);
+});
+
+QUnit.test("Animate strip to new position on second drawing", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        strips: [{
+            color: "lightgray",
+            startValue: 1,
+            endValue: 4,
+            label: {
+                text: "text",
+                horizontalAlignment: "left"
+            }
+        }]
+    });
+    this.translator.stub("translate").withArgs(1).returns(40);
+    this.translator.stub("translate").withArgs(4).returns(50);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.zeroMarginCanvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(60);
+    this.translator.stub("translate").withArgs(4).returns(80);
+    this.axis.draw(this.zeroMarginCanvas);
+    const rect = renderer.rect.lastCall.returnValue;
+    const text = renderer.text.lastCall.returnValue;
+
+    rect.attr.reset();
+    text.attr.reset();
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.deepEqual(rect.attr.lastCall.args, [{
+        x: 40,
+        y: 30,
+        width: 10,
+        height: 40
+    }]);
+
+    assert.deepEqual(text.attr.lastCall.args, [{
+        x: 40,
+        y: 30
+    }]);
+
+    assert.deepEqual(rect.animate.lastCall.args, [{
+        x: 60,
+        y: 30,
+        width: 20,
+        height: 40
+    }]);
+    assert.deepEqual(text.animate.lastCall.args, [{
+        x: 60,
+        y: 30
+    }]);
+});
+
+QUnit.test("Draw label after stub data", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true,
+            opacity: 1
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(10);
+    this.axis.setBusinessRange({});
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.axis.setBusinessRange({ min: 0, max: 30 });
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    const text = renderer.text.lastCall.returnValue;
+    assert.deepEqual(text.attr.lastCall.args, [{
+        x: 10,
+        y: 30
+    }]);
+});
+
+QUnit.test("Recreate ticks on update option", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: false,
+            opacity: 1
+        }
+    });
+    this.generatedTicks = [1];
+    this.generatedMinorTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(10);
+    this.axis.draw(this.zeroMarginCanvas);
+
+    this.axis.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        },
+        minorGrid: {
+            visible: true
+        }
+    });
+
+    // act
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    const text = renderer.text.lastCall.returnValue;
+    assert.deepEqual(text.attr.lastCall.args, [{
+        x: 10,
+        y: 30
+    }]);
+    assert.equal(text.stub("animate").callCount, 0);
+
+    const minorGrid = renderer.path.lastCall.returnValue;
+    assert.deepEqual(minorGrid.attr.lastCall.args, [{
+        points: [10, 30, 10, 70],
+        opacity: 1
+    }]);
+    assert.equal(minorGrid.stub("animate").callCount, 0);
+});
+
+QUnit.test("Hidden constant line label doesn't reflect on the layout", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        label: {
+            visible: true
+        },
+        constantLines: [{
+            value: 1,
+            paddingTopBottom: 10,
+            label: {
+                position: "outside",
+                visible: true
+            }
+        }]
+    });
+    this.generatedTicks = [2];
+
+    this.translator.stub("translate").withArgs(1).returns(40);
+    this.translator.stub("translate").withArgs(2).returns(60);
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+
+    // act
+    this.translator.stub("translate").withArgs(1).returns(null);
+    const constantLineLabel = renderer.text.secondCall.returnValue;
+
+    constantLineLabel.getBBox = () => {
+        return { width: 0, height: 0, x: 0, y: 0, isEmpty: true };
+    };
+    this.axis.draw(this.zeroMarginCanvas);
+    // assert
+
+    const axisLabel = renderer.text.firstCall.returnValue;
+
+    assert.deepEqual(axisLabel.attr.lastCall.args[0], {
+        translateX: 49,
+        translateY: -22
+    });
+});
+
+QUnit.test("Do not animate on second drawing if on first one stub data was rendered", function(assert) {
+    // arrange
+    var renderer = this.renderer;
+    this.createAxis();
+    this.updateOptions({
+        isHorizontal: true,
+        position: "top",
+        visible: false,
+        tick: {
+            visible: true,
+            length: 6
+        }
+    });
+    this.generatedTicks = [1];
+    this.translator.stub("translate").withArgs(1).returns(40);
+
+    this.axis.setBusinessRange({});
+
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // act
+    this.axis.setBusinessRange({
+        min: 0,
+        max: 100
+    });
+    this.axis.draw(this.zeroMarginCanvas);
+    this.axis.updateSize(this.canvas, true);
+    // assert
+
+    assert.equal(renderer.path.callCount, 1);
+    const tick = renderer.path.lastCall.returnValue;
+
+    assert.equal(tick.stub("animate").callCount, 0);
+    assert.deepEqual(tick.attr.lastCall.args[0], {
+        points: [40, 27, 40, 33],
+        opacity: 1
+    });
+});
+
+
+QUnit.test("Update skikipped categories on second drawing", function(assert) {
+    // arrange
+    const categories = ["a", "b", "c", "d"];
+    const startCategories = categories.slice(0, 3);
+    this.createAxis();
+    this.updateOptions({
+        type: "discrete",
+        isHorizontal: true,
+        position: "top",
+        categories: startCategories,
+        discreteAxisDivisionMode: "betweenLabels",
+        tick: {
+            visible: true,
+            color: "#123456",
+            opacity: 0.3,
+            width: 5,
+            length: 10
+        }
+    });
+
+    this.generatedTicks = startCategories;
+
+    categories.forEach(function(cat, i) {
+        this.translator.stub("translate").withArgs(cat).returns(10 + (i + 1) * 20);
+    }.bind(this));
+
+    this.axis.draw(this.canvas);
+    this.renderer.path.reset();
+
+    // act
+    this.generatedTicks = categories;
+    this.axis.setBusinessRange({ categories: categories });
+    this.axis.draw(this.canvas);
+
+    var path = this.renderer.path;
+    assert.equal(path.callCount, 1);
+    assert.deepEqual(path.getCall(0).returnValue.attr.getCall(1).args[0], { points: [70, 30 - 5, 70, 30 + 5], opacity: 1 });
 });

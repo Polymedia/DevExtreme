@@ -1,18 +1,13 @@
-"use strict";
-
+import $ from "../../core/renderer";
 import { isDefined } from "../../core/utils/type";
-
-var $ = require("../../core/renderer"),
-    modules = require("./ui.grid_core.modules"),
-    gridUtils = require("./ui.grid_core.utils"),
-    eventsEngine = require("../../events/core/events_engine"),
-    messageLocalization = require("../../localization/message"),
-    CheckBox = require("../check_box"),
-    utils = require("../filter_builder/utils"),
-    deferredUtils = require("../../core/utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred,
-    inflector = require("../../core/utils/inflector");
+import modules from "./ui.grid_core.modules";
+import gridUtils from "./ui.grid_core.utils";
+import eventsEngine from "../../events/core/events_engine";
+import messageLocalization from "../../localization/message";
+import CheckBox from "../check_box";
+import utils from "../filter_builder/utils";
+import { when, Deferred } from "../../core/utils/deferred";
+import inflector from "../../core/utils/inflector";
 
 var FILTER_PANEL_CLASS = "filter-panel",
     FILTER_PANEL_TEXT_CLASS = FILTER_PANEL_CLASS + "-text",
@@ -143,6 +138,30 @@ var FilterPanelView = modules.View.inherit({
         return result;
     },
 
+    _getValueMaskedText: function(value) {
+        return Array.isArray(value) ? `('${value.join("', '")}')` : ` '${value}'`;
+    },
+
+    _getValueText: function(field, customOperation, value) {
+        const deferred = new Deferred(),
+            hasCustomOperation = customOperation && customOperation.customizeText;
+        if(isDefined(value) || hasCustomOperation) {
+            if(!hasCustomOperation && field.lookup) {
+                utils.getCurrentLookupValueText(field, value, data => {
+                    deferred.resolve(this._getValueMaskedText(data));
+                });
+            } else {
+                let displayValue = Array.isArray(value) ? value : gridUtils.getDisplayValue(field, value);
+                when(utils.getCurrentValueText(field, displayValue, customOperation, FILTER_PANEL_TARGET)).done(data => {
+                    deferred.resolve(this._getValueMaskedText(data));
+                });
+            }
+        } else {
+            deferred.resolve("");
+        }
+        return deferred.promise();
+    },
+
     getConditionText: function(filterValue, options) {
         var that = this,
             operation = filterValue[1],
@@ -150,7 +169,7 @@ var FilterPanelView = modules.View.inherit({
             customOperation = utils.getCustomOperation(options.customOperations, operation),
             operationText,
             field = utils.getField(filterValue[0], options.columns),
-            fieldText = field.caption,
+            fieldText = field.caption || "",
             value = filterValue[2];
 
         if(customOperation) {
@@ -160,16 +179,9 @@ var FilterPanelView = modules.View.inherit({
         } else {
             operationText = utils.getCaptionByOperation(operation, options.filterOperationDescriptions);
         }
-
-        if(isDefined(value) || (customOperation && customOperation.customizeText)) {
-            let displayValue = gridUtils.getDisplayValue(field, value);
-            when(utils.getCurrentValueText(field, displayValue, customOperation, FILTER_PANEL_TARGET)).done(data => {
-                let valueText = Array.isArray(data) ? `('${data.join("', '")}')` : ` '${data}'`;
-                deferred.resolve(that._getConditionText(fieldText, operationText, valueText));
-            });
-        } else {
-            deferred.resolve(that._getConditionText(fieldText, operationText));
-        }
+        this._getValueText(field, customOperation, value).done((valueText) => {
+            deferred.resolve(that._getConditionText(fieldText, operationText, valueText));
+        });
         return deferred;
     },
 
@@ -235,6 +247,7 @@ module.exports = {
                  * @name GridBaseOptions.filterPanel.filterEnabled
                  * @type boolean
                  * @default true
+                 * @fires GridBaseOptions.onOptionChanged
                  */
                 filterEnabled: true,
 
@@ -242,7 +255,7 @@ module.exports = {
                  * @name GridBaseOptions.filterPanel.customizeText
                  * @type function
                  * @type_function_param1 e:object
-                 * @type_function_param1_field1 component:Component
+                 * @type_function_param1_field1 component:this
                  * @type_function_param1_field2 filterValue:object
                  * @type_function_param1_field3 text:string
                  * @type_function_return string

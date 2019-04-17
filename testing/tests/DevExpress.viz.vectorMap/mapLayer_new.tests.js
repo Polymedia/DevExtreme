@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     vizMocks = require("../../helpers/vizMocks.js"),
     loadingIndicatorModule = require("viz/core/loading_indicator"),
@@ -171,8 +169,8 @@ QUnit.test("Areas (simple data source)", function(assert) {
             },
             {
                 coordinates: [
-                        [[200, 100], [400, 0], [400, 300]],
-                        [[0, 0], [0, 300], [400, 300], [400, 0]]
+                    [[200, 100], [400, 0], [400, 300]],
+                    [[0, 0], [0, 300], [400, 300], [400, 0]]
                 ]
             },
             { coordinates: [] }
@@ -209,7 +207,7 @@ QUnit.test("Lines (LineString)", function(assert) {
         points: [[400, 200, 800, 0, 1000, 600]]
     }], "line 1 (common)");
     assert.deepEqual(this.getLine(1).attr.getCall(0).args, [{
-        points: [[]]    // TODO: Investigate
+        points: [[]] // TODO: Investigate
     }], "line 2 (degenerate)");
 });
 
@@ -226,7 +224,7 @@ QUnit.test("Lines (MultiPoint)", function(assert) {
         points: [[400, 200, 800, 0, 1000, 600]]
     }], "line 1 (common)");
     assert.deepEqual(this.getLine(1).attr.getCall(0).args, [{
-        points: [[]]    // TODO: Investigate
+        points: [[]] // TODO: Investigate
     }], "line 2 (degenerate)");
 });
 
@@ -277,7 +275,7 @@ QUnit.test("Lines (simple data source)", function(assert) {
     }], "line 1 (common)");
     assert.deepEqual(this.getLine(1).attr.getCall(0).args, [{
         points: [
-            []  // TODO: Investigate (should be points: [])
+            [] // TODO: Investigate (should be points: [])
         ]
     }], "line 2 (degenerate)");
 });
@@ -318,25 +316,25 @@ QUnit.test("Area labels", function(assert) {
         dataSource: createData("Polygon", [
             {
                 coordinates: [
-                        [[200, 100], [400, 100], [400, 150], [300, 200]]
+                    [[200, 100], [400, 100], [400, 150], [300, 200]]
                 ],
                 properties: { text: "Item 1" }
             },
             {
                 coordinates: [
-                        [[100, 50], [100, 150], [200, 150], [200, 50], [100, 50]],
-                        [[200, 200], [200, 220], [240, 220], [240, 200]]
+                    [[100, 50], [100, 150], [200, 150], [200, 50], [100, 50]],
+                    [[200, 200], [200, 220], [240, 220], [240, 200]]
                 ],
                 properties: { text: "Item 2" }
             },
             {
                 coordinates: [
-                    [[100, 100], [300, 100], [100, 100]]    // T344899
+                    [[100, 100], [300, 100], [100, 100]] // T344899
                 ],
                 properties: { text: "Item 3" }
             },
             {
-                coordinates: [],    // T344899
+                coordinates: [], // T344899
                 properties: { text: "Item 4" }
             }
         ]),
@@ -365,7 +363,7 @@ QUnit.test("Line labels", function(assert) {
                 properties: { text: "Item 1" }
             },
             {
-                coordinates: [],    // T344899
+                coordinates: [], // T344899
                 properties: { text: "Item 2" }
             }
         ]),
@@ -429,19 +427,6 @@ QUnit.test("Empty option", function(assert) {
     assert.deepEqual(map.getLayers(), []);
 });
 
-// DEPRECATED_15_2
-QUnit.test("Deprecated options", function(assert) {
-    var map = $("#container").dxVectorMap({
-        mapData: [],
-        markers: []
-    }).dxVectorMap("instance");
-
-    var layers = map.getLayers();
-    assert.strictEqual(layers.length, 2, "count");
-    assert.strictEqual(layers[0].name, "areas", "layer 1 name");
-    assert.strictEqual(layers[1].name, "markers", "layer 2 name");
-});
-
 QUnit.test("Change option - increase layers count", function(assert) {
     var map = this.createLayers([
         { name: "layer-1" },
@@ -456,8 +441,8 @@ QUnit.test("Change option - increase layers count", function(assert) {
 
     var layers = map.getLayers();
     assert.strictEqual(layers.length, 3, "count");
-    assert.strictEqual(layers[0].name, "layer-1", "layer 1 name");
-    assert.strictEqual(layers[1].name, "layer-2", "layer 2 name");
+    assert.strictEqual(layers[0].name, "map-layer-0", "layer 1 name");
+    assert.strictEqual(layers[1].name, "map-layer-1", "layer 2 name");
     assert.strictEqual(layers[2].name, "layer-3", "layer 3 name");
 });
 
@@ -475,8 +460,50 @@ QUnit.test("Change option - decrease layers count", function(assert) {
 
     var layers = map.getLayers();
     assert.strictEqual(layers.length, 2, "count");
-    assert.strictEqual(layers[0].name, "layer-1", "layer 1 name");
-    assert.strictEqual(layers[1].name, "layer-2", "layer 2 name");
+    assert.strictEqual(layers[0].name, "map-layer-0", "layer 1 name");
+    assert.strictEqual(layers[1].name, "map-layer-1", "layer 2 name");
+});
+
+QUnit.test("Change name of one layer", function(assert) {
+    var map = this.createLayers([
+        { name: "layer-1" },
+        { name: "layer-2" },
+        { name: "layer-3" }
+    ]);
+
+    var oldLayers = map.getLayers();
+    map.option("layers", [
+        { name: "layer-1" },
+        { name: "new_layer-2" },
+        { name: "layer-3" }
+    ]);
+
+    var updatedLayers = map.getLayers();
+
+    updatedLayers.forEach(function(l, i) {
+        assert.ok(l !== oldLayers[i]);
+    });
+});
+
+QUnit.test("Layers shouldn't be created on updating when name not set", function(assert) {
+    var map = this.createLayers([
+        { color: "some_color_1" }
+    ]);
+
+    var oldLayer = map.getLayers()[0];
+    map.option("layers", [{ color: "some_color_1" }]);
+
+    assert.ok(map.getLayers()[0] === oldLayer);
+});
+
+QUnit.test("No crush on updating when on of layer in null", function(assert) {
+    var map = this.createLayers([
+        { color: "some_color_1" }
+    ]);
+
+    map.option("layers", [null]);
+
+    assert.strictEqual(map.getLayers().length, 1);
 });
 
 QUnit.test("Get layer by name", function(assert) {
@@ -530,13 +557,13 @@ QUnit.test("getDataSource method", function(assert) {
     var map = this.createLayers({
         dataSource: createData("Polygon", [
             [
-                    [[100, 50], [200, 50], [200, 200], [100, 200]]
+                [[100, 50], [200, 50], [200, 200], [100, 200]]
             ],
             [
-                    [[200, 100], [400, 0], [400, 300]],
-                    [[0, 0], [0, 300], [400, 300], [400, 0]]
+                [[200, 100], [400, 0], [400, 300]],
+                [[0, 0], [0, 300], [400, 300], [400, 0]]
             ],
-                []
+            []
         ])
     });
 

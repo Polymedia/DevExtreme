@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../core/class"),
     grep = require("../core/utils/common").grep,
     extend = require("../core/utils/extend").extend,
@@ -84,9 +82,9 @@ CommandMapping.defaultMapping = {
         defaults: { showIcon: false, showText: true, location: "after" },
         commands: [
             "edit", "save",
-           { id: "back", location: "before" },
-           { id: "cancel", location: "before" },
-           { id: "create", showIcon: true, showText: false }
+            { id: "back", location: "before" },
+            { id: "cancel", location: "before" },
+            { id: "create", showIcon: true, showText: false }
         ]
     },
     "ios-action-sheet": {
@@ -134,9 +132,9 @@ CommandMapping.defaultMapping = {
         defaults: { showIcon: false, showText: true, location: "after" },
         commands: [
             "edit", "save",
-           { id: "back", location: "before" },
-           { id: "cancel", location: "before" },
-           { id: "create", showIcon: true, showText: false }
+            { id: "back", location: "before" },
+            { id: "cancel", location: "before" },
+            { id: "create", showIcon: true, showText: false }
         ]
     },
     "generic-view-footer": {

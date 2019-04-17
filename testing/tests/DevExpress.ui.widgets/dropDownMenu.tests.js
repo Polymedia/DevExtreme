@@ -1,23 +1,21 @@
-"use strict";
+import $ from "jquery";
+import ArrayStore from "data/array_store";
+import devices from "core/devices";
+import fx from "animation/fx";
+import Button from "ui/button";
+import List from "ui/list";
+import Popup from "ui/popup";
+import Popover from "ui/popover";
+import DropDownMenu from "ui/drop_down_menu";
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
+import pointerMock from "../../helpers/pointerMock.js";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import config from "core/config";
+import { noop } from "core/utils/common";
+import { DataSource } from "data/data_source/data_source";
+import { isRenderer } from "core/utils/type";
 
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop,
-    DataSource = require("data/data_source/data_source").DataSource,
-    ArrayStore = require("data/array_store"),
-    devices = require("core/devices"),
-    fx = require("animation/fx"),
-    Button = require("ui/button"),
-    List = require("ui/list"),
-    Popup = require("ui/popup"),
-    Popover = require("ui/popover"),
-    DropDownMenu = require("ui/drop_down_menu"),
-    executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    config = require("core/config"),
-    isRenderer = require("core/utils/type").isRenderer;
-
-require("common.css!");
+import "common.css!";
 
 QUnit.testStart(function() {
     var markup =
@@ -344,6 +342,32 @@ QUnit.test("popup should be rendered if opened option is set to true on init", f
     assert.ok(popoverInstance.option("visible"), "popup is visible");
 });
 
+QUnit.test("popup should be placed into container specified in the 'container' option", (assert) => {
+    const $container = $("#dropDownMenuSecond");
+    const $dropDownMenu = $container.dxDropDownMenu({
+        container: $container,
+        opened: true
+    });
+    const popoverInstance = $dropDownMenu.find(".dx-popup").dxPopover("instance");
+    const $content = $(popoverInstance.content());
+
+    assert.strictEqual($content.closest($container).length, 1, "Popover content located into desired container");
+});
+
+QUnit.test("popup should be placed into new container after changing the 'container' option", (assert) => {
+    const $container = $("#dropDownMenuSecond");
+    const $dropDownMenu = $container.dxDropDownMenu({
+        opened: true
+    });
+
+    $dropDownMenu.dxDropDownMenu("option", "container", $container);
+
+    const popoverInstance = $dropDownMenu.find(".dx-popup").dxPopover("instance");
+    const $content = $(popoverInstance.content());
+
+    assert.strictEqual($content.closest($container).length, 1, "Popover content located into desired container");
+});
+
 
 QUnit.module("KO cases", {
     beforeEach: function() {
@@ -485,6 +509,21 @@ QUnit.test("popupHeight/popupWidth test", function(assert) {
 
     assert.equal(popover.option("height"), 100, "popover height is right");
     assert.equal(popover.option("width"), 50, "popover width is right");
+});
+
+QUnit.test("autoResizeEnabled test", function(assert) {
+    var $dropDownMenu = $("#dropDownMenu").dxDropDownMenu({
+        popupAutoResizeEnabled: true,
+        opened: true
+    });
+
+    var popover = $dropDownMenu.find(".dx-popover").dxPopover("instance");
+
+    assert.equal(popover.option("autoResizeEnabled"), true, "popover autoResizeEnabled is right");
+
+    $dropDownMenu.dxDropDownMenu("option", "popupAutoResizeEnabled", false);
+
+    assert.equal(popover.option("autoResizeEnabled"), false, "popover autoResizeEnabled is right");
 });
 
 QUnit.test("maxHeight test", function(assert) {

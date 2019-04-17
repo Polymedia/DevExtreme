@@ -1,12 +1,10 @@
-"use strict";
-
 require("common.css!");
 require("generic_light.css!");
-require("ui/scheduler/ui.scheduler.timeline");
-require("ui/scheduler/ui.scheduler.timeline_day");
-require("ui/scheduler/ui.scheduler.timeline_week");
-require("ui/scheduler/ui.scheduler.timeline_work_week");
-require("ui/scheduler/ui.scheduler.timeline_month");
+require("ui/scheduler/workspaces/ui.scheduler.timeline");
+require("ui/scheduler/workspaces/ui.scheduler.timeline_day");
+require("ui/scheduler/workspaces/ui.scheduler.timeline_week");
+require("ui/scheduler/workspaces/ui.scheduler.timeline_work_week");
+require("ui/scheduler/workspaces/ui.scheduler.timeline_month");
 
 var pointerMock = require("../../helpers/pointerMock.js"),
     keyboardMock = require("../../helpers/keyboardMock.js");
@@ -66,6 +64,14 @@ QUnit.test("Header scrollable should update position if date scrollable position
     assert.equal(headerScrollable.scrollLeft(), 100, "Scroll position is OK");
 });
 
+QUnit.test("Header scrollable should have right scrolloByContent (T708008)", function(assert) {
+    var $element = this.instance.$element(),
+        headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance");
+
+    assert.strictEqual(headerScrollable.option("scrollByContent"), true, "scrolloByContent is OK");
+});
+
+
 QUnit.test("Header scrollable shouldn't update position if date scrollable position is changed to bottom", function(assert) {
     var $element = this.instance.$element(),
         headerScrollable = $element.find(".dx-scheduler-header-scrollable").dxScrollable("instance"),
@@ -77,6 +83,21 @@ QUnit.test("Header scrollable shouldn't update position if date scrollable posit
     dateTableScrollable.scrollTo({ top: 100 });
 
     assert.equal(headerScrollable.scrollLeft(), 0, "Scroll position is OK");
+});
+
+QUnit.test("Date table should have a correct width if cell is less than 75px", function(assert) {
+    this.instance.option("crossScrollingEnabled", true);
+
+    var $element = this.instance.$element(),
+        $cells = $element.find(".dx-scheduler-date-table-cell");
+
+    $cells.css("width", 30);
+
+    domUtils.triggerHidingEvent($element);
+    domUtils.triggerShownEvent($element);
+
+    var dateTableWidth = $element.find(".dx-scheduler-date-table").outerWidth();
+    assert.equal(dateTableWidth, 1440, "Width is OK");
 });
 
 QUnit.test("Sidebar scrollable should update position if date scrollable position is changed", function(assert) {
@@ -189,7 +210,7 @@ QUnit.test("the 'getCoordinatesByDate' method should return right coordinates", 
 
     var coordinates = this.instance.getCoordinatesByDate(new Date(2015, 10, 16, 10, 30), 0, false);
     var $expectedCell = this.instance.$element()
-        .find(".dx-scheduler-date-table-cell").eq(1),
+            .find(".dx-scheduler-date-table-cell").eq(1),
         expectedPositionLeft = $expectedCell.position().left + 0.5 * $expectedCell.outerWidth();
 
     assert.roughEqual(coordinates.left, expectedPositionLeft, 1.001, "left coordinate is OK");
@@ -258,7 +279,15 @@ QUnit.test("the 'getCellIndexByCoordinates' method should return right coordinat
 
     var cellIndex = this.instance.getCellIndexByCoordinates({ left: cellWidth * 15 + 0.656, top: cellHeight * 2 - 0.656 });
 
-    assert.equal(cellIndex, 111, "Cell index is OK");
+    assert.equal(cellIndex, 62, "Cell index is OK");
+
+    cellIndex = this.instance.getCellIndexByCoordinates({ left: cellWidth + 0.656, top: cellHeight - 0.656 });
+
+    assert.equal(cellIndex, 0, "Cell index is OK");
+
+    cellIndex = this.instance.getCellIndexByCoordinates({ left: cellWidth + 0.656, top: cellHeight + 0.656 });
+
+    assert.equal(cellIndex, 48, "Cell index is OK");
 });
 
 QUnit.test("Timeline should not have time panel offset", function(assert) {
@@ -478,8 +507,8 @@ QUnit.test("Scheduler timeline week header cells should have right width if cros
         $lastHeaderCell = $lastRow.find(".dx-scheduler-header-panel-cell").eq(0),
         $dateTableCell = $element.find(".dx-scheduler-date-table-cell").eq(0);
 
-    assert.roughEqual($firstHeaderCell.outerWidth(), 48 * $lastHeaderCell.outerWidth(), 1.5, "First row cell has correct width");
-    assert.roughEqual($lastHeaderCell.outerWidth(), $dateTableCell.outerWidth(), 1.5, "Last row cell has correct width");
+    assert.roughEqual($firstHeaderCell.outerWidth(), 48 * $lastHeaderCell.get(0).getBoundingClientRect().width, 1.5, "First row cell has correct width");
+    assert.roughEqual($lastHeaderCell.outerWidth(), $dateTableCell.get(0).getBoundingClientRect().width, 1.5, "Last row cell has correct width");
 });
 
 QUnit.test("Scheduler timeline week cells should have right height if crossScrollingEnabled = true", function(assert) {
@@ -629,9 +658,16 @@ QUnit.test("Get visible bounds for timelineWeek, rtl mode", function(assert) {
 
 QUnit.module("Timeline Month", {
     beforeEach: function() {
-        this.instance = $("#scheduler-timeline").dxSchedulerTimelineMonth({ currentDate: new Date(2015, 9, 16), showCurrentTimeIndicator: false }).dxSchedulerTimelineMonth("instance");
+        this.instance = $("#scheduler-timeline").dxSchedulerTimelineMonth({ currentDate: new Date(2015, 9, 16), showCurrentTimeIndicator: false, shadeUntilCurrentTime: false }).dxSchedulerTimelineMonth("instance");
         stubInvokeMethod(this.instance);
     }
+});
+
+QUnit.test("timeline should have correct group table width (T718364)", function(assert) {
+    this.instance.option("crossScrollingEnabled", true);
+    this.instance.option("groups", [{ name: "one", items: [{ id: 1, text: "a" }, { id: 2, text: "b" }, { id: 3, text: "c" }, { id: 4, text: "d" }] }]);
+
+    assert.equal(this.instance.getGroupTableWidth(), 100, "Group table width is OK");
 });
 
 QUnit.test("Scheduler timeline month getPositionShift should return null shift", function(assert) {
@@ -639,7 +675,7 @@ QUnit.test("Scheduler timeline month getPositionShift should return null shift",
         currentDate: new Date(2015, 9, 21)
     });
 
-    assert.deepEqual(this.instance.getPositionShift(), { top: 0, left: 0 }, "First view date is OK");
+    assert.deepEqual(this.instance.getPositionShift(), { top: 0, left: 0, cellPosition: 0 }, "First view date is OK");
 });
 
 QUnit.test("Scrollables should be updated after currentDate changing", function(assert) {
@@ -731,15 +767,6 @@ QUnit.test("Timeline should select/unselect cells with mouse", function(assert) 
     assert.equal(cells.filter(".dx-state-focused").length, 1, "right quantity of focused cells");
 });
 
-QUnit.module("TimelineWeek with intervalCount", {
-    beforeEach: function() {
-        this.instance = $("#scheduler-timeline").dxSchedulerTimelineWeek({
-            currentDate: new Date(2015, 9, 16)
-        }).dxSchedulerTimelineWeek("instance");
-        stubInvokeMethod(this.instance);
-    }
-});
-
 QUnit.module("TimelineWorkWeek with intervalCount", {
     beforeEach: function() {
         this.instance = $("#scheduler-timeline").dxSchedulerTimelineWorkWeek({
@@ -764,5 +791,129 @@ QUnit.test("'getCoordinatesByDate' should return right coordinates with view opt
 
     assert.equal(coords.top, targetCellPosition.top, "Cell coordinates are right");
     assert.equal(coords.left, targetCellPosition.left, "Cell coordinates are right");
+});
+
+QUnit.module("TimelineWeek with grouping by date", {
+    beforeEach: function() {
+        this.instance = $("#scheduler-timeline").dxSchedulerTimelineWeek({
+            currentDate: new Date(2018, 2, 1),
+            groupByDate: true,
+            startDayHour: 9,
+            endDayHour: 12,
+            groupOrientation: "horizontal",
+            showCurrentTimeIndicator: false
+        }).dxSchedulerTimelineWeek("instance");
+
+        stubInvokeMethod(this.instance);
+
+        this.instance.option("groups", [{
+            name: "one",
+            items: [{ id: 1, text: "a" }, { id: 2, text: "b" }]
+        }]);
+    }
+});
+
+QUnit.test("Get date range", function(assert) {
+    assert.deepEqual(this.instance.getDateRange(), [new Date(2018, 1, 25, 9, 0), new Date(2018, 2, 3, 11, 59)], "Range is OK");
+
+    this.instance.option("intervalCount", 3);
+
+    assert.deepEqual(this.instance.getDateRange(), [new Date(2018, 1, 25, 9, 0), new Date(2018, 2, 17, 11, 59)], "Range is OK");
+});
+
+QUnit.test("Group header should be rendered correct, groupByDate = true", function(assert) {
+    var $headerPanel = this.instance.$element().find(".dx-scheduler-header-scrollable .dx-scheduler-header-panel"),
+        $groupRow = $headerPanel.find(".dx-scheduler-group-row"),
+        $groupHeaderCells = $groupRow.find(".dx-scheduler-group-header"),
+        dateTableCellWidth = this.instance.$element().find(".dx-scheduler-date-table-cell").get(0).getBoundingClientRect().width,
+        groupHeaderWidth = $groupHeaderCells.get(0).getBoundingClientRect().width;
+
+    assert.equal($groupHeaderCells.length, 84, "Group header cells count is OK");
+    assert.roughEqual(dateTableCellWidth, groupHeaderWidth, 1.1, "Group header cell has correct size");
+});
+
+QUnit.test("Date table cells shoud have right cellData, groupByDate = true", function(assert) {
+    var $cells = this.instance.$element().find(".dx-scheduler-date-table-cell");
+
+    assert.deepEqual($cells.eq(0).data("dxCellData"), {
+        startDate: new Date(2018, 1, 25, 9, 0),
+        endDate: new Date(2018, 1, 25, 9, 30),
+        allDay: false,
+        groups: {
+            one: 1
+        }
+    });
+
+    assert.deepEqual($cells.eq(1).data("dxCellData"), {
+        startDate: new Date(2018, 1, 25, 9, 0),
+        endDate: new Date(2018, 1, 25, 9, 30),
+        allDay: false,
+        groups: {
+            one: 2
+        }
+    });
+
+    assert.deepEqual($cells.eq(50).data("dxCellData"), {
+        startDate: new Date(2018, 2, 1, 9, 30),
+        endDate: new Date(2018, 2, 1, 10),
+        allDay: false,
+        groups: {
+            one: 1
+        }
+    });
+
+    assert.deepEqual($cells.eq(51).data("dxCellData"), {
+        startDate: new Date(2018, 2, 1, 9, 30),
+        endDate: new Date(2018, 2, 1, 10),
+        allDay: false,
+        groups: {
+            one: 2
+        }
+    });
+
+    assert.deepEqual($cells.eq(82).data("dxCellData"), {
+        startDate: new Date(2018, 2, 3, 11, 30),
+        endDate: new Date(2018, 2, 3, 12),
+        allDay: false,
+        groups: {
+            one: 1
+        }
+    });
+
+    assert.deepEqual($cells.eq(83).data("dxCellData"), {
+        startDate: new Date(2018, 2, 3, 11, 30),
+        endDate: new Date(2018, 2, 3, 12),
+        allDay: false,
+        groups: {
+            one: 2
+        }
+    });
+});
+
+QUnit.test("Group table cells should have right cellData, groupByDate = true", function(assert) {
+    var $groupRow = this.instance.$element().find(".dx-scheduler-group-row"),
+        $groupHeaderCells = $groupRow.find(".dx-scheduler-group-header");
+
+    assert.equal($groupHeaderCells.eq(0).text(), "a", "Group header content height is OK");
+    assert.equal($groupHeaderCells.eq(1).text(), "b", "Group header content height is OK");
+    assert.equal($groupHeaderCells.eq(82).text(), "a", "Group header content height is OK");
+    assert.equal($groupHeaderCells.eq(83).text(), "b", "Group header content height is OK");
+});
+
+QUnit.test("Timeline should find cell coordinates by date, groupByDate = true", function(assert) {
+    var $element = this.instance.$element();
+
+    this.instance.option("currentDate", new Date(2015, 2, 4));
+    var coords = this.instance.getCoordinatesByDate(new Date(2015, 2, 4, 2, 0), 1, false);
+
+    assert.equal(coords.top, $element.find(".dx-scheduler-date-table tbody td").eq(17).position().top, "Top cell coordinates are right");
+    assert.equal(coords.left, $element.find(".dx-scheduler-date-table tbody td").eq(17).position().left, "Left cell coordinates are right");
+    assert.equal(coords.hMax, 16800, "hMax is right");
+
+    coords = this.instance.getCoordinatesByDate(new Date(2015, 2, 5, 2, 0), 2, false);
+
+    assert.equal(coords.top, $element.find(".dx-scheduler-date-table tbody td").eq(30).position().top, "Top cell coordinates are right");
+    assert.equal(coords.left, $element.find(".dx-scheduler-date-table tbody td").eq(30).position().left, "Left cell coordinates are right");
+    assert.equal(coords.hMax, 16800, "hMax is right");
 });
 

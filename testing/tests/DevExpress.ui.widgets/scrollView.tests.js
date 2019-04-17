@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     renderer = require("core/renderer"),
     noop = require("core/utils/common").noop,
@@ -1711,8 +1709,8 @@ QUnit.test("release", function(assert) {
         topPocketHeight = $topPocket.height();
 
     var pointer = pointerMock($container)
-            .start()
-            .down();
+        .start()
+        .down();
     $container.scrollTop(-topPocketHeight);
     $($wrapper).trigger("scroll");
     pointer.up();

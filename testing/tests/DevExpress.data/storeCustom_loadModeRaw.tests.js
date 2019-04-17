@@ -1,5 +1,3 @@
-"use strict";
-
 var CustomStore = require("data/custom_store"),
     ErrorHandlingHelper = require("../../helpers/data.errorHandlingHelper.js");
 
@@ -286,4 +284,26 @@ QUnit.test("uses default search", function(assert) {
         new CustomStore({ loadMode: RAW })._useDefaultSearch,
         true
     );
+});
+
+QUnit.test("async load", function(assert) {
+    var loadCallCount = 0;
+    var store = new CustomStore({
+        loadMode: "raw",
+        key: "ID",
+        load: function() {
+            loadCallCount++;
+            return new Promise(function(resolve) {
+                resolve([
+                    { "ID": 1 },
+                    { "ID": 2 }
+                ]);
+            });
+        }
+    });
+
+    store.byKey(1);
+    store.byKey(2);
+
+    assert.strictEqual(loadCallCount, 1);
 });

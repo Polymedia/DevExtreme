@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     Class = require("../../core/class"),
     commonUtils = require("../../core/utils/common"),
@@ -91,7 +89,8 @@ var EditStrategy = Class.inherit({
             return $(value);
         }
 
-        return this._getItemByNormalizedIndex(this.getIndexByItemData(value));
+        var normalizedItemIndex = this._normalizeItemIndex(this.getIndexByItemData(value));
+        return this._getItemByNormalizedIndex(normalizedItemIndex);
     },
 
     deleteItemAtIndex: abstract,

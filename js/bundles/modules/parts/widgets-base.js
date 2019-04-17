@@ -1,5 +1,3 @@
-"use strict";
-
 var DevExpress = require("./core");
 require("./data");
 
@@ -21,16 +19,19 @@ ui.dxActionSheet = require("../../../ui/action_sheet");
 ui.dxAutocomplete = require("../../../ui/autocomplete");
 ui.dxBox = require("../../../ui/box");
 ui.dxButton = require("../../../ui/button");
+ui.dxButtonGroup = require("../../../ui/button_group");
 ui.dxCalendar = require("../../../ui/calendar");
 ui.dxCheckBox = require("../../../ui/check_box");
 ui.dxColorBox = require("../../../ui/color_box");
 ui.dxDateBox = require("../../../ui/date_box");
+ui.dxDrawer = require("../../../ui/drawer");
 ui.dxDeferRendering = require("../../../ui/defer_rendering");
 ui.dxDropDownBox = require("../../../ui/drop_down_box");
 ui.dxDropDownMenu = require("../../../ui/drop_down_menu");
 ui.dxFileUploader = require("../../../ui/file_uploader");
 ui.dxForm = require("../../../ui/form");
 ui.dxGallery = require("../../../ui/gallery");
+ui.dxHtmlEditor = require("../../../ui/html_editor");
 ui.dxList = require("../../../ui/list");
 ui.dxLoadIndicator = require("../../../ui/load_indicator");
 ui.dxLoadPanel = require("../../../ui/load_panel");
@@ -68,6 +69,9 @@ DevExpress.validationEngine = require("../../../ui/validation_engine");
 ui.dxValidationSummary = require("../../../ui/validation_summary");
 ui.dxValidationGroup = require("../../../ui/validation_group");
 ui.dxValidator = require("../../../ui/validator");
+
+/* Widget parts */
+require("../../../ui/html_editor/converters/markdown");
 /// BUNDLER_PARTS_END
 
 // Dashboards

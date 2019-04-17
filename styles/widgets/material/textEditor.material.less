@@ -1,21 +1,13 @@
-@MATERIAL_TEXTEDITOR_BORDER_WIDTH: @MATERIAL_BASE_BORDER_WIDTH;
-@MATERIAL_TEXTEDITOR_BOTTOM_PADDING: 8px;
-@MATERIAL_TEXTEDITOR_INPUT_VERTICAL_PADDING: @MATERIAL_TEXTEDITOR_BOTTOM_PADDING - @MATERIAL_TEXTEDITOR_BORDER_WIDTH;
-@MATERIAL_TEXTEDITOR_INPUT_PADDING: @MATERIAL_TEXTEDITOR_INPUT_VERTICAL_PADDING 0;
+@MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING: 12px;
+@MATERIAL_FILLED_TEXTEDITOR_INPUT_PADDING: 19px @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING 18px;
 
-@MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE: @MATERIAL_BASE_ICON_SIZE;
+@MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING: 0;
+@MATERIAL_STANDARD_TEXTEDITOR_INPUT_PADDING: 7px @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING 6px;
 
+@MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE: @MATERIAL_BASE_ICON_SIZE - 2px;
 @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE: @MATERIAL_INVALID_BADGE_SIZE + 2 * @MATERIAL_INVALID_BADGE_HORIZONTAL_PADDING;
 @MATERIAL_TEXTEDITOR_FONT_SIZE: 16px;
 @MATERIAL_TEXTEDITOR_CLEAR_ICON_SIZE: @MATERIAL_TEXTEDITOR_FONT_SIZE;
-
-.dx-size-default() {
-    @MATERIAL_TEXTEDITOR_CLEAR_ICON_OVERSIZE: 2px;
-}
-
-.dx-size-compact() {
-    @MATERIAL_TEXTEDITOR_CLEAR_ICON_OVERSIZE: 1px;
-}
 
 .dx-texteditor-icon() {
     position: absolute;
@@ -26,16 +18,28 @@
 
 .validation-icon-position(@padding: 0) {
     &.dx-invalid {
-        .dx-texteditor-input {
-            padding-right: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE;
+        &.dx-editor-underlined {
+            .dx-texteditor-input {
+                padding-right: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE + @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+            }
+    
+            &.dx-rtl .dx-texteditor-input {
+                padding: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_PADDING;
+                padding-left: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE + @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+            }
+        }
+        &.dx-editor-filled, &.dx-editor-outlined {
+            .dx-texteditor-input {
+                padding-right: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE + @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+            }
+    
+            &.dx-rtl .dx-texteditor-input {
+                padding: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_PADDING;
+                padding-left: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE + @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+            }
         }
 
-        &.dx-rtl .dx-texteditor-input {
-            padding: @MATERIAL_TEXTEDITOR_INPUT_PADDING;
-            padding-left: @padding + @MATERIAL_TEXTEDITOR_INVALID_BADGE_SIZE;
-        }
-
-        .dx-texteditor-container {
+        .dx-texteditor-buttons-container {
             &:after {
                 right: @MATERIAL_INVALID_BADGE_HALFHORIZONTAL_PADDING + @padding;
 
@@ -50,67 +54,192 @@
 }
 
 .dx-texteditor {
-    &:not(.dx-textarea) {
-        .dx-texteditor-borders-position() {
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 0;
-            width: 100%;
-            content: '';
-            position: absolute;
-        }
+    border-top-left-radius: @texteditor-input-border-radius;
+    border-top-right-radius: @texteditor-input-border-radius;
+    position: relative;
 
-        .dx-texteditor-container:before {
-            .dx-texteditor-borders-position();
-            z-index: 2;
-            .scale(0);
-        }
+    .dx-texteditor-borders-position() {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 0;
+        width: 100%;
+        content: '';
+        position: absolute;
+    }
 
-        .dx-texteditor-container:after {
-            .dx-texteditor-borders-position();
-            border-bottom: 1px solid @texteditor-border-color;
-        }
+    &:before {
+        .dx-texteditor-borders-position();
+        z-index: 2;
+        transform: scale(0);
+    }
 
-        &.dx-state-hover {
-            .dx-texteditor-container:after {
-                border-bottom: 1px solid @texteditor-hover-border-color;
-                border-top: 1px solid @texteditor-hover-border-color;
+    &:after {
+        .dx-texteditor-borders-position();
+    }
+
+    &.dx-state-focused, &.dx-state-active {
+        background-color: @texteditor-focused-bg;
+
+        &:before {
+            border-bottom: 2px solid @texteditor-focused-border-color;
+            transform: scale(1);
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.02, 1);
+        }
+    }
+
+    .validation-icon-position();
+
+    &.dx-editor-filled, &.dx-editor-outlined {
+        .dx-texteditor-buttons-container {
+            right: @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+        }
+        &.dx-show-clear-button {
+            .dx-texteditor-input {
+                padding-right: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE + @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                .dx-rtl &,
+                .dx-rtl& {
+                    padding: @MATERIAL_FILLED_TEXTEDITOR_INPUT_PADDING;
+                    padding-left: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE + @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                }
             }
         }
 
-        &.dx-state-focused, &.dx-state-active {
-            .dx-texteditor-container:before {
-                border-bottom: 1px solid @texteditor-focused-border-color;
-                border-top: 1px solid @texteditor-focused-border-color;
-                .scale(1);
-                .transition-transform(0.4s, cubic-bezier(0.4, 0, 0.02, 1));
+        .dx-placeholder {
+            &:before {
+                padding: @MATERIAL_FILLED_TEXTEDITOR_INPUT_PADDING;
+            }
+        }
+
+        .dx-texteditor-input {
+            padding: @MATERIAL_FILLED_TEXTEDITOR_INPUT_PADDING;
+        }
+
+        .dx-rtl &, &.dx-rtl {
+            .dx-texteditor-buttons-container {
+                left: @MATERIAL_FILLED_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                right: auto;
+            }
+        }
+    }
+
+    &.dx-editor-filled {
+        background-color: @texteditor-bg;
+        &.dx-state-hover {
+            background-color: @texteditor-hover-bg;
+
+            &:after {
+                border-bottom: 1px solid @texteditor-hover-border-color;
             }
         }
 
         &.dx-state-disabled,
         &.dx-state-readonly,
         &.dx-state-readonly.dx-state-hover {
-            .dx-texteditor-container:after {
-                border-bottom: 1px dotted @texteditor-border-color;
-                border-top: 0;
+            background-color: fade(@texteditor-bg, 12%);
+
+            .dx-texteditor-input {
+                color: fade(@texteditor-color, 50%);
             }
         }
     }
 
-    //.validation-icon-position();
-}
+    &.dx-editor-underlined {
+        background-color: transparent;
+        .dx-texteditor-buttons-container {
+            right: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+        }
 
-.dx-show-clear-button {
-    .dx-texteditor-input {
-        padding-right: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE;
-        .dx-rtl &,
-        .dx-rtl& {
-            padding: @MATERIAL_TEXTEDITOR_INPUT_PADDING;
-            padding-left: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE;
+        &:after {
+            border-bottom: 1px solid @texteditor-border-color;
+        }
+
+        &.dx-state-hover {
+            &:after {
+                border-bottom: 2px solid @texteditor-hover-border-color;
+            }
+        }
+
+        &.dx-show-clear-button {
+            .dx-texteditor-input {
+                padding-right: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE + @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                .dx-rtl &,
+                .dx-rtl& {
+                    padding: @MATERIAL_FILLED_TEXTEDITOR_INPUT_PADDING;
+                    padding-left: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE + @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                }
+            }
+        }
+
+        .dx-placeholder {
+            &:before {
+                padding: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_PADDING;
+            }
+        }
+
+        .dx-texteditor-input {
+            padding: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_PADDING;
+        }
+
+        .dx-rtl &, &.dx-rtl {
+            .dx-texteditor-buttons-container {
+                left: @MATERIAL_STANDARD_TEXTEDITOR_INPUT_HORIZONTAL_PADDING;
+                right: auto;
+            }
+        }
+
+        &.dx-state-disabled,
+        &.dx-state-readonly,
+        &.dx-state-readonly.dx-state-hover {
+            &:after {
+                border-bottom-style: dotted;
+                border-bottom-width: 1px;
+            }
+        }
+
+        &.dx-invalid {
+            &:after {
+                border-bottom-color: @texteditor-invalid-faded-border-color;
+            }
         }
     }
 
+    &.dx-editor-outlined {
+        background-color: transparent;
+        border-radius: @texteditor-input-border-radius;
+        box-shadow: inset 0 0 0 1px @texteditor-border-color;
+
+        &:before {
+            display: none;
+        }
+
+        &.dx-state-hover {
+            box-shadow: inset 0 0 0 1px @texteditor-hover-border-color;
+        }
+
+        &.dx-state-disabled,
+        &.dx-state-readonly,
+        &.dx-state-readonly.dx-state-hover {
+            box-shadow: inset 0 0 0 1px fade(@texteditor-color, 50%);
+            .dx-texteditor-input {
+                color: fade(@texteditor-color, 50%);
+            }
+        }
+
+        &.dx-state-focused {
+            box-shadow: inset 0 0 0 2px @texteditor-focused-border-color;
+            &.dx-invalid {
+                box-shadow: inset 0 0 0 2px @texteditor-invalid-focused-border-color;
+            }
+        }
+
+        &.dx-invalid {
+            box-shadow: inset 0 0 0 1px @texteditor-invalid-faded-border-color;
+        }
+    }
+}
+
+.dx-show-clear-button {
     .dx-clear-button-area {
         width: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE;
         right: 0;
@@ -119,54 +248,50 @@
     .dx-icon-clear {
         color: @texteditor-button-clear-icon-color;
         background-color: @texteditor-button-clear-icon-color-bg;
-        .border-radius(50%);
+        border-radius: 50%;
         .dx-texteditor-icon();
         .dx-icon-font-centered-sizing(@MATERIAL_TEXTEDITOR_CLEAR_ICON_SIZE);
     }
 
-    //&:not(.dx-texteditor-empty) {
-        //.validation-icon-position(@MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE);
-    //}
+    &:not(.dx-texteditor-empty) {
+        .validation-icon-position(@MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE);
+    }
 }
+
 
 /*B231111*/
 .dx-placeholder {
     color: @texteditor-placeholder-color;
     font-size: @MATERIAL_TEXTEDITOR_FONT_SIZE;
-
-    &:before {
-        padding: @MATERIAL_TEXTEDITOR_INPUT_PADDING;
-    }
 }
 
 .dx-texteditor-input {
     margin: 0;
-    padding: @MATERIAL_TEXTEDITOR_INPUT_PADDING;
-    background: @texteditor-bg;
+    background-color: transparent;
     color: @texteditor-color;
     font-size: @MATERIAL_TEXTEDITOR_FONT_SIZE;
-    border-radius: @texteditor-input-border-radius;
-    //min-height: round(@MATERIAL_BASE_LINE_HEIGHT * @MATERIAL_BASE_FONT_SIZE) + @MATERIAL_BASE_INLINE_BORDEREDWIDGET_BOTTOM_PADDING
 }
 
 .dx-invalid.dx-texteditor {
-
     &.dx-state-hover {
-        .dx-texteditor-container:after {
-            border-top: 1px solid @texteditor-invalid-faded-border-color;
-            border-bottom: 1px solid @texteditor-invalid-faded-border-color;
+        &:after {
+            border-bottom-color: @texteditor-invalid-faded-border-color;
         }
     }
 
     &.dx-state-focused, &.dx-state-active {
-        .dx-texteditor-container:before {
+        &:before {
             border-top: 1px solid @texteditor-invalid-focused-border-color;
             border-bottom: 1px solid @texteditor-invalid-focused-border-color;
         }
     }
 
-    .dx-texteditor-container:after {
-        border-bottom: 1px solid @texteditor-invalid-faded-border-color;
+    .dx-texteditor-buttons-container {
+        width: @MATERIAL_TEXTEDITOR_ICON_CONTAINER_SIZE;
+        
+        &:after {
+            .dx-invalid-material-badge();
+        }
     }
 }
 
@@ -177,3 +302,5 @@
         left: auto;
     }
 }
+
+

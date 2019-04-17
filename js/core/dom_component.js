@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     windowUtils = require("../core/utils/window"),
@@ -336,7 +334,7 @@ var DOMComponent = Component.inherit({
     * @type function
     * @default null
     * @type_function_param1 e:object
-    * @type_function_param1_field1 component:DOMComponent
+    * @type_function_param1_field1 component:this
     * @type_function_param1_field2 element:dxElement
     * @type_function_param1_field3 model:object
     **/
@@ -355,8 +353,10 @@ var DOMComponent = Component.inherit({
                 this._renderDimensions();
                 break;
             case "rtlEnabled":
-            case "elementAttr":
                 this._invalidate();
+                break;
+            case "elementAttr":
+                this._renderElementAttributes();
                 break;
             case "disabled":
             case "integrationOptions":

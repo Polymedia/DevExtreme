@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     fx = require("animation/fx"),
     translator = require("animation/translator"),
@@ -60,8 +58,8 @@ var mockFxAnimate = function(animation, type, output) {
         end = end || 0;
 
         var itemIndex = $("#pivottabs")
-                            .find(toSelector(PIVOT_ITEM_CLASS) + ", " + toSelector(PIVOT_GHOST_ITEM_CLASS))
-                            .index($element.get(0));
+            .find(toSelector(PIVOT_ITEM_CLASS) + ", " + toSelector(PIVOT_GHOST_ITEM_CLASS))
+            .index($element.get(0));
 
         output[itemIndex] = {
             $element: $element,

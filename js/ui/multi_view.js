@@ -1,16 +1,15 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     fx = require("../animation/fx"),
     translator = require("../animation/translator"),
     mathUtils = require("../core/utils/math"),
     extend = require("../core/utils/extend").extend,
     noop = require("../core/utils/common").noop,
+    domUtils = require("../core/utils/dom"),
     isDefined = require("../core/utils/type").isDefined,
     devices = require("../core/devices"),
     getPublicElement = require("../core/utils/dom").getPublicElement,
     registerComponent = require("../core/component_registrator"),
-    CollectionWidget = require("./collection/ui.collection_widget.edit"),
+    CollectionWidget = require("./collection/ui.collection_widget.live_update").default,
     Swipeable = require("../events/gesture/swipeable"),
     Deferred = require("../core/utils/deferred").Deferred;
 
@@ -125,6 +124,13 @@ var MultiView = CollectionWidget.inherit({
             * @inheritdoc
             */
 
+            /**
+             * @name dxMultiViewOptions.items
+             * @type Array<string, dxMultiViewItem, object>
+             * @fires dxMultiViewOptions.onOptionChanged
+             * @inheritdoc
+             */
+
             _itemAttributes: { role: "tabpanel" },
             loopItemFocus: false,
             selectOnFocus: true,
@@ -226,6 +232,23 @@ var MultiView = CollectionWidget.inherit({
         this.callBase();
     },
 
+    _afterItemElementDeleted: function($item, deletedActionArgs) {
+        this.callBase($item, deletedActionArgs);
+        if(this._deferredItems) {
+            this._deferredItems.splice(deletedActionArgs.itemIndex, 1);
+            if(this.option("items")) {
+                for(var i = deletedActionArgs.itemIndex; i < this.option("items").length; i++) {
+                    var currentItem = this.option("items")[i];
+                    var $currentItem = this._findItemElementByItem(currentItem);
+                    if(!$currentItem.length) {
+                        break;
+                    }
+                    this._refreshItem($currentItem, currentItem);
+                }
+            }
+        }
+    },
+
     _renderItemContent: function(args) {
         var renderContentDeferred = new Deferred();
 
@@ -286,10 +309,12 @@ var MultiView = CollectionWidget.inherit({
     },
 
     _renderSpecificItem: function(index) {
-        var hasItemContent = this._itemElements().eq(index).find(this._itemContentClass()).length > 0;
+        var $item = this._itemElements().eq(index),
+            hasItemContent = $item.find(this._itemContentClass()).length > 0;
 
         if(isDefined(index) && !hasItemContent) {
             this._deferredItems[index].resolve();
+            domUtils.triggerResizeEvent($item);
         }
     },
 
@@ -453,12 +478,12 @@ var MultiView = CollectionWidget.inherit({
 
 });
 /**
-* @name dxMultiViewItemTemplate
-* @inherits CollectionWidgetItemTemplate
+* @name dxMultiViewItem
+* @inherits CollectionWidgetItem
 * @type object
 */
 /**
-* @name dxMultiViewItemTemplate.visible
+* @name dxMultiViewItem.visible
 * @hidden
 * @inheritdoc
 */

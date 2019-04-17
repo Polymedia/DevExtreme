@@ -1,5 +1,3 @@
-"use strict";
-
 SystemJS.config({
     map: {
         'jqueryify': SystemJS.map.jquery
@@ -8,7 +6,7 @@ SystemJS.config({
 
 define(function(require) {
     var $ = require("jquery"),
-        Template = require("ui/widget/jquery.template"),
+        Template = require("ui/widget/template"),
         setTemplateEngine = require("ui/set_template_engine"),
         errors = require("core/errors");
 
@@ -19,10 +17,6 @@ define(function(require) {
     require("../../../node_modules/jsrender/jsrender.min.js");
     window.Mustache = require("../../../node_modules/mustache/mustache.min.js");
     window._ = require("../../../node_modules/underscore/underscore-min.js");
-
-    if(QUnit.urlParams["nojquery"]) {
-        return;
-    }
 
     QUnit.module("custom template rendering", {
         beforeEach: function() {
@@ -145,7 +139,7 @@ define(function(require) {
     QUnit.test("custom user template engine for script template", function(assert) {
         setTemplateEngine(customUserTemplate);
 
-        var template = new Template($("<script type='text/html'>Text: <b>$text$</b><\/script>"));
+        var template = new Template($("<script type='text/html'>Text: <b>$text$</b></script>"));
         var container = $('<div>');
 
         // act
@@ -199,5 +193,28 @@ define(function(require) {
         assert.equal(result.length, 1);
         assert.equal(result[0].tagName.toLowerCase(), 'div');
         assert.equal(result.text(), '123');
+    });
+
+
+    QUnit.module("default template engine", {
+        beforeEach: function() {
+            setTemplateEngine("default");
+        }
+    });
+
+    QUnit.test("default template engine should clone element", function(assert) {
+        const $element = $('<div>123</div>'),
+            template = new Template($element),
+            $result = template.render({ model: null, container: $('<div>') });
+
+        assert.notEqual($result[0], $element[0]);
+    });
+
+    QUnit.test("default template engine should preserve element for transcluded templates", function(assert) {
+        const $element = $('<div>123</div>'),
+            template = new Template($element),
+            $result = template.render({ model: null, container: $('<div>'), transclude: true });
+
+        assert.equal($result[0], $element[0]);
     });
 });

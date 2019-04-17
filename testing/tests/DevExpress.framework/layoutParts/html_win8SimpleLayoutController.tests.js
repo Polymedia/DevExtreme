@@ -1,5 +1,3 @@
-"use strict";
-
 /* global jQuery, includeLayout */
 
 (function(root, factory) {
@@ -21,7 +19,7 @@
             DevExpress.devices,
             DevExpress.layouts.SimpleLayout.SimpleLayoutController,
             DevExpress.testHelpers
-         );
+        );
     }
 }(this, function($, devices, SimpleLayoutController, layoutHelper) {
 

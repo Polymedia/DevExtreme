@@ -1,5 +1,3 @@
-"use strict";
-
 define(function(require) {
     var $ = require("jquery"),
         Component = require("core/component"),
@@ -39,6 +37,7 @@ define(function(require) {
                     name === "fileSavingAction" ||
                     name === "validationMessageOffset" ||
                     name === "templatesRenderAsynchronously" ||
+                    name === "ignoreChildEvents" ||
                     name === "_checkParentVisibility") {
                     return;
                 }

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     vizMocks = require("../../helpers/vizMocks.js"),
@@ -23,7 +21,7 @@ QUnit.test('Group is created on construction', function(assert) {
 
 QUnit.test('Group is destroyed on dispose', function(assert) {
     this.tracker.dispose();
-    this.tracker.dispose = noop;  // To prevent failure on `afterEach`
+    this.tracker.dispose = noop; // To prevent failure on `afterEach`
     assert.deepEqual(this.renderer.g.firstCall.returnValue.linkOff.lastCall.args, [], "root is unlinked");
 });
 
@@ -294,14 +292,14 @@ var tooltipTouchEnvironment = {
         this.triggerDocument = function(name, element) {
             var event = $.Event(name);
             event.target = element ? $(element.element).get(0) : null;
-            event.changedTouches = [{}];    //  Because of ui.events.js
+            event.changedTouches = [{}]; //  Because of ui.events.js
             event.touches = [];
             $(window.document).trigger(event);
         };
         var _trigger = this.trigger;
         this.trigger = function() {
             _trigger.apply(this, arguments);
-            this.triggerDocument.apply(this, arguments);    //  Bubbling emulation
+            this.triggerDocument.apply(this, arguments); //  Bubbling emulation
         };
     },
     afterEach: tooltipEnvironment.afterEach

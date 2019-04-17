@@ -1,5 +1,3 @@
-"use strict";
-
 var registerComponent = require("../../core/component_registrator"),
     typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
@@ -23,7 +21,8 @@ var registerComponent = require("../../core/component_registrator"),
     seriesDataSourceModule = require("./series_data_source"),
     themeManagerModule = require("./theme_manager"),
     tickGeneratorModule = require("../axes/tick_generator"),
-    log = require("../../core/errors").log,
+    parseValue = vizUtils.getVizRangeObject,
+    convertVisualRangeObject = vizUtils.convertVisualRangeObject,
 
     _isDefined = typeUtils.isDefined,
     _isNumber = typeUtils.isNumeric,
@@ -35,17 +34,18 @@ var registerComponent = require("../../core/component_registrator"),
     START_VALUE = "startValue",
     END_VALUE = "endValue",
     DATETIME = "datetime",
-    SELECTED_RANGE = "selectedRange",
     VALUE = "value",
     DISCRETE = "discrete",
     SEMIDISCRETE = "semidiscrete",
     STRING = "string",
-    SELECTED_RANGE_CHANGED = SELECTED_RANGE + "Changed",
     VALUE_CHANGED = VALUE + "Changed",
     CONTAINER_BACKGROUND_COLOR = "containerBackgroundColor",
     SLIDER_MARKER = "sliderMarker",
     OPTION_BACKGROUND = "background",
     LOGARITHMIC = "logarithmic",
+    KEEP = "keep",
+    SHIFT = "shift",
+    RESET = "reset",
     INVISIBLE_POS = -1000,
     SEMIDISCRETE_GRID_SPACING_FACTOR = 50,
     DEFAULT_AXIS_DIVISION_FACTOR = 30,
@@ -65,74 +65,24 @@ function calculateScaleLabelHalfWidth(renderer, value, scaleOptions, tickInterva
     return _ceil(textBBox.width / 2);
 }
 
-function parseValue(value) {
-    return { startValue: value[0], endValue: value[1] };
-}
-
-function parseSelectedRange(selectedRange) {
-    return [selectedRange.startValue, selectedRange.endValue];
-}
-
-function parseSliderMarkersPlaceholderSize(placeholderSize) {
-    var placeholderWidthLeft,
-        placeholderWidthRight,
-        placeholderHeight;
-
-    if(_isNumber(placeholderSize)) {
-        placeholderWidthLeft = placeholderWidthRight = placeholderHeight = placeholderSize;
-    } else if(placeholderSize) {
-        if(_isNumber(placeholderSize.height)) {
-            placeholderHeight = placeholderSize.height;
-        }
-        if(_isNumber(placeholderSize.width)) {
-            placeholderWidthLeft = placeholderWidthRight = placeholderSize.width;
-        } else if(placeholderSize.width) {
-            if(_isNumber(placeholderSize.width.left)) {
-                placeholderWidthLeft = placeholderSize.width.left;
-            }
-            if(_isNumber(placeholderSize.width.right)) {
-                placeholderWidthRight = placeholderSize.width.right;
-            }
-        }
-    } else {
-        return null;
-    }
-
-    return {
-        widthLeft: placeholderWidthLeft,
-        widthRight: placeholderWidthRight,
-        height: placeholderHeight
-    };
-}
-
 function calculateIndents(renderer, scale, sliderMarkerOptions, indentOptions, tickIntervalsInfo) {
     var leftMarkerHeight,
         leftScaleLabelWidth = 0,
         rightScaleLabelWidth = 0,
         rightMarkerHeight,
-        placeholderWidthLeft = 0,
-        placeholderWidthRight = 0,
+        placeholderWidthLeft,
+        placeholderWidthRight,
         placeholderHeight,
-        parsedPlaceholderSize,
         ticks = scale.type === "semidiscrete" ? scale.customTicks : tickIntervalsInfo.ticks,
         startTickValue,
         endTickValue;
 
     indentOptions = indentOptions || {};
-    parsedPlaceholderSize = parseSliderMarkersPlaceholderSize(sliderMarkerOptions.placeholderSize);
-    if(parsedPlaceholderSize && indentOptions.left === undefined && indentOptions.right === undefined) {   // for deprecated in 15.1 sliderMarker.placeholderSize
-        placeholderWidthLeft = parsedPlaceholderSize.widthLeft;
-        placeholderWidthRight = parsedPlaceholderSize.widthRight;
-    } else {
-        placeholderWidthLeft = indentOptions.left;
-        placeholderWidthRight = indentOptions.right;
-    }
 
-    if(parsedPlaceholderSize && sliderMarkerOptions.placeholderHeight === undefined) {    // for deprecated in 15.1 sliderMarker.placeholderSize.height
-        placeholderHeight = parsedPlaceholderSize.height;
-    } else {
-        placeholderHeight = sliderMarkerOptions.placeholderHeight;
-    }
+    placeholderWidthLeft = indentOptions.left;
+    placeholderWidthRight = indentOptions.right;
+
+    placeholderHeight = sliderMarkerOptions.placeholderHeight;
 
     if(sliderMarkerOptions.visible) {
         leftMarkerHeight = calculateMarkerHeight(renderer, scale.startValue, sliderMarkerOptions);
@@ -149,7 +99,7 @@ function calculateIndents(renderer, scale, sliderMarkerOptions, indentOptions, t
         rightScaleLabelWidth = calculateScaleLabelHalfWidth(renderer, endTickValue, scale, tickIntervalsInfo);
     }
     placeholderWidthLeft = placeholderWidthLeft !== undefined ? placeholderWidthLeft : leftScaleLabelWidth;
-    placeholderWidthRight = (placeholderWidthRight !== undefined ? placeholderWidthRight : rightScaleLabelWidth) || 1;  // T240698
+    placeholderWidthRight = (placeholderWidthRight !== undefined ? placeholderWidthRight : rightScaleLabelWidth) || 1; // T240698
 
     return {
         left: placeholderWidthLeft,
@@ -300,7 +250,8 @@ function updateTickIntervals(scaleOptions, screenDelta, incidentOccurred, range)
             allowDecimals: scaleOptions.allowDecimals,
             endOnTick: scaleOptions.endOnTick,
 
-            incidentOccurred: incidentOccurred
+            incidentOccurred: incidentOccurred,
+            rangeIsEmpty: range.isEmpty()
         })(
             {
                 min: min,
@@ -333,7 +284,6 @@ function updateTickIntervals(scaleOptions, screenDelta, incidentOccurred, range)
 function calculateTranslatorRange(seriesDataSource, scaleOptions) {
     var minValue, maxValue,
         inverted = false,
-        isEqualDates,
         startValue = scaleOptions.startValue,
         endValue = scaleOptions.endValue,
         categories,
@@ -381,17 +331,14 @@ function calculateTranslatorRange(seriesDataSource, scaleOptions) {
         maxValue = categoriesInfo.end;
     }
 
-    isEqualDates = _isDate(minValue) && _isDate(maxValue) && (minValue.getTime() === maxValue.getTime());
-    if((scaleOptions.type === SEMIDISCRETE) || ((minValue !== maxValue) && !isEqualDates)) {
-        translatorRange.addRange({
-            invert: inverted,
-            min: minValue,
-            max: maxValue,
-            minVisible: minValue,
-            maxVisible: maxValue,
-            dataType: scaleOptions.valueType
-        });
-    }
+    translatorRange.addRange({
+        invert: inverted,
+        min: minValue,
+        max: maxValue,
+        minVisible: minValue,
+        maxVisible: maxValue,
+        dataType: scaleOptions.valueType
+    });
 
     translatorRange.addRange({
         categories: !seriesDataSource ? categories : undefined,
@@ -401,13 +348,6 @@ function calculateTranslatorRange(seriesDataSource, scaleOptions) {
     });
     seriesDataSource && translatorRange.sortCategories(categories);
 
-    // Setting stub data is required only for axis.
-    if(!translatorRange.isDefined()) {
-        if(isEqualDates) {
-            scaleOptions.valueType = "numeric";
-        }
-        translatorRange.setStubData(scaleOptions.valueType);
-    }
     return translatorRange;
 }
 
@@ -426,7 +366,7 @@ function getTextBBox(renderer, text, fontOptions) {
 function getDateMarkerVisibilityChecker(screenDelta) {
     return function(isDateScale, isMarkerVisible, min, max, tickInterval) {
         if(isMarkerVisible && isDateScale) {
-            if(tickInterval.years || tickInterval.months >= 6 ||
+            if(!_isDefined(tickInterval) || tickInterval.years || tickInterval.months >= 6 ||
                 (screenDelta / SEMIDISCRETE_GRID_SPACING_FACTOR < (_ceil((max - min) / dateToMilliseconds("year")) + 1))) {
                 isMarkerVisible = false;
             }
@@ -442,7 +382,7 @@ function updateScaleOptions(scaleOptions, seriesDataSource, translatorRange, tic
         intervals,
         isDateTime = scaleOptions.valueType === DATETIME;
 
-    if(seriesDataSource && !seriesDataSource.isEmpty() && !translatorRange.stubData) {
+    if(seriesDataSource && !seriesDataSource.isEmpty() && !translatorRange.isEmpty()) {
         bounds = tickIntervalsInfo.bounds;
         translatorRange.addRange(bounds);
         scaleOptions.startValue = translatorRange.invert ? bounds.maxVisible : bounds.minVisible;
@@ -529,11 +469,6 @@ function prepareScaleOptions(scaleOption, calculatedValueType, incidentOccurred,
         scaleOption.type = "continuous";
     }
 
-    // DEPRECATED IN 15_2 start
-    scaleOption.tickInterval === undefined && (scaleOption.tickInterval = scaleOption.majorTickInterval);
-    scaleOption.minorTick.visible && (scaleOption.minorTick.visible = scaleOption.showMinorTicks);
-    // DEPRECATED IN 15_2 end
-
     scaleOption.parser = parser;
     if(scaleOption.type === SEMIDISCRETE) {
         scaleOption.minorTick.visible = false;
@@ -542,6 +477,7 @@ function prepareScaleOptions(scaleOption, calculatedValueType, incidentOccurred,
         scaleOption.maxRange = undefined;
     }
 
+    scaleOption.forceUserTickInterval |= _isDefined(scaleOption.tickInterval) && !_isDefined(scaleOption.axisDivisionFactor);
     scaleOption.axisDivisionFactor = _isDefined(scaleOption.axisDivisionFactor) ? scaleOption.axisDivisionFactor : DEFAULT_AXIS_DIVISION_FACTOR;
     scaleOption.minorAxisDivisionFactor = _isDefined(scaleOption.minorAxisDivisionFactor) ? scaleOption.minorAxisDivisionFactor : DEFAULT_MINOR_AXIS_DIVISION_FACTOR;
     return scaleOption;
@@ -593,37 +529,12 @@ function getPrecisionForSlider(startValue, endValue, screenDelta) {
 
 var dxRangeSelector = require("../core/base_widget").inherit({
     _eventsMap: {
-        "onSelectedRangeChanged": { name: SELECTED_RANGE_CHANGED }, // deprecated in 16_2
         "onValueChanged": { name: VALUE_CHANGED }
     },
 
     _setDeprecatedOptions: function() {
         this.callBase.apply(this, arguments);
         extend(this._deprecatedOptions, {
-            "sliderMarker.padding": {
-                since: "15.1", message: "Use the 'paddingTopBottom' and 'paddingLeftRight' options instead"
-            },
-            "sliderMarker.placeholderSize": {
-                since: "15.1", message: "Use the 'placeholderHeight' and 'indent' options instead"
-            },
-            "scale.majorTickInterval": {
-                since: "15.2", message: "Use the 'tickInterval' options instead"
-            },
-            "scale.showMinorTicks": {
-                since: "15.2", message: "Use the 'minorTick.visible' options instead"
-            },
-            "selectedRange": {
-                since: "16.2", message: "Use the 'value' option instead"
-            },
-            "onSelectedRangeChanged": {
-                since: "16.2", message: "Use the 'onValueChanged' option instead"
-            },
-            "behavior.callSelectedRangeChanged": {
-                since: "16.2", message: "Use the 'behavior.callValueChanged' option instead"
-            },
-            "scale.useTicksAutoArrangement": {
-                since: "17.1", message: "Use the 'scale.label.overlappingBehavior' option instead"
-            },
             "chart.barWidth": {
                 since: "18.1", message: "Use the 'chart.commonSeriesSettings.barPadding' or 'chart.series.barPadding' option instead"
             },
@@ -644,7 +555,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         return this._dataIsLoaded();
     },
 
-    _initialChanges: ["DATA_SOURCE", "SELECTED_RANGE", "VALUE", "DISABLED"],
+    _initialChanges: ["DATA_SOURCE", "VALUE"],
 
     _themeDependentChanges: ["MOSTLY_TOTAL"],
 
@@ -664,7 +575,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         });
 
         // RangeContainer
-        that._clipRect = renderer.clipRect();   // TODO: Try to remove it
+        that._clipRect = renderer.clipRect(); // TODO: Try to remove it
         // TODO: Groups could be created by the corresponding components
         rangeViewGroup = renderer.g().attr({ "class": "dxrs-view" }).append(root);
         slidersGroup = renderer.g().attr({ "class": "dxrs-slidersContainer", "clip-path": that._clipRect.id }).append(root);
@@ -676,7 +587,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
             renderer: renderer,
             root: scaleGroup,
             scaleBreaksGroup: scaleBreaksGroup,
-            updateSelectedRange: function(range) { that.setValue(parseSelectedRange(range)); },
+            updateSelectedRange: function(range) { that.setValue(convertVisualRangeObject(range)); },
             incidentOccurred: that._incidentOccurred
         });
 
@@ -692,20 +603,12 @@ var dxRangeSelector = require("../core/base_widget").inherit({
             trackersGroup: trackersGroup,
             updateSelectedRange: function(range, lastSelectedRange) {
                 if(!that._rangeOption) {
-                    that._suppressDeprecatedWarnings();
-                    that.option(SELECTED_RANGE, range);
-                    that._resumeDeprecatedWarnings();
-                    that.option(VALUE, parseSelectedRange(range));
-                }
-                // event is deprecated and should not be triggered without the need
-                if(that._options.onSelectedRangeChanged || that.hasEvent("selectedRangeChanged")) {
-                    // Event target has to be copied (T226597)
-                    that._eventTrigger(SELECTED_RANGE_CHANGED, { startValue: range.startValue, endValue: range.endValue }); // deprecated in 16_2
+                    that.option(VALUE, convertVisualRangeObject(range, typeUtils.isPlainObject(that._options[VALUE])));
                 }
 
                 that._eventTrigger(VALUE_CHANGED, {
-                    value: parseSelectedRange(range),
-                    previousValue: parseSelectedRange(lastSelectedRange)
+                    value: convertVisualRangeObject(range),
+                    previousValue: convertVisualRangeObject(lastSelectedRange)
                 });
             },
             translator: that._axis.getTranslator()
@@ -740,10 +643,8 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
     _optionChangesMap: {
         scale: "SCALE",
-        selectedRange: "SELECTED_RANGE",
         value: "VALUE",
-        dataSource: "DATA_SOURCE",
-        disabled: "DISABLED"
+        dataSource: "DATA_SOURCE"
     },
 
     _optionChangesOrder: ["SCALE", "DATA_SOURCE"],
@@ -752,14 +653,53 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         this._change(["MOSTLY_TOTAL"]);
     },
 
+    _setValueByDataSource() {
+        const that = this;
+        const options = that._options;
+        const axis = that._axis;
+
+        if(options.dataSource) {
+            let selectedRangeUpdateMode = that.option("selectedRangeUpdateMode");
+            const value = that.getValue();
+            const valueIsReady = _isDefined(value[0]) && _isDefined(value[1]);
+            if(_isDefined(selectedRangeUpdateMode)) {
+                selectedRangeUpdateMode = _normalizeEnum(selectedRangeUpdateMode);
+                that.__skipAnimation = true;
+            } else if(valueIsReady) { // T696409
+                selectedRangeUpdateMode = RESET;
+            }
+
+            if(selectedRangeUpdateMode === "auto" && valueIsReady) {
+                const rangesInfo = axis.allScaleSelected(value);
+
+                if(rangesInfo.startValue && rangesInfo.endValue) {
+                    selectedRangeUpdateMode = RESET;
+                } else if(rangesInfo.endValue) {
+                    selectedRangeUpdateMode = SHIFT;
+                } else {
+                    selectedRangeUpdateMode = KEEP;
+                }
+            }
+
+            if(selectedRangeUpdateMode === RESET) {
+                options[VALUE] = null;
+            } else if(selectedRangeUpdateMode === SHIFT && valueIsReady) {
+                const value = that.getValue();
+                that.__skipAnimation = true;
+                options[VALUE] = { length: axis.getVisualRangeLength({ minVisible: value[0], maxVisible: value[1] }) };
+            } else if(selectedRangeUpdateMode === KEEP) {
+                that.__skipAnimation = true;
+            }
+        }
+    },
+
     _change_DATA_SOURCE: function() {
         if(this._options.dataSource) {
-            this._options[SELECTED_RANGE] = this._options[VALUE] = null;
             this._updateDataSource();
         }
     },
 
-    _customChangesOrder: ["MOSTLY_TOTAL", "SELECTED_RANGE", "VALUE", "SLIDER_SELECTION", "DISABLED"],
+    _customChangesOrder: ["MOSTLY_TOTAL", "VALUE", "SLIDER_SELECTION"],
 
     _change_MOSTLY_TOTAL: function() {
         this._applyMostlyTotalChange();
@@ -767,43 +707,17 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
     _change_SLIDER_SELECTION: function() {
         var that = this,
-            range = that._options[SELECTED_RANGE],
             value = that._options[VALUE];
 
-        that._slidersController.setSelectedRange(value ? parseValue(value) : (range && range));
-    },
-
-    _change_SELECTED_RANGE: function() {
-        var that = this,
-            option = that._rangeOption && that._rangeOption[SELECTED_RANGE];
-        if(option) {
-            that._options[SELECTED_RANGE] = option;
-            that.setValue(parseSelectedRange(option));
-        }
+        that._slidersController.setSelectedRange(value && parseValue(value));
     },
 
     _change_VALUE: function() {
         var that = this,
-            option = that._rangeOption && that._rangeOption[VALUE];
+            option = that._rangeOption;
         if(option) {
             that._options[VALUE] = option;
             that.setValue(option);
-        }
-    },
-
-    _change_DISABLED: function() {
-        var renderer = this._renderer,
-            root = renderer.root;
-        if(this.option("disabled")) {
-            root.attr({
-                "pointer-events": "none",
-                filter: renderer.getGrayScaleFilter().id
-            });
-        } else {
-            root.attr({
-                "pointer-events": null,
-                filter: null
-            });
         }
     },
 
@@ -818,17 +732,14 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
     _applyChanges: function() {
         var that = this,
-            selectedRange = that._options[SELECTED_RANGE],
             value = that._options[VALUE];
 
         if(that._changes.has("VALUE") && value) {
-            that._rangeOption = { "value": [value[0], value[1]] };
-        } else if(that._changes.has("SELECTED_RANGE") && selectedRange) {
-            that._rangeOption = { "selectedRange": selectedRange };
+            that._rangeOption = value;
         }
         that.callBase.apply(that, arguments);
         that._rangeOption = null;
-        that.__isResizing = false;
+        that.__isResizing = that.__skipAnimation = false;
     },
 
     _applyMostlyTotalChange: function() {
@@ -840,7 +751,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
                 left: rect[0], top: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1]
             };
 
-        if(that.__isResizing) {
+        if(that.__isResizing || that.__skipAnimation) {
             currentAnimationEnabled = renderer.animationEnabled();
             renderer.updateAnimationOptions({
                 enabled: false
@@ -851,13 +762,13 @@ var dxRangeSelector = require("../core/base_widget").inherit({
             x: rect[0], y: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1]
         });
 
-        that._axis.getTranslator().update({ stubData: true }, canvas, { isHorizontal: true });
+        that._axis.getTranslator().update(new rangeModule.Range(), canvas, { isHorizontal: true });
 
         that._updateContent({
             left: rect[0], top: rect[1], width: rect[2] - rect[0], height: rect[3] - rect[1]
         });
 
-        if(that.__isResizing) {
+        if(that.__isResizing || that.__skipAnimation) {
             renderer.updateAnimationOptions({
                 enabled: currentAnimationEnabled
             });
@@ -867,6 +778,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
     },
 
     _dataSourceChangedHandler: function() {
+        this._setValueByDataSource();
         this._requestChange(["MOSTLY_TOTAL"]);
     },
 
@@ -892,9 +804,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
         this._axis.updateOptions(extend({}, scaleOptions, {
             isHorizontal: true,
-            label: {
-                overlappingBehavior: {}
-            }
+            label: {}
         }));
 
         seriesDataSource.isShowChart() && this._axis.setMarginOptions(seriesDataSource.getMarginOptions(canvas));
@@ -924,7 +834,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
         updateScaleOptions(scaleOptions, seriesDataSource, argTranslatorRange, tickIntervalsInfo, getDateMarkerVisibilityChecker(canvas.width));
         updateTranslatorRangeInterval(argTranslatorRange, scaleOptions);
-        sliderMarkerOptions = that._prepareSliderMarkersOptions(scaleOptions, canvas.width, tickIntervalsInfo);
+        sliderMarkerOptions = that._prepareSliderMarkersOptions(scaleOptions, canvas.width, tickIntervalsInfo, argTranslatorRange);
         indents = calculateIndents(that._renderer, scaleOptions, sliderMarkerOptions, that.option("indent"), tickIntervalsInfo);
         rangeContainerCanvas = {
             left: canvas.left + indents.left,
@@ -937,7 +847,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
             bottom: 0
         };
 
-         // TODO: There should be one call to some axis method (not 4 methods)
+        // TODO: There should be one call to some axis method (not 4 methods)
         that._axis.update(scaleOptions, isCompactMode, rangeContainerCanvas, argTranslatorRange, seriesDataSource);
 
         scaleOptions.minorTickInterval = scaleOptions.isEmpty ? 0 : scaleOptions.minorTickInterval;
@@ -946,7 +856,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         that._updateElements(scaleOptions, sliderMarkerOptions, isCompactMode, rangeContainerCanvas, seriesDataSource);
 
         if(chartThemeManager) {
-            chartThemeManager.dispose();    // TODO: Move it inside "SeriesDataSource"
+            chartThemeManager.dispose(); // TODO: Move it inside "SeriesDataSource"
         }
     },
 
@@ -971,13 +881,13 @@ var dxRangeSelector = require("../core/base_widget").inherit({
 
         that._requestChange(["SLIDER_SELECTION"]);
         that._isUpdating = false;
-        that._tracker.update(!that._axis.getTranslator().isEmptyValueRange(), behavior);
+        that._tracker.update(!that._axis.getTranslator().getBusinessRange().isEmpty(), behavior);
     },
 
     _createSeriesDataSource: function(chartOptions) {
         var that = this,
             seriesDataSource,
-            dataSource = that._dataSourceItems(),  // TODO: This code can be executed when data source is not loaded (it is an error)!
+            dataSource = that._dataSourceItems(), // TODO: This code can be executed when data source is not loaded (it is an error)!
             scaleOptions = that._getOption("scale"),
             valueType = scaleOptions.valueType || calculateValueType(scaleOptions.startValue, scaleOptions.endValue),
             valueAxis = new axisModule.Axis({
@@ -989,6 +899,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         valueAxis.updateOptions({
             isHorizontal: false,
             label: {},
+            categoriesSortingMethod: that._getOption("chart").valueAxis.categoriesSortingMethod
         });
 
         if(dataSource || (chartOptions && chartOptions.series)) {
@@ -1011,7 +922,7 @@ var dxRangeSelector = require("../core/base_widget").inherit({
         return seriesDataSource;
     },
 
-    _prepareSliderMarkersOptions: function(scaleOptions, screenDelta, tickIntervalsInfo) {
+    _prepareSliderMarkersOptions: function(scaleOptions, screenDelta, tickIntervalsInfo, argRange) {
         var that = this,
             minorTickInterval = tickIntervalsInfo.minorTickInterval,
             tickInterval = tickIntervalsInfo.tickInterval,
@@ -1019,14 +930,13 @@ var dxRangeSelector = require("../core/base_widget").inherit({
             endValue = scaleOptions.endValue,
             startValue = scaleOptions.startValue,
             sliderMarkerOptions = that._getOption(SLIDER_MARKER),
-            sliderMarkerUserOption = that.option(SLIDER_MARKER) || {},
             doNotSnap = !that._getOption("behavior").snapToTicks,
             isTypeDiscrete = scaleOptions.type === DISCRETE,
             isValueTypeDatetime = scaleOptions.valueType === DATETIME;
 
         sliderMarkerOptions.borderColor = that._getOption(CONTAINER_BACKGROUND_COLOR, true);
 
-        if(!sliderMarkerOptions.format) {
+        if(!sliderMarkerOptions.format && !argRange.isEmpty()) {
             if(doNotSnap && _isNumber(scaleOptions.startValue)) {
                 sliderMarkerOptions.format = {
                     type: "fixedPoint",
@@ -1051,33 +961,21 @@ var dxRangeSelector = require("../core/base_widget").inherit({
                 sliderMarkerOptions.format = formatHelper.getDateFormatByTicks(tickIntervalsInfo.ticks);
             }
         }
-        if(sliderMarkerUserOption.padding !== undefined && sliderMarkerUserOption.paddingLeftRight === undefined && sliderMarkerUserOption.paddingTopBottom === undefined) { //    for deprecated padding option
-            sliderMarkerOptions.paddingLeftRight = sliderMarkerOptions.paddingTopBottom = sliderMarkerUserOption.padding;
-        }
         return sliderMarkerOptions;
     },
 
-    getSelectedRange: function() {
-        log("W0002", this.NAME, "getSelectedRange", "16.2", "Use the 'getValue' method instead");
-        return parseValue(this.getValue());
-    },
-
     getValue: function() {
-        return parseSelectedRange(this._slidersController.getSelectedRange());
-    },
-
-    setSelectedRange: function(range) {
-        log("W0002", this.NAME, "setSelectedRange", "16.2", "Use the 'setValue' method instead");
-        this.setValue(parseSelectedRange(range));
+        return convertVisualRangeObject(this._slidersController.getSelectedRange());
     },
 
     setValue: function(value) {
         var current;
+        const visualRange = parseValue(value);
         if(!this._isUpdating && value) {
-            this._validateRange(value[0], value[1]);
+            this._validateRange(visualRange.startValue, visualRange.endValue);
             // TODO: Move the check inside the SlidersController
             current = this._slidersController.getSelectedRange();
-            if(!current || current.startValue !== value[0] || current.endValue !== value[1]) {
+            if(!current || current.startValue !== visualRange.startValue || current.endValue !== visualRange.endValue) {
                 this._slidersController.setSelectedRange(parseValue(value));
             }
         }
@@ -1098,11 +996,6 @@ each(["selectedRangeColor", "containerBackgroundColor", "sliderMarker", "sliderH
 // AxisWrapper
 
 function prepareAxisOptions(scaleOptions, isCompactMode, height, axisPosition) {
-    scaleOptions.label.overlappingBehavior = {
-        mode: _isDefined(scaleOptions.useTicksAutoArrangement) ?
-            (scaleOptions.useTicksAutoArrangement ? "hide" : "none") : scaleOptions.label.overlappingBehavior
-    };
-
     scaleOptions.marker.label.font = scaleOptions.label.font;
 
     scaleOptions.color = scaleOptions.marker.color = scaleOptions.tick.color;
@@ -1113,7 +1006,7 @@ function prepareAxisOptions(scaleOptions, isCompactMode, height, axisPosition) {
 
     scaleOptions.argumentType = scaleOptions.valueType;
     scaleOptions.visible = isCompactMode;
-    scaleOptions.minorTick.showCalculatedTicks = scaleOptions.isHorizontal = true;
+    scaleOptions.isHorizontal = true;
     scaleOptions.calculateMinors = true;
 
     scaleOptions.semiDiscreteInterval = scaleOptions.minRange;
@@ -1171,7 +1064,7 @@ AxisWrapper.prototype = {
         var axis = this._axis;
         axis.updateOptions(prepareAxisOptions(options, isCompactMode, canvas.height, canvas.height / 2 - Math.ceil(options.width / 2)));
         axis.validate();
-        axis.setBusinessRange(businessRange);
+        axis.setBusinessRange(businessRange, true);
         if(seriesDataSource !== undefined && seriesDataSource.isShowChart()) {
             axis.setMarginOptions(seriesDataSource.getMarginOptions(canvas));
         }
@@ -1185,10 +1078,23 @@ AxisWrapper.prototype = {
         axis.drawScaleBreaks({ start: canvas.top, end: canvas.top + canvas.height });
     },
 
-    getViewport: function() {}
+    visualRange: function() { },
+
+    getViewport: function() {
+        return {};
+    },
+
+    allScaleSelected(value) {
+        const { startValue, endValue } = this._axis.visualRange();
+
+        return {
+            startValue: value[0].valueOf() === startValue.valueOf(),
+            endValue: value[1].valueOf() === endValue.valueOf()
+        };
+    }
 };
 
-["setMarginOptions", "getFullTicks", "updateCanvas", "updateOptions", "getAggregationInfo", "getTranslator"].forEach(methodName => {
+["setMarginOptions", "getFullTicks", "updateCanvas", "updateOptions", "getAggregationInfo", "getTranslator", "getVisualRangeLength"].forEach(methodName => {
     AxisWrapper.prototype[methodName] = function() {
         const axis = this._axis;
 

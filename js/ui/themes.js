@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     domAdapter = require("../core/dom_adapter"),
     windowUtils = require("../core/utils/window"),
@@ -25,8 +23,7 @@ var context,
     $activeThemeLink,
     knownThemes,
     currentThemeName,
-    pendingThemeName,
-    isMaterialTheme;
+    pendingThemeName;
 
 var timerId;
 
@@ -177,9 +174,7 @@ function init(options) {
 
     if(!context) return;
     processMarkup();
-
     currentThemeName = undefined;
-    isMaterialTheme = undefined;
     current(options);
 }
 
@@ -238,8 +233,6 @@ function current(options) {
         }
     }
 
-    isMaterialTheme = /material/.test(currentThemeName || readThemeMarker());
-
     checkThemeDeprecation();
 
     attachCssClasses(viewPortUtils.originalViewPort(), currentThemeName);
@@ -277,7 +270,7 @@ function getCssClasses(themeName) {
         );
 
         if(themeNameParts.length > 1) {
-            result.push("dx-color-scheme-" + themeNameParts[1] + (isMaterial() ? ("-" + themeNameParts[2]) : ""));
+            result.push("dx-color-scheme-" + themeNameParts[1] + (isMaterial(themeName) ? ("-" + themeNameParts[2]) : ""));
         }
     }
 
@@ -317,22 +310,48 @@ function themeReady(callback) {
     themeReadyCallback.add(callback);
 }
 
-function isMaterial() {
-    return isMaterialTheme;
+function isTheme(themeRegExp, themeName) {
+    if(!themeName) {
+        themeName = currentThemeName || readThemeMarker();
+    }
+
+    return new RegExp(themeRegExp).test(themeName);
+}
+
+function isMaterial(themeName) {
+    return isTheme("material", themeName);
+}
+
+function isAndroid5(themeName) {
+    return isTheme("android5", themeName);
+}
+
+function isIos7(themeName) {
+    return isTheme("ios7", themeName);
+}
+
+function isGeneric(themeName) {
+    return isTheme("generic", themeName);
+}
+
+function isWin8(themeName) {
+    return isTheme("win8", themeName);
+}
+
+function isWin10(themeName) {
+    return isTheme("win10", themeName);
 }
 
 function checkThemeDeprecation() {
-    var name = currentThemeName || readThemeMarker();
-
-    if(/win8/.test(name)) {
+    if(isWin8()) {
         errors.log("W0010", "The 'win8' theme", "16.1", "Use the 'generic' theme instead.");
     }
 
-    if(/win10/.test(name)) {
+    if(isWin10()) {
         errors.log("W0010", "The 'win10' theme", "17.2", "Use the 'generic' theme instead.");
     }
 
-    if(/android/.test(name)) {
+    if(isAndroid5()) {
         errors.log("W0010", "The 'android5' theme", "18.1", "Use the 'material' theme instead.");
     }
 }
@@ -405,11 +424,16 @@ exports.detachCssClasses = detachCssClasses;
 exports.themeNameFromDevice = themeNameFromDevice;
 exports.waitForThemeLoad = waitForThemeLoad;
 exports.isMaterial = isMaterial;
+exports.isAndroid5 = isAndroid5;
+exports.isIos7 = isIos7;
+exports.isGeneric = isGeneric;
+exports.isWin8 = isWin8;
+exports.isWin10 = isWin10;
+
 
 exports.resetTheme = function() {
     $activeThemeLink && $activeThemeLink.attr("href", "about:blank");
     currentThemeName = null;
     pendingThemeName = null;
-    isMaterialTheme = false;
 };
 

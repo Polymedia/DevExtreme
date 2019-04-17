@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     fx = require("../animation/fx"),
@@ -11,7 +9,7 @@ var $ = require("../core/renderer"),
     isPlainObject = require("../core/utils/type").isPlainObject,
     registerComponent = require("../core/component_registrator"),
     eventUtils = require("../events/utils"),
-    CollectionWidget = require("./collection/ui.collection_widget.edit"),
+    CollectionWidget = require("./collection/ui.collection_widget.live_update").default,
     deferredUtils = require("../core/utils/deferred"),
     when = deferredUtils.when,
     Deferred = deferredUtils.Deferred,
@@ -43,6 +41,12 @@ var Accordion = CollectionWidget.inherit({
 
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
+
+            /**
+            * @name dxAccordionOptions.repaintChangesOnly
+            * @type boolean
+            * @default false
+            */
 
             /**
              * @name dxAccordionOptions.hoverStateEnabled
@@ -79,6 +83,7 @@ var Accordion = CollectionWidget.inherit({
             * @type_function_param1_field4 itemData:object
             * @type_function_param1_field5 itemElement:dxElement
             * @type_function_param1_field6 itemIndex:number
+            * @type_function_param1_field7 event:event
             * @action
             */
             onItemTitleClick: null,
@@ -119,6 +124,13 @@ var Accordion = CollectionWidget.inherit({
             deferRendering: true,
 
             /**
+             * @name dxAccordionOptions.items
+             * @type Array<string, dxAccordionItem, object>
+             * @fires dxAccordionOptions.onOptionChanged
+             * @inheritdoc
+             */
+
+            /**
             * @name dxAccordionOptions.itemTemplate
             * @type template|function
             * @default "item"
@@ -156,7 +168,7 @@ var Accordion = CollectionWidget.inherit({
                     return themes.isMaterial();
                 },
                 options: {
-                     /**
+                    /**
                     * @name dxAccordionOptions.animationDuration
                     * @type number
                     * @default 200 @for Material
@@ -188,22 +200,22 @@ var Accordion = CollectionWidget.inherit({
     _initTemplates: function() {
         this.callBase();
         /**
-        * @name dxAccordionItemTemplate
-        * @inherits CollectionWidgetItemTemplate
+        * @name dxAccordionItem
+        * @inherits CollectionWidgetItem
         * @type object
         */
         /**
-        * @name dxAccordionItemTemplate.title
+        * @name dxAccordionItem.title
         * @type String
         */
         /**
-        * @name dxAccordionItemTemplate.icon
+        * @name dxAccordionItem.icon
         * @type String
         */
         this._defaultTemplates["title"] = new BindableTemplate(function($container, data) {
             var $templateContainer = $("<div>")
-                    .addClass(ACCORDION_ITEM_TITLE_CAPTION_CLASS)
-                    .appendTo($container);
+                .addClass(ACCORDION_ITEM_TITLE_CAPTION_CLASS)
+                .appendTo($container);
 
             if(isPlainObject(data)) {
                 if(data.title) {
@@ -228,7 +240,6 @@ var Accordion = CollectionWidget.inherit({
     _render: function() {
         this.callBase();
         this._updateItemHeightsWrapper(true);
-        this._attachItemTitleClickAction();
     },
 
     _itemDataKey: function() {
@@ -271,12 +282,19 @@ var Accordion = CollectionWidget.inherit({
         this.callBase.apply(this, arguments);
     },
 
+    _afterItemElementDeleted: function($item, deletedActionArgs) {
+        this._deferredItems.splice(deletedActionArgs.itemIndex, 1);
+        this.callBase.apply(this, arguments);
+    },
+
     _renderItemContent: function(args) {
         var itemTitle = this.callBase(extend({}, args, {
             contentClass: ACCORDION_ITEM_TITLE_CLASS,
             templateProperty: "titleTemplate",
             defaultTemplateName: this.option("itemTitleTemplate")
         }));
+
+        this._attachItemTitleClickAction(itemTitle);
 
         var deferred = new Deferred();
         if(isDefined(this._deferredItems[args.index])) {
@@ -295,12 +313,11 @@ var Accordion = CollectionWidget.inherit({
         })));
     },
 
-    _attachItemTitleClickAction: function() {
-        var itemSelector = "." + ACCORDION_ITEM_TITLE_CLASS,
-            eventName = eventUtils.addNamespace(clickEvent.name, this.NAME);
+    _attachItemTitleClickAction: function(itemTitle) {
+        var eventName = eventUtils.addNamespace(clickEvent.name, this.NAME);
 
-        eventsEngine.off(this._itemContainer(), eventName, itemSelector);
-        eventsEngine.on(this._itemContainer(), eventName, itemSelector, this._itemTitleClickHandler.bind(this));
+        eventsEngine.off(itemTitle, eventName);
+        eventsEngine.on(itemTitle, eventName, this._itemTitleClickHandler.bind(this));
     },
 
     _itemTitleClickHandler: function(e) {
@@ -356,7 +373,7 @@ var Accordion = CollectionWidget.inherit({
 
         clearTimeout(this._animationTimer);
 
-        return when.apply($, iteratorUtils.map(this._itemElements(), function(item) {
+        return when.apply($, [].slice.call(this._itemElements()).map(function(item) {
             return that._updateItemHeight($(item), itemHeight, skipAnimation);
         })).done(function() {
             if(deferredAnimate) {
@@ -374,8 +391,8 @@ var Accordion = CollectionWidget.inherit({
 
         var startItemHeight = $item.outerHeight(),
             finalItemHeight = $item.hasClass(ACCORDION_ITEM_OPENED_CLASS)
-            ? itemHeight + $title.outerHeight() || $item.height("auto").outerHeight()
-            : $title.outerHeight();
+                ? itemHeight + $title.outerHeight() || $item.height("auto").outerHeight()
+                : $title.outerHeight();
 
         return this._animateItem($item, startItemHeight, finalItemHeight, skipAnimation, !!itemHeight);
     },

@@ -1,5 +1,3 @@
-"use strict";
-
 /* global DATA, data2, internals, initTree */
 
 var $ = require("jquery");
@@ -161,8 +159,8 @@ QUnit.test("T173381", function(assert) {
                         {
                             id: 2, text: 'b', expanded: true,
                             items: [
-                            { id: 21, text: 'b.1' },
-                            { id: 22, text: 'b.2' }
+                                { id: 21, text: 'b.1' },
+                                { id: 22, text: 'b.2' }
                             ]
                         }
                     ]

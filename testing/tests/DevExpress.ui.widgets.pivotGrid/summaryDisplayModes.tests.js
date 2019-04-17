@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     summaryDisplayModes = require("ui/pivot_grid/ui.pivot_grid.summary_display_modes"),
     applyDisplaySummaryMode = summaryDisplayModes.applyDisplaySummaryMode, // arguments: description, data
@@ -58,12 +56,12 @@ var $ = require("jquery"),
             ]
         }],
         values: [
-        [['GT'], ['T1'], ['T2'], ['T3'], ['T4'], ['T5'], ['T6'], ['T7'], ['T8']],
-        [['1T'], [1], [11], [12], [13], [2], [3], [31], [32]],
-        [['2T'], [10], [110], [120], [130], [20], [30], [310], [320]],
-        [['3T'], [100], [1100], [1200], [1300], [200], [300], [3100], [3200]],
-        [['4T'], [1000], [11000], [12000], [13000], [2000], [3000], [31000], [32000]],
-        [['5T'], [10000], [110000], [120000], [130000], [20000], [30000], [310000], [320000]]
+            [['GT'], ['T1'], ['T2'], ['T3'], ['T4'], ['T5'], ['T6'], ['T7'], ['T8']],
+            [['1T'], [1], [11], [12], [13], [2], [3], [31], [32]],
+            [['2T'], [10], [110], [120], [130], [20], [30], [310], [320]],
+            [['3T'], [100], [1100], [1200], [1300], [200], [300], [3100], [3200]],
+            [['4T'], [1000], [11000], [12000], [13000], [2000], [3000], [31000], [32000]],
+            [['5T'], [10000], [110000], [120000], [130000], [20000], [30000], [310000], [320000]]
         ],
         grandTotalColumnIndex: 0,
         grandTotalRowIndex: 0
@@ -158,6 +156,14 @@ QUnit.test("Get row field", function(assert) {
     assert.strictEqual(new this.Cell([this.grandTotalColumn], [this.grandTotalRow], this.data, this.descriptions, 0).field("row"), null);
     assert.strictEqual(new this.Cell([this.data.columns[1], this.grandTotalColumn], [this.grandTotalRow], this.data, this.descriptions, 0).field("row"), null);
     assert.strictEqual(new this.Cell([this.data.columns[0], this.grandTotalColumn], [this.data.rows[0], this.grandTotalRow], this.data, this.descriptions, 0).field("row"), this.descriptions.rows[0]);
+});
+
+QUnit.test("Get data field", function(assert) {
+    this.descriptions.values.push({ area: "data", caption: "summaryField2", summaryDisplayMode: "summaryDisplayType", index: 1 });
+
+    var cell = new this.Cell([this.grandTotalColumn], [this.grandTotalRow], this.data, this.descriptions, 1);
+
+    assert.strictEqual(cell.field("data"), this.descriptions.values[1]);
 });
 
 QUnit.test("Get cell value when there are several data fields", function(assert) {

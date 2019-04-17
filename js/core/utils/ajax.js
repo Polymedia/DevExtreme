@@ -1,5 +1,3 @@
-"use strict";
-
 var Deferred = require("./deferred").Deferred;
 var domAdapter = require("../../core/dom_adapter");
 var httpRequest = require("../../core/http_request");
@@ -105,8 +103,8 @@ var getAcceptHeader = function(options) {
     extendFromObject(accepts, options.accepts, true);
 
     return accepts[dataType] ?
-            accepts[dataType] + (dataType !== "*" ? ", */*; q=0.01" : "") :
-            accepts["*"];
+        accepts[dataType] + (dataType !== "*" ? ", */*; q=0.01" : "") :
+        accepts["*"];
 };
 
 var getContentTypeHeader = function(options) {
@@ -121,8 +119,8 @@ var getContentTypeHeader = function(options) {
 
 var getDataFromResponse = function(xhr) {
     return xhr.responseType && xhr.responseType !== "text" || typeof xhr.responseText !== "string"
-            ? xhr.response
-            : xhr.responseText;
+        ? xhr.response
+        : xhr.responseText;
 };
 
 var postProcess = function(deferred, xhr, dataType) {
@@ -165,6 +163,9 @@ var isCrossDomain = function(url) {
 
     try {
         urlAnchor.href = url;
+
+        // NOTE: IE11
+        // eslint-disable-next-line no-self-assign
         urlAnchor.href = urlAnchor.href;
 
         crossDomain = originAnchor.protocol + "//" + originAnchor.host !==
@@ -198,15 +199,16 @@ var getJsonpOptions = function(options) {
 var getRequestOptions = function(options, headers) {
 
     var params = options.data,
+        paramsAlreadyString = typeof params === "string",
         url = options.url || window.location.href;
 
-    if(!options.cache) {
+    if(!paramsAlreadyString && !options.cache) {
         params = params || {};
         params["_"] = Date.now();
     }
 
     if(params && !options.upload) {
-        if(typeof params !== "string") {
+        if(!paramsAlreadyString) {
             params = paramsConvert(params);
         }
 

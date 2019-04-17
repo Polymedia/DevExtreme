@@ -1,8 +1,6 @@
-"use strict";
-
 QUnit.testStart(function() {
     var markup =
-        '<div>\
+        '<div class="dx-widget">\
             <div class="dx-datagrid">\
                 <div id="container"></div>\
                 <div id="container2"></div>\
@@ -11,21 +9,23 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
-require("generic_light.css!");
-require("ui/data_grid/ui.data_grid");
+import "common.css!";
+import "generic_light.css!";
+import "ui/data_grid/ui.data_grid";
 
-var $ = require("jquery"),
-    devices = require("core/devices"),
-    device = devices.real(),
-    noop = require("core/utils/common").noop,
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    CLICK_NAMESPACE = "dxclick.dxDataGridAdaptivity",
-    eventsEngine = require("events/core/events_engine"),
-    typeUtils = require("core/utils/type"),
-    config = require("core/config"),
-    renderer = require("core/renderer"),
-    themes = require("ui/themes");
+import $ from "jquery";
+import devices from "core/devices";
+import { noop as noop } from "core/utils/common";
+import dataGridMocks from "../../helpers/dataGridMocks.js";
+import eventsEngine from "events/core/events_engine";
+import typeUtils from "core/utils/type";
+import config from "core/config";
+import renderer from "core/renderer";
+import themes from "ui/themes";
+
+var device = devices.real();
+
+const CLICK_NAMESPACE = "dxclick.dxDataGridAdaptivity";
 
 function setupDataGrid(that, $dataGridContainer) {
     that.$element = function() {
@@ -271,7 +271,7 @@ QUnit.test("Hide the adaptive command column when it is located on a left side a
 
 QUnit.test("The last data column has correct width when 'columnAutoWidth' option is 'true'", function(assert) {
     // arrange
-    $(".dx-datagrid").width(275);
+    $(".dx-datagrid").width(265);
 
     this.columns = [
         { dataField: 'firstName', index: 0 },
@@ -300,7 +300,7 @@ QUnit.test("The last data column has correct width when 'columnAutoWidth' option
 // T402287
 QUnit.test("Hidden columns must have zero widths for virtual scrolling table", function(assert) {
     // arrange
-    $(".dx-datagrid").width(275);
+    $(".dx-datagrid").width(265);
 
     this.columns = [
         { dataField: 'firstName', index: 0 },
@@ -547,8 +547,8 @@ QUnit.test("Form items order is equal to the grid columns order", function(asser
     $(".dx-datagrid").width(100);
 
     this.items = [
-            { firstName: "Alex", lastName: "Dow", city: "Washington" },
-            { firstName: "John", lastName: "Pierce", city: "Oakwille" }
+        { firstName: "Alex", lastName: "Dow", city: "Washington" },
+        { firstName: "John", lastName: "Pierce", city: "Oakwille" }
     ];
 
     this.options = {
@@ -582,8 +582,8 @@ QUnit.test("Form items were created readOnly if columns were readOnly", function
     $(".dx-datagrid").width(100);
 
     this.items = [
-            { firstName: "Alex", lastName: "Dow", city: "Washington", state: true },
-            { firstName: "John", lastName: "Pierce", city: "Oakwille", state: false }
+        { firstName: "Alex", lastName: "Dow", city: "Washington", state: true },
+        { firstName: "John", lastName: "Pierce", city: "Oakwille", state: false }
     ];
 
     this.options = {
@@ -591,9 +591,9 @@ QUnit.test("Form items were created readOnly if columns were readOnly", function
     };
 
     this.columns = [
-                { dataField: 'firstName', index: 0, allowEditing: true },
-                { dataField: 'lastName', index: 1, allowEditing: true },
-                { dataField: 'state', index: 2, allowEditing: true },
+        { dataField: 'firstName', index: 0, allowEditing: true },
+        { dataField: 'lastName', index: 1, allowEditing: true },
+        { dataField: 'state', index: 2, allowEditing: true },
     ];
 
     setupDataGrid(this);
@@ -737,7 +737,8 @@ QUnit.test("Update adaptive state when adaptive command column is located on lef
 QUnit.test("Show the form with cellTemplate when an adaptive row is expanded", function(assert) {
     // arrange
     $(".dx-datagrid").width(200);
-    var _column;
+    var _data;
+
     this.columns = [
         {
             dataField: 'firstName',
@@ -750,7 +751,7 @@ QUnit.test("Show the form with cellTemplate when an adaptive row is expanded", f
             allowEditing: true,
             cellTemplate: function(container, data) {
                 assert.equal(typeUtils.isRenderer(container), !!config().useJQuery, "cellElement is correct");
-                _column = data.column;
+                _data = data;
                 $(container).text(data.value + " template");
             }
         }
@@ -771,7 +772,11 @@ QUnit.test("Show the form with cellTemplate when an adaptive row is expanded", f
     assert.equal(form.option("items")[0].column.dataField, "lastName", "dataField of column");
     assert.equal(form.option("items")[0].dataField, "lastName", "dataField of item");
     assert.equal($(".dx-field-item-content").text(), "Psy template", "template text of item");
-    assert.equal(_column.dataField, "lastName", "column of data argument in cellTemplate");
+    assert.equal(_data.column.dataField, "lastName", "column of data argument in cellTemplate");
+    assert.strictEqual(_data.text, "Psy", "text of column");
+
+    // T692357
+    assert.strictEqual(_data.displayValue, "Psy", "display value of column");
 });
 
 QUnit.test("Hide the form widget when an adaptive row is collapsed", function(assert) {
@@ -1558,9 +1563,32 @@ QUnit.test("Calculate correct an average width of column when some columns has p
     assert.equal($(".dx-data-row .dx-datagrid-adaptive-more").length, 2, "command adaptive element");
 });
 
+// T691724
+QUnit.test("Columns should hide consistently if they have minWidth", function(assert) {
+    // arrange
+    $(".dx-datagrid").width(300);
+
+    this.items = [
+        { firstName: 'Blabl', lastName: "Psy", phone: "1" }];
+    this.columns = [
+        { dataField: 'firstName', index: 0, minWidth: 200 },
+        { dataField: 'lastName', index: 1, hidingPriority: 1, minWidth: 200 },
+        { dataField: 'phone', index: 2, hidingPriority: 2, minWidth: 200 }];
+
+    setupDataGrid(this);
+
+    this.rowsView.render($("#container"));
+    this.resizingController.updateDimensions();
+    this.clock.tick();
+
+    // assert
+    assert.equal($(".dx-data-row .dx-datagrid-adaptive-more").length, 1, "command adaptive element");
+    assert.equal($(".dx-datagrid-hidden-column").length, 2, "hidden columns count");
+});
+
 QUnit.test("Columns should hide consistently if percentage width (T640539)", function(assert) {
     // arrange
-    $(".dx-datagrid").width(700);
+    $(".dx-datagrid").width(680);
 
     this.items = [
         { firstName: 'Blablablablablablablablablabla', lastName: "Psy", phone: "+1123456789" },
@@ -1653,13 +1681,119 @@ QUnit.test("Form has 2 columns in material theme", function(assert) {
 
     var form = $("#container").find(".dx-form").dxForm("instance");
     var colWidth = form.option("colCount");
-    var screenByWidth = form.option("screenByWidth");
 
     // assert
     assert.equal(colWidth, 2);
-    assert.ok(screenByWidth);
 
     themes.isMaterial = origIsMaterial;
+});
+
+QUnit.test("Custom command column should not be hidden", function(assert) {
+    // arrange
+    var hiddenColumns;
+
+    $(".dx-datagrid").width(200);
+
+    this.columns = [
+        { dataField: 'firstName', index: 0, width: 150 },
+        { dataField: 'lastName', index: 1, width: 100 },
+        { type: "buttons" }
+    ];
+
+    this.options = {
+        editing: {
+            mode: "row",
+            allowUpdating: true
+        },
+        columnAutoWidth: true
+    };
+
+    setupDataGrid(this);
+
+    // act
+    this.rowsView.render($("#container"));
+    this.resizingController.updateDimensions();
+    this.clock.tick();
+
+    // assert
+    hiddenColumns = this.adaptiveColumnsController.getHiddenColumns();
+    assert.strictEqual(hiddenColumns.length, 1, "hidden column count");
+    assert.strictEqual(hiddenColumns[0].dataField, "lastName", "dataField of the hidden column");
+});
+
+QUnit.test("The last data column should be hidden when the command column has width and columnAutoWidth is enabled", function(assert) {
+    // arrange
+    var hiddenColumns;
+
+    $(".dx-datagrid").width(200);
+
+    this.columns = [
+        { dataField: 'firstName', index: 0, width: 50 },
+        { dataField: 'lastName', index: 1, width: 100 },
+        { type: "buttons", width: 100 }
+    ];
+
+    this.options = {
+        editing: {
+            mode: "row",
+            allowUpdating: true
+        },
+        columnAutoWidth: true
+    };
+
+    setupDataGrid(this);
+
+    // act
+    this.rowsView.render($("#container"));
+    this.resizingController.updateDimensions();
+    this.clock.tick();
+
+    // assert
+    hiddenColumns = this.adaptiveColumnsController.getHiddenColumns();
+    assert.strictEqual(hiddenColumns.length, 1, "hidden column count");
+    assert.strictEqual(hiddenColumns[0].dataField, "lastName", "dataField of the hidden column");
+});
+
+QUnit.test("The adaptive cell should be empty in a grouped row with a summary", function(assert) {
+    // arrange
+    var $testElement = $("#container");
+
+    $(".dx-datagrid").width(200);
+
+    this.items = [
+        { firstName: 'Blablablablablablablablablabla', lastName: "Psy", field1: "fiedl1", field2: "field2" },
+        { firstName: 'Super', lastName: "Star", field1: "fiedl3", field2: "field4" }
+    ];
+
+    this.columns = [
+        { dataField: 'firstName', groupIndex: 0 },
+        { dataField: 'lastName', width: 100 },
+        { dataField: 'fiedl1', width: 100 },
+        { dataField: 'field2', width: 100 },
+        { type: "adaptive" }
+    ];
+    this.options = {
+        summary: {
+            groupItems: [{
+                column: "fiedl1",
+                summaryType: "count",
+                alignByColumn: true
+            }],
+            texts: {
+                count: "count"
+            }
+        }
+    };
+
+    setupDataGrid(this);
+
+    // act
+    this.rowsView.render($testElement);
+    this.resizingController.updateDimensions();
+    this.clock.tick();
+
+    // assert
+    assert.strictEqual($(this.rowsView.getRowElement(0)).children(".dx-command-adaptive").html(), "&nbsp;", "adaptive cell");
 });
 
 QUnit.module("API", {
@@ -1873,6 +2007,37 @@ QUnit.test("Hide the adaptive and master detail row", function(assert) {
     // assert
     assert.equal($rows.length, 1, "master detail rows count");
     assert.ok($rows.eq(0).css("display") === "none", "master detail row");
+});
+
+QUnit.test("Expand adaptive row when row as tbody", function(assert) {
+    // arrange
+    $(".dx-datagrid").width(200);
+
+    var $rowElements,
+        $testElement = $("#container");
+
+    this.options = {
+        rowTemplate: function(container, options) {
+            $("<tbody class=\"dx-row dx-data-row\"><tr><td></td></tr></tbody>").appendTo(container);
+        }
+    };
+    setupDataGrid(this);
+    this.rowsView.render($testElement);
+    this.resizingController.updateDimensions();
+    this.clock.tick();
+
+    $rowElements = $testElement.find("tbody.dx-row");
+    assert.strictEqual($rowElements.length, 3, "row count");
+
+    // act
+    this.adaptiveColumnsController.expandAdaptiveDetailRow(this.items[0]);
+    this.clock.tick();
+
+    // assert
+    $rowElements = $testElement.find("tbody.dx-row");
+    assert.strictEqual($rowElements.length, 4, "row count");
+    assert.ok($rowElements.eq(0).hasClass("dx-data-row"), "data row");
+    assert.ok($rowElements.eq(1).hasClass("dx-adaptive-detail-row"), "adaptive detail row");
 });
 
 QUnit.module("Editing", {
@@ -2579,7 +2744,7 @@ QUnit.test("Edit batch. Render editor of form's item when clicked on a text of i
 
 QUnit.test("Edit batch. Editor is rendered only one when click on text", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2637,7 +2802,7 @@ QUnit.test("Edit batch. Editor is rendered only one when click on text", functio
 
 QUnit.test("Edit batch. Close edit mode for the form widget when a data is saved", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2686,7 +2851,7 @@ QUnit.test("Edit batch. Close edit mode for the form widget when a data is saved
 
 QUnit.test("Edit batch. Close edit mode and cancel editing when click out the data grid", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2725,7 +2890,7 @@ QUnit.test("Edit batch. Close edit mode and cancel editing when click out the da
     editor = $(".dx-texteditor").first().dxNumberBox("instance");
     this.clock.tick();
     editor.option("value", 102);
-    $(document).trigger("dxclick");
+    $(document).trigger("dxpointerdown");
     this.clock.tick();
     $itemsContent = $(".dx-field-item-content");
 
@@ -2736,7 +2901,7 @@ QUnit.test("Edit batch. Close edit mode and cancel editing when click out the da
 
 QUnit.test("Edit batch. Close edit mode for the form widget when a editing is canceled", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2785,7 +2950,7 @@ QUnit.test("Edit batch. Close edit mode for the form widget when a editing is ca
 
 QUnit.test("Edit batch. Form's item is marked as modified", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2828,7 +2993,7 @@ QUnit.test("Edit batch. Form's item is marked as modified", function(assert) {
     this.clock.tick();
     editor = $(".dx-texteditor").first().dxTextBox("instance");
     editor.option("value", "Test");
-    $(document).trigger("dxclick");
+    $(document).trigger("dxpointerdown");
     this.clock.tick();
     $itemsContent = $(".dx-field-item-content");
 
@@ -2839,7 +3004,7 @@ QUnit.test("Edit batch. Form's item is marked as modified", function(assert) {
 
 QUnit.test("Edit batch. Form's item is marked as modified for other adaptive row", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -2883,7 +3048,7 @@ QUnit.test("Edit batch. Form's item is marked as modified for other adaptive row
     this.clock.tick();
     editor = $(".dx-texteditor").first().dxTextBox("instance");
     editor.option("value", "test");
-    $(document.body).trigger("dxclick");
+    $(document.body).trigger("dxpointerdown");
     this.clock.tick();
     this.adaptiveColumnsController.collapseAdaptiveDetailRow(dataSource[0]);
     this.adaptiveColumnsController.expandAdaptiveDetailRow(dataSource[0]);
@@ -3077,7 +3242,7 @@ QUnit.test("Edit batch. Show modified state in a cell when cell is edited inside
 
     editor = $(".dx-texteditor").first().dxNumberBox("instance");
     editor.option("value", 102);
-    $(document).trigger("dxclick");
+    $(document).trigger("dxpointerdown");
     this.clock.tick();
     $(".dx-datagrid").width(1000);
     this.resizingController.resize();
@@ -3163,7 +3328,7 @@ QUnit.test("Edit cell. Render editor of form's item when clicked on a text of it
 
 QUnit.test("Edit cell. Editor is rendered only one when click on text", function(assert) {
     // arrange
-    $(".dx-datagrid").width(400);
+    $(".dx-datagrid").width(300);
 
     var dataSource = [
         { firstName: 'Blablablablablablablablablabla', lastName: "ShumShumShum Shum", count: 0.2 },
@@ -3406,7 +3571,7 @@ QUnit.test("Create new row is the cell mode. Save new values", function(assert) 
 
     // act
     editors.first().dxTextBox("instance").option("value", "12test");
-    $(document).trigger("dxclick");
+    $(document).trigger("dxpointerdown");
     this.clock.tick();
 
     // assert
@@ -3658,7 +3823,7 @@ QUnit.module("Validation", {
 
         editor = $(".dx-form .dx-texteditor").first().dxTextBox("instance");
         editor.option("value", "");
-        $(document).trigger("dxclick");
+        $(document).trigger("dxpointerdown");
         this.clock.tick();
 
         // assert
@@ -3759,7 +3924,7 @@ QUnit.module("Validation", {
 
         editor = $(".dx-form .dx-texteditor").first().dxTextBox("instance");
         editor.option("value", "");
-        $(document).trigger("dxclick");
+        $(document).trigger("dxpointerdown");
         this.clock.tick();
 
         // assert
@@ -3826,13 +3991,62 @@ QUnit.module("Validation", {
 
         editor = $(".dx-form .dx-texteditor").first().dxTextBox("instance");
         editor.option("value", "");
-        $(document).trigger("dxclick");
+        $(document).trigger("dxpointerdown");
         this.clock.tick();
 
         $itemsContent = $(".dx-field-item-content");
 
         // assert
         assert.ok(!$itemsContent.first().hasClass("dx-datagrid-invalid"), "invalid style should not be applied");
+    });
+
+    QUnit.testInActiveWindow("Last column should not hide after callback (T615639)", function(assert) {
+        // arrange
+        this.options = {
+            columnHidingEnabled: true,
+            columns: [
+                { dataField: "ID", width: 100 },
+                { dataField: "C1", width: 100 },
+                { dataField: "C2", width: 100 }
+            ],
+            dataSource: [{ ID: 0, C1: 1, C2: 2 }]
+        };
+        setupDataGrid(this);
+        this.rowsView.render($("#container"));
+        this.resizingController.updateDimensions();
+        this.clock.tick();
+
+        // act
+        this.rowsView.component.columnOption("C2", "sortOrder", "0");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.rowsView._adaptiveColumnsController.getHiddenColumns().length, 0, "has not hidden adaptive columns");
+    });
+
+    QUnit.testInActiveWindow("If columns has the width property then columns width before hiding should be equal to the width of the columns", function(assert) {
+        // arrange
+        this.options = {
+            columnHidingEnabled: true,
+            width: 300,
+            columns: [
+                { dataField: "ID", width: 100 },
+                { dataField: "C1", width: 100 },
+                { dataField: "C2", width: 100 }
+            ],
+            dataSource: [{ ID: 0, C1: 1, C2: 2 }]
+        };
+        setupDataGrid(this);
+        this.rowsView.render($("#container"));
+        this.resizingController.updateDimensions();
+        this.clock.tick();
+
+        // act
+        this.rowsView.component.columnOption("C2", "sortOrder", "0");
+        this.clock.tick();
+
+        // assert
+        assert.equal(this.rowsView._adaptiveColumnsController.getHiddenColumns().length, 0, "has not hidden adaptive columns");
     });
 
     QUnit.test("The onRowValidating event is not called twice if isValid is set to 'false'", function(assert) {
@@ -3973,8 +4187,8 @@ QUnit.module("Keyboard navigation", {
         this.triggerFormItemClick(1);
 
         // act
-        var e = $.Event('keydown');
-        e.which = 9;
+        var e = $.Event("keydown");
+        e.key = "Tab";
         this.getActiveInputElement().trigger(e);
         this.clock.tick();
 
@@ -4005,7 +4219,7 @@ QUnit.module("Keyboard navigation", {
 
         // act
         var e = $.Event('keydown');
-        e.which = 9;
+        e.key = "Tab";
         this.getActiveInputElement().trigger(e);
 
         // assert
@@ -4032,7 +4246,7 @@ QUnit.module("Keyboard navigation", {
 
         // act
         var e = $.Event('keydown');
-        e.which = 9;
+        e.key = "Tab";
         this.getActiveInputElement().trigger(e);
 
         // assert
@@ -4048,7 +4262,7 @@ QUnit.module("Keyboard navigation", {
 
             // act
             var e = $.Event('keydown');
-            e.which = 9;
+            e.key = "Tab";
             e.shiftKey = true;
             this.getActiveInputElement().trigger(e);
 
@@ -4064,7 +4278,7 @@ QUnit.module("Keyboard navigation", {
 
             // act
             var e = $.Event('keydown');
-            e.which = 9;
+            e.key = "Tab";
             this.getActiveInputElement().trigger(e);
 
             // assert

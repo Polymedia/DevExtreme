@@ -1,52 +1,49 @@
-"use strict";
+import config from "../config";
+import Guid from "../guid";
+import { when, Deferred } from "../utils/deferred";
+import { each } from "./iterator";
+import { toComparable } from "./data";
+import { isDefined, isFunction, isString, isObject } from "./type";
 
-var config = require("../config"),
-    deferredUtils = require("../utils/deferred"),
-    when = deferredUtils.when,
-    Deferred = deferredUtils.Deferred,
-    each = require("./iterator").each,
-    typeUtils = require("./type");
-
-var ensureDefined = function(value, defaultValue) {
-    return typeUtils.isDefined(value) ? value : defaultValue;
+const ensureDefined = function(value, defaultValue) {
+    return isDefined(value) ? value : defaultValue;
 };
 
-var executeAsync = function(action, context/* , internal */) {
-    var deferred = new Deferred(),
-        normalizedContext = context || this,
-        timerId,
+const executeAsync = function(action, context/* , internal */) {
+    const deferred = new Deferred();
+    const normalizedContext = context || this;
+    let timerId;
+    const task = {
+        promise: deferred.promise(),
+        abort: function() {
+            clearTimeout(timerId);
+            deferred.rejectWith(normalizedContext);
+        }
+    };
 
-        task = {
-            promise: deferred.promise(),
-            abort: function() {
-                clearTimeout(timerId);
-                deferred.rejectWith(normalizedContext);
-            }
-        },
+    const callback = function() {
+        const result = action.call(normalizedContext);
 
-        callback = function() {
-            var result = action.call(normalizedContext);
-
-            if(result && result.done && typeUtils.isFunction(result.done)) {
-                result.done(function() {
-                    deferred.resolveWith(normalizedContext);
-                });
-            } else {
+        if(result && result.done && isFunction(result.done)) {
+            result.done(function() {
                 deferred.resolveWith(normalizedContext);
-            }
-        };
+            });
+        } else {
+            deferred.resolveWith(normalizedContext);
+        }
+    };
 
     timerId = (arguments[2] || setTimeout)(callback, typeof context === "number" ? context : 0);
 
     return task;
 };
 
-var delayedFuncs = [];
-var delayedNames = [];
-var delayedDeferreds = [];
-var executingName;
+const delayedFuncs = [];
+const delayedNames = [];
+const delayedDeferreds = [];
+let executingName;
 
-var deferExecute = function(name, func, deferred) {
+const deferExecute = function(name, func, deferred) {
     if(executingName && executingName !== name) {
         delayedFuncs.push(func);
         delayedNames.push(name);
@@ -54,11 +51,11 @@ var deferExecute = function(name, func, deferred) {
         delayedDeferreds.push(deferred);
         return deferred;
     } else {
-        var oldExecutingName = executingName,
-            currentDelayedCount = delayedDeferreds.length;
+        const oldExecutingName = executingName;
+        const currentDelayedCount = delayedDeferreds.length;
 
         executingName = name;
-        var result = func();
+        let result = func();
 
         if(!result) {
             if(delayedDeferreds.length > currentDelayedCount) {
@@ -77,46 +74,46 @@ var deferExecute = function(name, func, deferred) {
         if(!executingName && delayedFuncs.length) {
             (delayedNames.shift() === "render" ? deferRender : deferUpdate)(delayedFuncs.shift(), delayedDeferreds.shift());
         }
-        return result;
+        return result || when();
     }
 };
 
-var deferRender = function(func, deferred) {
+const deferRender = function(func, deferred) {
     return deferExecute("render", func, deferred);
 };
 
-var deferUpdate = function(func, deferred) {
+const deferUpdate = function(func, deferred) {
     return deferExecute("update", func, deferred);
 };
 
-var deferRenderer = function(func) {
+const deferRenderer = function(func) {
     return function() {
-        var that = this;
+        const that = this;
         return deferExecute("render", function() {
             return func.call(that);
         });
     };
 };
 
-var deferUpdater = function(func) {
+const deferUpdater = function(func) {
     return function() {
-        var that = this;
+        const that = this;
         return deferExecute("update", function() {
             return func.call(that);
         });
     };
 };
 
-var findBestMatches = function(targetFilter, items, mapFn) {
-    var bestMatches = [],
-        maxMatchCount = 0;
+const findBestMatches = function(targetFilter, items, mapFn) {
+    const bestMatches = [];
+    let maxMatchCount = 0;
 
-    each(items, function(index, itemSrc) {
-        var matchCount = 0,
-            item = mapFn ? mapFn(itemSrc) : itemSrc;
+    each(items, (index, itemSrc) => {
+        let matchCount = 0;
+        const item = mapFn ? mapFn(itemSrc) : itemSrc;
 
-        each(targetFilter, function(paramName, targetValue) {
-            var value = item[paramName];
+        each(targetFilter, (paramName, targetValue) => {
+            let value = item[paramName];
 
             if(value === undefined) {
                 return;
@@ -143,11 +140,11 @@ var findBestMatches = function(targetFilter, items, mapFn) {
     return bestMatches;
 };
 
-var match = function(value, targetValue) {
+const match = function(value, targetValue) {
     if(Array.isArray(value) && Array.isArray(targetValue)) {
-        var mismatch = false;
+        let mismatch = false;
 
-        each(value, function(index, valueItem) {
+        each(value, (index, valueItem) => {
             if(valueItem !== targetValue[index]) {
                 mismatch = true;
                 return false;
@@ -168,7 +165,7 @@ var match = function(value, targetValue) {
     return false;
 };
 
-var splitPair = function(raw) {
+const splitPair = function(raw) {
     switch(typeof raw) {
         case "string":
             return raw.split(/\s+/, 2);
@@ -181,38 +178,21 @@ var splitPair = function(raw) {
     }
 };
 
-var splitQuad = function(raw) {
-    switch(typeof raw) {
-        case "string":
-            return raw.split(/\s+/, 4);
-        case "object":
-            return [
-                raw.x || raw.h || raw.left,
-                raw.y || raw.v || raw.top,
-                raw.x || raw.h || raw.right,
-                raw.y || raw.v || raw.bottom];
-        case "number":
-            return [raw];
-        default:
-            return raw;
-    }
-};
+const normalizeKey = function(id) {
+    let key = isString(id) ? id : id.toString();
+    const arr = key.match(/[^a-zA-Z0-9_]/g);
 
-var normalizeKey = function(id) {
-    var key = typeUtils.isString(id) ? id : id.toString(),
-        arr = key.match(/[^a-zA-Z0-9_]/g);
-
-    arr && each(arr, function(_, sign) {
+    arr && each(arr, (_, sign) => {
         key = key.replace(sign, "__" + sign.charCodeAt() + "__");
     });
     return key;
 };
 
-var denormalizeKey = function(key) {
-    var arr = key.match(/__\d+__/g);
+const denormalizeKey = function(key) {
+    const arr = key.match(/__\d+__/g);
 
-    arr && arr.forEach(function(char) {
-        var charCode = parseInt(char.replace("__", ""));
+    arr && arr.forEach((char) => {
+        const charCode = parseInt(char.replace("__", ""));
 
         key = key.replace(char, String.fromCharCode(charCode));
     });
@@ -220,12 +200,12 @@ var denormalizeKey = function(key) {
     return key;
 };
 
-var isArraysEqualByValue = function(array1, array2, deep) {
+const isArraysEqualByValue = function(array1, array2, deep) {
     if(array1.length !== array2.length) {
         return false;
     }
 
-    for(var i = 0; i < array1.length; i++) {
+    for(let i = 0; i < array1.length; i++) {
         if(!equalByValue(array1[i], array2[i], deep + 1)) {
             return false;
         }
@@ -234,14 +214,14 @@ var isArraysEqualByValue = function(array1, array2, deep) {
     return true;
 };
 
-var isObjectsEqualByValue = function(object1, object2, deep) {
-    for(var propertyName in object1) {
+const isObjectsEqualByValue = function(object1, object2, deep) {
+    for(const propertyName in object1) {
         if(object1.hasOwnProperty(propertyName) && !equalByValue(object1[propertyName], object2[propertyName], deep + 1)) {
             return false;
         }
     }
 
-    for(propertyName in object2) {
+    for(const propertyName in object2) {
         if(!(propertyName in object1)) {
             return false;
         }
@@ -250,32 +230,48 @@ var isObjectsEqualByValue = function(object1, object2, deep) {
     return true;
 };
 
-var equalByValue = function(object1, object2, deep) {
-    if(object1 === object2) return true;
+const pairToObject = function(raw) {
+    const pair = splitPair(raw);
+    let h = parseInt(pair && pair[0], 10);
+    let v = parseInt(pair && pair[1], 10);
 
-    var maxDeep = 3;
+    if(!isFinite(h)) {
+        h = 0;
+    }
+    if(!isFinite(v)) {
+        v = h;
+    }
 
+    return { h, v };
+};
+
+const maxEqualityDeep = 3;
+
+const equalByValue = function(object1, object2, deep) {
     deep = deep || 0;
 
-    if(deep >= maxDeep) {
+    object1 = toComparable(object1, true);
+    object2 = toComparable(object2, true);
+
+    if(object1 === object2 || deep >= maxEqualityDeep) {
         return true;
     }
 
-    if(typeUtils.isObject(object1) && typeUtils.isObject(object2)) {
+    if(isObject(object1) && isObject(object2)) {
         return isObjectsEqualByValue(object1, object2, deep);
     } else if(Array.isArray(object1) && Array.isArray(object2)) {
         return isArraysEqualByValue(object1, object2, deep);
-    } else if(typeUtils.isDate(object1) && typeUtils.isDate(object2)) {
-        return object1.getTime() === object2.getTime();
     }
 
     return false;
 };
 
-var getKeyHash = function(key) {
-    if(typeUtils.isObject(key) || Array.isArray(key)) {
+const getKeyHash = function(key) {
+    if(key instanceof Guid) {
+        return key.toString();
+    } else if(isObject(key) || Array.isArray(key)) {
         try {
-            var keyHash = JSON.stringify(key);
+            const keyHash = JSON.stringify(key);
             return keyHash === "{}" ? key : keyHash;
         } catch(e) {
             return key;
@@ -285,26 +281,27 @@ var getKeyHash = function(key) {
     return key;
 };
 
-var escapeRegExp = function(string) {
+const escapeRegExp = function(string) {
     return string.replace(/[[\]{}\-()*+?.\\^$|\s]/g, "\\$&");
 };
 
-var applyServerDecimalSeparator = function(value) {
-    var separator = config().serverDecimalSeparator;
-    if(typeUtils.isDefined(value)) {
+const applyServerDecimalSeparator = function(value) {
+    const separator = config().serverDecimalSeparator;
+    if(isDefined(value)) {
         value = value.toString().replace(".", separator);
     }
     return value;
 };
 
-var noop = function() {};
+const noop = function() {};
+const asyncNoop = function() { return new Deferred().resolve().promise(); };
 
-var grep = function(elements, checkFunction, invert) {
-    var result = [],
-        check,
-        expectedCheck = !invert;
+const grep = function(elements, checkFunction, invert) {
+    const result = [];
+    let check;
+    const expectedCheck = !invert;
 
-    for(var i = 0; i < elements.length; i++) {
+    for(let i = 0; i < elements.length; i++) {
         check = !!checkFunction(elements[i], i);
 
         if(check === expectedCheck) {
@@ -325,8 +322,8 @@ exports.deferUpdate = deferUpdate;
 exports.deferUpdater = deferUpdater;
 
 
+exports.pairToObject = pairToObject;
 exports.splitPair = splitPair;
-exports.splitQuad = splitQuad;
 
 exports.findBestMatches = findBestMatches;
 
@@ -340,4 +337,5 @@ exports.escapeRegExp = escapeRegExp;
 exports.applyServerDecimalSeparator = applyServerDecimalSeparator;
 
 exports.noop = noop;
+exports.asyncNoop = asyncNoop;
 exports.grep = grep;

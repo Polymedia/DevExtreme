@@ -1,5 +1,3 @@
-"use strict";
-
 var dataUtils = require("./element_data");
 var domAdapter = require("./dom_adapter");
 var windowUtils = require("./utils/window");
@@ -499,7 +497,7 @@ initRender.prototype.find = function(selector) {
                 }
                 queryId = "[id='" + queryId + "'] ";
 
-                var querySelector = queryId + selector.replace(/([^\\])(\,)/g, "$1, " + queryId);
+                var querySelector = queryId + selector.replace(/([^\\])(,)/g, "$1, " + queryId);
                 nodes.push.apply(nodes, domAdapter.querySelectorAll(element, querySelector));
                 setAttributeValue(element, "id", elementId);
             } else if(domAdapter.isDocument(element)) {

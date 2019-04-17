@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../core/utils/extend").extend,
     ToolbarStrategy = require("./ui.toolbar.strategy"),
     ToolbarMenu = require("./ui.toolbar.menu"),
@@ -39,6 +37,7 @@ var DropDownMenuStrategy = ToolbarStrategy.inherit({
         var that = this;
         return extend(this.callBase(), {
             deferRendering: true,
+            container: that._toolbar.option("menuContainer"),
             menuWidget: ToolbarMenu,
             onOptionChanged: function(e) {
                 if(e.name === "items") {

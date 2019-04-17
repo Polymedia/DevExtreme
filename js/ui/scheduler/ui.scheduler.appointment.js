@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     translator = require("../../animation/translator"),
@@ -78,6 +76,7 @@ var Appointment = DOMComponent.inherit({
     _resizingRules: {
         horizontal: function() {
             var width = this.invoke("getCellWidth"),
+                step = this.invoke("getResizableStep"),
                 isRTL = this.option("rtlEnabled"),
                 reducedHandles = {
                     head: isRTL ? "right" : "left",
@@ -95,7 +94,7 @@ var Appointment = DOMComponent.inherit({
                 handles: handles,
                 minHeight: 0,
                 minWidth: width,
-                step: width
+                step: step
             };
         },
         vertical: function() {
@@ -130,11 +129,17 @@ var Appointment = DOMComponent.inherit({
     _renderAppointmentGeometry: function() {
         var geometry = this.option("geometry"),
             $element = this.$element();
-
-        translator.move($element, {
-            top: geometry.top,
-            left: geometry.left
-        });
+        if(this.option("allDay")) {
+            $element.css("left", geometry.left);
+            translator.move($element, {
+                top: geometry.top
+            });
+        } else {
+            translator.move($element, {
+                top: geometry.top,
+                left: geometry.left
+            });
+        }
 
         $element.css({
             width: geometry.width < 0 ? 0 : geometry.width,
@@ -166,8 +171,8 @@ var Appointment = DOMComponent.inherit({
 
     _renderAppointmentReducedIcon: function() {
         var $icon = $("<div>")
-            .addClass(REDUCED_APPOINTMENT_ICON)
-            .appendTo(this.$element()),
+                .addClass(REDUCED_APPOINTMENT_ICON)
+                .appendTo(this.$element()),
 
             endDate = this._getEndDate();
         var tooltipLabel = messageLocalization.format("dxScheduler-editorLabelEndDate"),
@@ -220,7 +225,10 @@ var Appointment = DOMComponent.inherit({
         }
 
         var config = this._resizingRules[this.option("direction")].apply(this);
-        config.stepPrecision = "strict";
+
+        if(!this.invoke("isGroupedByDate")) {
+            config.stepPrecision = "strict";
+        }
         this._createComponent(this.$element(), Resizable, extend(config, this.option("resizableConfig")));
     }
 

@@ -1,19 +1,19 @@
-"use strict";
+import $ from "jquery";
+import domUtils from "core/utils/dom";
+import holdEvent from "events/hold";
+import fx from "animation/fx";
+import noop from "core/utils/common";
+import config from "core/config";
+import pointerMock from "../../helpers/pointerMock.js";
+import { DataSource } from "data/data_source/data_source";
+import CustomStore from "data/custom_store";
+import { isRenderer } from "core/utils/type";
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
+import Accordion from "ui/accordion";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import themes from "ui/themes";
 
-var $ = require("jquery"),
-    Accordion = require("ui/accordion"),
-    domUtils = require("core/utils/dom"),
-    isRenderer = require("core/utils/type").isRenderer,
-    config = require("core/config"),
-    fx = require("animation/fx"),
-    holdEvent = require("events/hold"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    themes = require("ui/themes");
-
-require("common.css!");
+import "common.css!";
 
 QUnit.testStart(function() {
     var markup =
@@ -233,6 +233,39 @@ QUnit.test("nested widget rendering", function(assert) {
 
     $(nested.itemElements()).eq(1).trigger("dxclick");
     assert.equal(nested.isItemSelected(1), true, "item selected by click");
+});
+
+QUnit.test("nested widget with onItemTitleClick", function(assert) {
+    var that = this,
+        nested,
+        handleFire = sinon.stub();
+
+    var parent = this.$element.dxAccordion({
+        items: this.items,
+        onItemTitleClick: handleFire,
+        itemTemplate: function(itemData, itemIndex, itemElement) {
+            nested = $("<div>").dxAccordion({
+                items: that.items,
+            }).dxAccordion("instance");
+
+            nested.$element().appendTo(itemElement);
+        }
+    }).dxAccordion("instance");
+
+    $(nested.$element().find("." + ACCORDION_ITEM_TITLE_CLASS)).eq(1).trigger("dxclick");
+    assert.ok(handleFire.notCalled, "parent item title click action has not been fired after click on nested widget title");
+
+    $(parent.$element().find("." + ACCORDION_ITEM_TITLE_CLASS)).eq(4).trigger("dxclick");
+    assert.ok(handleFire.calledOnce, "parent item title click action has been fired after click");
+
+    parent.option("onItemTitleClick", noop);
+    nested.option("onItemTitleClick", handleFire);
+
+    $(parent.$element().find("." + ACCORDION_ITEM_TITLE_CLASS)).eq(4).trigger("dxclick");
+    assert.ok(handleFire.calledOnce, "nested item title click action has not been fired after click on parent widget title");
+
+    $(nested.$element().find("." + ACCORDION_ITEM_TITLE_CLASS)).eq(0).trigger("dxclick");
+    assert.equal(handleFire.callCount, 2, "nested item title click action has been fired after click");
 });
 
 
@@ -467,10 +500,10 @@ QUnit.test("height option in 'auto' mode when widget is multiple", function(asse
     var $element = $("#html-template-accordion"),
         instance = $element.dxAccordion({
             items: [
-            { title: "", html: "<div style=\"height: 50px\">" },
-            { title: "", html: "<div style=\"height: 100px\">" },
-            { title: "", html: "<div style=\"height: 50px\">" },
-            { title: "", html: "<div style=\"height: 100px\">" }
+                { title: "", html: "<div style=\"height: 50px\">" },
+                { title: "", html: "<div style=\"height: 100px\">" },
+                { title: "", html: "<div style=\"height: 50px\">" },
+                { title: "", html: "<div style=\"height: 100px\">" }
             ],
             height: "auto",
             selectedIndex: 0,
@@ -744,6 +777,20 @@ QUnit.test("'onItemRendered' option", function(assert) {
     assert.equal(actionValue, this.items.length, "'onItemRendered' fired once for each item");
 });
 
+QUnit.test("subscribe on the itemClick event when a title of item is changed", function(assert) {
+    const itemClickStub = sinon.stub(),
+        instance = this.$element.dxAccordion({
+            items: this.items,
+            onItemTitleClick: itemClickStub
+        }).dxAccordion("instance");
+
+    instance.option("items[0].title", "New title");
+
+    this.$element.find(`.${ACCORDION_ITEM_TITLE_CLASS}`).first().trigger("dxclick");
+
+    assert.ok(itemClickStub.called, "event was thrown");
+});
+
 
 QUnit.module("widget behavior", moduleSetup);
 
@@ -779,8 +826,7 @@ QUnit.test("expandItem public method", function(assert) {
     }).dxAccordion("instance");
 
     instance.expandItem(2);
-    var $items = this.$element.find("." + ACCORDION_ITEM_CLASS),
-        itemsVisible = this.$element.find("." + ACCORDION_ITEM_OPENED_CLASS).length;
+    var $items = this.$element.find("." + ACCORDION_ITEM_CLASS);
 
     assert.ok($items.eq(2).hasClass(ACCORDION_ITEM_OPENED_CLASS), "specified item is opened");
     assert.equal(this.$element.find("." + ACCORDION_ITEM_OPENED_CLASS).length, 1, "only one item is opened");
@@ -789,7 +835,6 @@ QUnit.test("expandItem public method", function(assert) {
     instance.option("multiple", true);
     instance.expandItem(0);
     $items = this.$element.find("." + ACCORDION_ITEM_CLASS);
-    itemsVisible = this.$element.find("." + ACCORDION_ITEM_OPENED_CLASS).length;
 
     assert.ok($items.eq(0).hasClass(ACCORDION_ITEM_OPENED_CLASS), "specified item is opened in multiple mode");
     assert.equal(this.$element.find("." + ACCORDION_ITEM_OPENED_CLASS).length, 2, "two items are opened in multiple mode");
@@ -986,4 +1031,181 @@ QUnit.test("body should be hidden if item is closed", function(assert) {
 
     accordion.collapseItem(0);
     assert.equal($itemBody.attr("aria-hidden"), "true", "body readable");
+});
+
+QUnit.module("Live Update", {
+    beforeEach: function() {
+        this.itemRenderedSpy = sinon.spy();
+        this.itemDeletedSpy = sinon.spy();
+        this.data = [{
+            id: 0,
+            text: "0",
+            content: "0 content"
+        },
+        {
+            id: 1,
+            text: "1",
+            content: "1 content"
+        },
+        {
+            id: 2,
+            text: "2",
+            content: "2 content"
+        }];
+        this.createAccordion = (dataSourceOptions, repaintChangesOnly) => {
+            var dataSource = new DataSource($.extend({
+                paginate: false,
+                pushAggregationTimeout: 0,
+                store: new CustomStore({
+                    load: () => this.data,
+                    remove: (key) => {
+                        var removedItem = this.data.filter(item => item.id === key)[0];
+                        if(removedItem) {
+                            this.data.splice(this.data.indexOf(removedItem), 1);
+                        }
+                    },
+                    key: "id"
+                })
+            }, dataSourceOptions));
+
+            return new Accordion($("#accordion"), {
+                dataSource: dataSource,
+                repaintChangesOnly: repaintChangesOnly,
+                onContentReady: (e) => {
+                    e.component.option("onItemRendered", this.itemRenderedSpy);
+                    e.component.option("onItemDeleted", this.itemDeletedSpy);
+                }
+            });
+        };
+    }
+}, function() {
+    QUnit.test("update item", function(assert) {
+        var store = this.createAccordion().getDataSource().store();
+
+        var pushData = [{ type: "update", data: {
+            id: 1,
+            text: "1 Updated",
+            content: "1 content"
+        }, key: 1 }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData, pushData[0].data, "check updated item");
+    });
+
+    QUnit.test("add item", function(assert) {
+        var store = this.createAccordion().getDataSource().store();
+
+        var pushData = [{ type: "insert", data: {
+            id: 3,
+            text: "3 Inserted",
+            content: "3 content"
+        } }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData, pushData[0].data, "check added item");
+    });
+
+    QUnit.test("remove item", function(assert) {
+        var accordion = this.createAccordion({}, true),
+            store = accordion.getDataSource().store();
+
+        var pushData = [{ type: "remove", key: 1 }];
+        store.push(pushData);
+
+        assert.equal(this.itemRenderedSpy.callCount, 0, "items are not refreshed after remove");
+        assert.equal(this.itemDeletedSpy.callCount, 1, "removed items count");
+        assert.deepEqual(this.itemDeletedSpy.firstCall.args[0].itemData.text, "1", "check removed item");
+        assert.equal(accordion.option("items").length, 2, " items count");
+    });
+
+    QUnit.test("repaintChangesOnly, update item instance", function(assert) {
+        var dataSource = this.createAccordion({}, true).getDataSource();
+
+        this.data[0] = {
+            id: 0,
+            text: "0 Updated",
+            content: "0 content"
+        };
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after reload");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData.text, "0 Updated", "check updated item");
+    });
+
+    QUnit.test("repaintChangesOnly, add item", function(assert) {
+        var dataSource = this.createAccordion({}, true).getDataSource();
+
+        this.data.push({
+            id: 3,
+            text: "3 Inserted",
+            content: "3 content"
+        });
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 1, "only one item is updated after push");
+        assert.deepEqual(this.itemRenderedSpy.firstCall.args[0].itemData.text, "3 Inserted", "check added item");
+    });
+
+    QUnit.test("repaintChangesOnly, remove item", function(assert) {
+        var accordion = this.createAccordion({}, true),
+            dataSource = accordion.getDataSource();
+
+        this.data.splice(1, 1);
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 0, "items are not refreshed after remove");
+        assert.equal(this.itemDeletedSpy.callCount, 1, "removed items count");
+        assert.equal(accordion.option("items").length, 2, " items count");
+        assert.deepEqual(this.itemDeletedSpy.firstCall.args[0].itemData.text, "1", "check removed item");
+    });
+
+    QUnit.test("repaintChangesOnly, double remove the same item", function(assert) {
+        var accordion = this.createAccordion({}, true),
+            dataSource = accordion.getDataSource(),
+            store = this.createAccordion().getDataSource().store();
+
+        store.remove(1);
+        dataSource.load();
+
+        store.remove(1);
+        dataSource.load();
+
+        assert.equal(this.itemRenderedSpy.callCount, 0, "items are not refreshed after remove");
+        assert.equal(this.itemDeletedSpy.callCount, 1, "removed items count");
+        assert.equal(this.itemDeletedSpy.firstCall.args[0].itemData.text, "1", "check removed item");
+    });
+
+    QUnit.test("repaintChangesOnly, change selected index after remove", function(assert) {
+        var accordion = this.createAccordion({}, true),
+            dataSource = accordion.getDataSource();
+
+        this.data.splice(1, 1);
+        dataSource.load();
+
+        accordion.option("selectedIndex", 1);
+        assert.equal(accordion.itemElements().find("." + ACCORDION_ITEM_BODY_CLASS).length, 2);
+    });
+
+    QUnit.test("repaintChangesOnly, remove selected item", function(assert) {
+        this.data.push({
+            id: 3,
+            text: "3",
+            content: "3 content"
+        });
+
+        var clock = sinon.useFakeTimers(),
+            accordion = this.createAccordion({}, true),
+            dataSource = accordion.getDataSource();
+
+        accordion.option("selectedIndex", 1);
+        this.data.splice(1, 1);
+        dataSource.load();
+
+        accordion.isItemSelected(accordion.itemElements()[1]);
+
+        assert.equal(accordion.itemElements().find("." + ACCORDION_ITEM_BODY_CLASS).length, 2);
+        clock.restore();
+    });
 });

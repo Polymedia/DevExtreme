@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     devices = require("core/devices"),
     registerComponent = require("core/component_registrator"),
@@ -399,6 +397,43 @@ QUnit.test("widget inside item is not disposed", function(assert) {
     assert.equal($widget.dxWidget("instance"), initialWidget, "widget was rendered correctly");
 });
 
+QUnit.test("items have no unsafe modifications after dispose", function(assert) {
+    this.updateScreenSize(1000);
+
+    var items = [
+        {
+            location: { row: 0, col: 0, screen: 'md' }, template: "template"
+        }
+    ];
+
+    var result = [
+        {
+            // only safe modifications
+            baseSize: "auto",
+            ratio: 1,
+            //
+            location: {
+                row: 0,
+                col: 0,
+                screen: "md"
+            },
+            template: "template"
+        }
+    ];
+
+    var $responsiveBox = $("#responsiveBox").dxResponsiveBox({
+        rows: [{}],
+        cols: [{}],
+        items: items
+    });
+
+    assert.ok(items[0].node, "node exists on rendering (unsafe)");
+
+    $responsiveBox.dxResponsiveBox("instance").dispose();
+
+    assert.deepEqual(items, result, "items have no unsafe modifications after dispose");
+});
+
 
 QUnit.module("events", moduleConfig);
 
@@ -526,7 +561,7 @@ QUnit.test("onOptionChanged should not be fired after click on item", function(a
         rows: [{}],
         cols: [{}],
         items: [
-                { location: { row: 0, col: 0 }, text: "item(0,0)" }
+            { location: { row: 0, col: 0 }, text: "item(0,0)" }
         ],
         onOptionChanged: onOptionChangedStub
     });

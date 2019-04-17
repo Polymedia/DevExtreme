@@ -1,9 +1,8 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import pointModule from "viz/series/points/base_point";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 import { MockAxis, insertMockFactory, restoreMockFactory } from "../../helpers/chartMocks.js";
 import { noop } from "core/utils/common";
 
@@ -42,7 +41,8 @@ var createSeries = function(options, renderSettings) {
         labelsGroup: renderer.g(),
         seriesGroup: renderer.g(),
         eventTrigger: noop,
-        eventPipe: noop
+        eventPipe: noop,
+        incidentOccurred: noop
     }, renderSettings);
 
     renderer.stub("g").reset();
@@ -117,6 +117,21 @@ var environmentWithSinonStubPoint = {
         assert.equal(this.createPoint.firstCall.args[1].argument, 1, "Argument should be correct");
         assert.equal(this.createPoint.firstCall.args[1].value, 4, "Value should be correct");
         assert.equal(this.createPoint.firstCall.args[1].minValue, 3, "Min value should be correct");
+    });
+
+    QUnit.test("IncidentOccurred. Data without range fields", function(assert) {
+        const data = [{ arg: 1 }, { arg: 2 }];
+        const incidentOccurred = sinon.spy();
+        const options = { type: "rangearea", argumentField: "arg", rangeValue1Field: "val1", rangeValue2Field: "val2", label: { visible: false } };
+        const series = createSeries(options, {
+            incidentOccurred: incidentOccurred
+        });
+
+        series.updateData(data);
+        series.createPoints();
+
+        assert.strictEqual(incidentOccurred.callCount, 2);
+        assert.strictEqual(incidentOccurred.lastCall.args[0], "W2002");
     });
 
     QUnit.module("RangeSeries. API", {

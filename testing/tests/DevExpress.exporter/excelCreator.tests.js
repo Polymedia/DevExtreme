@@ -1,8 +1,5 @@
-"use strict";
-
 var $ = require("jquery"),
-    excelCreator = require("client_exporter").excel,
-    excelCreator = require("client_exporter").excel,
+    excelCreator = require("exporter").excel,
     coreLocalization = require("localization/core"),
     ExcelCreator = excelCreator.creator,
     internals = excelCreator.__internals,
@@ -186,7 +183,7 @@ QUnit.test("Get excel date value", function(assert) {
     // act, assert
     var that = this,
         getExcelDateValue = function(strDate) {
-            return String(that.excelCreator._getExcelDateValue(new Date(strDate), "dd/MM/yyyy H:MM:s"));
+            return String(that.excelCreator._tryGetExcelDateValue(new Date(strDate), "dd/MM/yyyy H:MM:s"));
         };
 
     assert.strictEqual(getExcelDateValue("08/15/1900 12:52:03"), "228.53614583333334");
@@ -204,12 +201,12 @@ QUnit.test("Get excel date value", function(assert) {
     // T267460 UTC -06:00 USA
     assert.strictEqual(getExcelDateValue("08/15/2015"), "42231");
     assert.strictEqual(getExcelDateValue("08/15/2015 0:30:00"), "42231.020833333336");
-    assert.strictEqual(this.excelCreator._getExcelDateValue(""), undefined);
+    assert.strictEqual(this.excelCreator._tryGetExcelDateValue(""), undefined);
 });
 
 QUnit.test("Get excel date value when value is null", function(assert) {
     // act, assert
-    assert.ok(!this.excelCreator._getExcelDateValue(null, "dd/MM/yyyy H:MM:s"));
+    assert.ok(!this.excelCreator._tryGetExcelDateValue(null, "dd/MM/yyyy H:MM:s"));
 });
 
 QUnit.test("stringArray unique appending", function(assert) {
@@ -249,16 +246,13 @@ QUnit.test("Append not string value when type is string_T259295", function(asser
     assert.equal(this.excelCreator._stringArray[2], "true", "boolean type");
 });
 
-QUnit.test("formatArray unique appending", function(assert) {
-    // act
-    this.excelCreator._prepareStyleData();
-    this.excelCreator._prepareCellData();
-
-    // assert
-    assert.ok(exportMocks.checkUniqueValue(this.excelCreator._styleFormat));
-});
-
-QUnit.test("styleArray generating", function(assert) {
+QUnit.test("Cell formats generating by the 'getStyles' function result", function(assert) {
+    const expectedCellFormatsXml = '<cellXfs count="4">' +
+        '<xf xfId="0" applyAlignment="1" fontId="1" applyNumberFormat="0" numFmtId="0"><alignment vertical="top" wrapText="1" horizontal="center" /></xf>' +
+        '<xf xfId="0" applyAlignment="1" fontId="0" applyNumberFormat="1" numFmtId="165"><alignment vertical="top" wrapText="0" horizontal="left" /></xf>' +
+        '<xf xfId="0" applyAlignment="1" fontId="0" applyNumberFormat="1" numFmtId="165"><alignment vertical="top" wrapText="0" horizontal="right" /></xf>' +
+        '<xf xfId="0" applyAlignment="1" fontId="0" applyNumberFormat="1" numFmtId="166"><alignment vertical="top" wrapText="0" horizontal="left" /></xf>' +
+        '</cellXfs>';
     // act
     this.dataProvider.getStyles.returns([
         { alignment: "center", bold: true, wrapText: true },
@@ -268,14 +262,8 @@ QUnit.test("styleArray generating", function(assert) {
     ]);
     this.excelCreator._prepareStyleData();
 
-    var styles = this.excelCreator._styleArray;
-
-    // assert
-    assert.equal(styles.length, 4, "styles count");
-    assert.deepEqual(styles[0], { alignment: "center", bold: true, wrapText: true, formatID: undefined }, "style 1");
-    assert.deepEqual(styles[1], { alignment: "left", bold: false, wrapText: false, formatID: 1 }, "style 2");
-    assert.deepEqual(styles[2], { alignment: "right", bold: false, wrapText: false, formatID: 1 }, "style 3");
-    assert.deepEqual(styles[3], { alignment: "left", bold: false, wrapText: undefined, formatID: 2 }, "style 4");
+    const cellFormatsXml = this.excelCreator._excelFile.generateCellFormatsXml();
+    assert.equal(cellFormatsXml, expectedCellFormatsXml);
 });
 
 QUnit.test("stringArray generating", function(assert) {
@@ -340,10 +328,11 @@ QUnit.test("colsArray generating", function(assert) {
 
 QUnit.test("Cell index generate", function(assert) {
     // assert, act
-    assert.strictEqual(this.excelCreator._getCellIndex(1, 3), "D1", "Simple letter index correct (\"D1\")");
-    assert.strictEqual(this.excelCreator._getCellIndex(1, 26), "AA1", "Two-digit letter index correct (\"AA1\")"); // T271869
-    assert.strictEqual(this.excelCreator._getCellIndex(121, 2132), "CDA121", "Multi letter index correct (\"DEA121\")");
-    assert.strictEqual(this.excelCreator._getCellIndex(99999999, 99999999), "HJUNYV99999999", "Long multi letter index correct (\"IKVOZV99999999\")");
+    assert.strictEqual(this.excelCreator._convertToExcelCellRef(0, 0), "A1");
+    assert.strictEqual(this.excelCreator._convertToExcelCellRef(1, 3), "D2");
+    assert.strictEqual(this.excelCreator._convertToExcelCellRef(1, 26), "AA2"); // T271869
+    assert.strictEqual(this.excelCreator._convertToExcelCellRef(121, 2132), "CDA122");
+    assert.strictEqual(this.excelCreator._convertToExcelCellRef(99999999, 99999999), "HJUNYV100000000");
 });
 
 QUnit.test("Cell type generate", function(assert) {
@@ -510,9 +499,9 @@ QUnit.test("xl\\styles.xml file content", function(assert) {
             "<numFmt numFmtId=\"166\" formatCode=\"[$-9]M\\/d\\/yyyy\" />" +
             "<numFmt numFmtId=\"167\" formatCode=\"#,##0.0\" />" +
             "</numFmts>" +
-                "<fonts count=\"2\"><font><sz val=\"11\"/><color theme=\"1\"/><name val=\"Calibri\"/><family val=\"2\"/><scheme val=\"minor\"/></font>" +
-                "<font><b/><sz val=\"11\"/><color theme=\"1\"/><name val=\"Calibri\"/><family val=\"2\"/><scheme val=\"minor\"/></font></fonts>" +
-                "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
+                "<fonts count=\"2\"><font><sz val=\"11\" /><color theme=\"1\" /><name val=\"Calibri\" /><family val=\"2\" /><scheme val=\"minor\" /></font>" +
+                "<font><b /><sz val=\"11\" /><color theme=\"1\" /><name val=\"Calibri\" /><family val=\"2\" /><scheme val=\"minor\" /></font></fonts>" +
+                "<fills count=\"1\"><fill><patternFill patternType=\"none\" /></fill></fills>" +
                 "<borders count=\"1\"><border><left style=\"thin\"><color rgb=\"FFD3D3D3\"/></left><right style=\"thin\"><color rgb=\"FFD3D3D3\"/></right><top style=\"thin\"><color rgb=\"FFD3D3D3\"/></top><bottom style=\"thin\"><color rgb=\"FFD3D3D3\"/></bottom></border></borders>" +
                 "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
                 "<cellXfs count=\"6\">" +
@@ -822,179 +811,6 @@ QUnit.test("EncodeHtml for sharedStrings", function(assert) {
     assert.equal(this.excelCreator._stringArray[0], "&lt;div cssClass=&quot;myCss&quot; data=&#39;dfsdf&#39;&gt;&lt;p&gt;La &amp; la &amp; ba&lt;/p&gt;&lt;/div&gt;");
 });
 
-// T573609
-QUnit.test("Date format with formatter", function(assert) {
-    var format = {
-        type: "date",
-        formatter: function(date) {
-            return date.getDate() + "-" + (date.getMonth() + 1) + "-" + date.getFullYear();
-        }
-    };
-    // act
-    this.excelCreator._appendFormat(format, undefined, "date");
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 1);
-    assert.equal(this.excelCreator._styleFormat[0], "[$-9]d-M-yyyy", "excel format by formatter");
-});
-
-QUnit.test("Percent format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("percent", 3);
-    this.excelCreator._appendFormat("percent", 0);
-    this.excelCreator._appendFormat("percent");
-    this.excelCreator._appendFormat("percent", 1);
-    this.excelCreator._appendFormat("percent", 6);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "0.000%", "precision = 3");
-    assert.equal(this.excelCreator._styleFormat[1], "0%", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "0.0%", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "0.000000%", "precision = 6");
-});
-
-QUnit.test("FixedPoint format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("fixedPoint", 3);
-    this.excelCreator._appendFormat({ type: "fixedPoint", precision: 2 }, 3);
-    this.excelCreator._appendFormat("fixedPoint", 0);
-    this.excelCreator._appendFormat("fixedPoint");
-    this.excelCreator._appendFormat("fixedPoint", 1);
-    this.excelCreator._appendFormat("fixedPoint", 4);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 5);
-    assert.equal(this.excelCreator._styleFormat[0], "#,##0.000", "precision = 3");
-    assert.equal(this.excelCreator._styleFormat[1], "#,##0.00", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[2], "#,##0", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[3], "#,##0.0", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[4], "#,##0.0000", "precision = 4");
-});
-
-QUnit.test("Decimal format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("decimal", 2);
-    this.excelCreator._appendFormat("decimal", 0);
-    this.excelCreator._appendFormat("decimal");
-    this.excelCreator._appendFormat("decimal", 1);
-    this.excelCreator._appendFormat("decimal", 7);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "#00", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "#", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "#0", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "#0000000", "precision = 7");
-});
-
-QUnit.test("Exponential format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("exponential", 2);
-    this.excelCreator._appendFormat("exponential", 0);
-    this.excelCreator._appendFormat("exponential");
-    this.excelCreator._appendFormat("exponential", 1);
-    this.excelCreator._appendFormat("exponential", 3);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "0.00E+00", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "0E+00", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "0.0E+00", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "0.000E+00", "precision = 3");
-});
-
-QUnit.test("Currency format_en local", function(assert) {
-    // act
-    this.excelCreator._appendFormat("currency", 2);
-    this.excelCreator._appendFormat({ type: "currency", precision: 4, currency: "RUS" });
-    this.excelCreator._appendFormat("currency", 0);
-    this.excelCreator._appendFormat("currency");
-    this.excelCreator._appendFormat("currency", 1);
-    this.excelCreator._appendFormat("currency", 5);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 5);
-    assert.equal(this.excelCreator._styleFormat[0], "$#,##0.00_);\\($#,##0.00\\)", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "$#,##0.0000_);\\($#,##0.0000\\)", "precision = 4");
-    assert.equal(this.excelCreator._styleFormat[2], "$#,##0_);\\($#,##0\\)", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[3], "$#,##0.0_);\\($#,##0.0\\)", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[4], "$#,##0.00000_);\\($#,##0.00000\\)", "precision = 5");
-});
-
-QUnit.test("LargeNumber format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("largeNumber", 2);
-    this.excelCreator._appendFormat("largeNumber", 0);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 0);
-});
-
-QUnit.test("Thousands format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("thousands", 2);
-    this.excelCreator._appendFormat("thousands", 0);
-    this.excelCreator._appendFormat("thousands");
-    this.excelCreator._appendFormat("thousands", 1);
-    this.excelCreator._appendFormat("thousands", 3);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "#,##0.00,&quot;K&quot;", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "#,##0,&quot;K&quot;", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "#,##0.0,&quot;K&quot;", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "#,##0.000,&quot;K&quot;", "precision = 3");
-});
-
-QUnit.test("Millions format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("millions", 2);
-    this.excelCreator._appendFormat("millions", 0);
-    this.excelCreator._appendFormat("millions");
-    this.excelCreator._appendFormat("millions", 1);
-    this.excelCreator._appendFormat("millions", 3);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "#,##0.00,,&quot;M&quot;", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "#,##0,,&quot;M&quot;", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "#,##0.0,,&quot;M&quot;", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "#,##0.000,,&quot;M&quot;", "precision = 3");
-});
-
-QUnit.test("Billions format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("billions", 2);
-    this.excelCreator._appendFormat("billions", 0);
-    this.excelCreator._appendFormat("billions");
-    this.excelCreator._appendFormat("billions", 1);
-    this.excelCreator._appendFormat("billions", 3);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "#,##0.00,,,&quot;B&quot;", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "#,##0,,,&quot;B&quot;", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "#,##0.0,,,&quot;B&quot;", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "#,##0.000,,,&quot;B&quot;", "precision = 3");
-});
-
-QUnit.test("Trillions format", function(assert) {
-    // act
-    this.excelCreator._appendFormat("trillions", 2);
-    this.excelCreator._appendFormat("trillions", 0);
-    this.excelCreator._appendFormat("trillions");
-    this.excelCreator._appendFormat("trillions", 1);
-    this.excelCreator._appendFormat("trillions", 3);
-
-    // assert
-    assert.equal(this.excelCreator._styleFormat.length, 4);
-    assert.equal(this.excelCreator._styleFormat[0], "#,##0.00,,,,&quot;T&quot;", "precision = 2");
-    assert.equal(this.excelCreator._styleFormat[1], "#,##0,,,,&quot;T&quot;", "precision = 0");
-    assert.equal(this.excelCreator._styleFormat[2], "#,##0.0,,,,&quot;T&quot;", "precision = 1");
-    assert.equal(this.excelCreator._styleFormat[3], "#,##0.000,,,,&quot;T&quot;", "precision = 3");
-});
-
 // T267460
 QUnit.test("CalculateWidth convert 0 and undefined to min value", function(assert) {
     // act, assert
@@ -1056,7 +872,7 @@ QUnit.test("xl\\worksheets\\sheet1.xml file content with AutoFilter", function(a
             // assert
             var $autoFilter = $(content).find("autoFilter");
             assert.strictEqual($autoFilter.parent()[0].tagName.toLowerCase(), "worksheet");
-            assert.strictEqual($autoFilter.attr("ref"), "A2:C3");
+            assert.strictEqual($autoFilter.attr("ref"), "A2:A3");
         } finally {
             done();
         }
@@ -1072,7 +888,7 @@ QUnit.test("Exception should be thrown if JSzip not included has no start date",
     assert.throws(
         function() { this.excelCreator.getData(); }.bind(this),
         function(e) {
-            return /E1041/.test(e.message);
+            return /(E1041)[\s\S]*(JSZip)/.test(e.message);
         },
         "The JSZip script is referenced after DevExtreme scripts"
     );

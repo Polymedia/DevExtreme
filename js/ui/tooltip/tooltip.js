@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     Guid = require("../../core/guid"),
     registerComponent = require("../../core/component_registrator"),
@@ -49,6 +47,7 @@ var Tooltip = Popover.inherit({
             /**
             * @name dxTooltipOptions.onTitleRendered
             * @hidden
+            * @action
             * @inheritdoc
             */
             onTitleRendered: null,

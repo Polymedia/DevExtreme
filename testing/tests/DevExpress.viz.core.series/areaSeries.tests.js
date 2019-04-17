@@ -1,11 +1,10 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import { noop } from "core/utils/common";
 import vizUtils from "viz/core/utils";
 import pointModule from "viz/series/points/base_point";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 import { insertMockFactory, MockAxis, restoreMockFactory } from "../../helpers/chartMocks.js";
 
 var createSeries = function(options, renderSettings) {
@@ -46,7 +45,8 @@ var createSeries = function(options, renderSettings) {
         labelsGroup: renderer.g(),
         seriesGroup: renderer.g(),
         eventTrigger: noop,
-        eventPipe: sinon.spy()
+        eventPipe: sinon.spy(),
+        incidentOccurred: noop
     }, renderSettings);
 
     renderer.stub("g").reset();
@@ -1899,7 +1899,7 @@ function setDiscreteType(series) {
         assert.equal(this.renderer.stub("path").callCount, 2);
         checkElementPoints(assert, this.renderer.stub("path").getCall(0).args[0], [[10, 0], [10, 0], [15, 0], [15, 0], [15, 0], [20, 0], [20, 0]], false, "spline points");
         checkElementPoints(assert, this.renderer.stub("path").getCall(1).args[0], [[10, 0], [10, 0], [15, 0], [15, 0], [15, 0], [20, 0], [20, 0], [20, 0],
-                                                            [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], false, "area points");
+            [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], false, "area points");
 
     });
 

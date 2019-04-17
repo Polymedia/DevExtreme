@@ -1,5 +1,3 @@
-"use strict";
-
 /* global createTestContainer */
 
 var themeManagerModule = require("viz/range_selector/theme_manager"),
@@ -36,7 +34,7 @@ var themeManagerModule = require("viz/range_selector/theme_manager"),
             return true;
         },
         getBusinessRange: function() {
-            return {};
+            return new StubRange();
         }
     });
 
@@ -100,6 +98,10 @@ exports.environment = {
                 label: {}
             },
             endOnTick: false
+        });
+
+        that.themeManager.stub("theme").withArgs("chart").returns({
+            valueAxis: {}
         });
 
         return that.$container.dxRangeSelector(options).dxRangeSelector("instance");

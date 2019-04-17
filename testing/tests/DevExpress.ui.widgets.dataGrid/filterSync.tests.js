@@ -1,12 +1,8 @@
-"use strict";
-
-require("ui/data_grid/ui.data_grid");
-
-var $ = require("jquery"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    customOperations = require("ui/grid_core/ui.grid_core.filter_custom_operations"),
-    fx = require("animation/fx"),
-    setupDataGridModules = dataGridMocks.setupDataGridModules;
+import $ from "jquery";
+import { setupDataGridModules } from "../../helpers/dataGridMocks.js";
+import customOperations from "ui/grid_core/ui.grid_core.filter_custom_operations";
+import fx from "animation/fx";
+import "ui/data_grid/ui.data_grid";
 
 var HEADER_FILTER_CLASS = "dx-header-filter",
     HEADER_FILTER_EMPTY_CLASS = HEADER_FILTER_CLASS + "-empty";
@@ -30,8 +26,8 @@ QUnit.module("Sync with FilterValue", {
                 filterSyncEnabled: true,
                 filterValue: null
             }, options);
-            setupDataGridModules(this, ["columns", "data", "columnHeaders", "filterRow", "headerFilter", "filterSync"], {
-                initViews: true
+            setupDataGridModules(this, ["data", "search", "columns", "columnHeaders", "filterRow", "headerFilter", "filterSync"], {
+                initViews: false
             });
         };
     }
@@ -121,6 +117,43 @@ QUnit.module("Sync with FilterValue", {
         assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), "<>");
     });
 
+    // T657041
+    QUnit.test("selectedFilterOperation is set as undefined if it equals defaultFilterOperation and 'reset' operation is selected", function(assert) {
+        // arrange, act
+        this.setupDataGrid({
+            filterValue: ["field", "=", 2],
+            columns: [{ dataField: "field", dataType: "number" }],
+        });
+
+        // assert
+        assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), 2);
+        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), undefined);
+    });
+
+    QUnit.test("selectedFilterOperation is set if it equals defaultFilterOperation and defaultFilterOperation operation is selected", function(assert) {
+        // arrange, act
+        this.setupDataGrid({
+            filterValue: ["field", "=", 2],
+            columns: [{ dataField: "field", dataType: "number", selectedFilterOperation: "=" }],
+        });
+
+        // assert
+        assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), 2);
+        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), "=");
+    });
+
+    QUnit.test("selectedFilterOperation is set if it does not equal defaultFilterOperation and 'reset' operation is selected", function(assert) {
+        // arrange, act
+        this.setupDataGrid({
+            filterValue: ["field", "<>", 2],
+            columns: [{ dataField: "field", dataType: "number" }],
+        });
+
+        // assert
+        assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), 2);
+        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), "<>");
+    });
+
     QUnit.test("skip header filter for equal operation if it has groupInterval", function(assert) {
         // arrange, act
         this.setupDataGrid({
@@ -132,7 +165,7 @@ QUnit.module("Sync with FilterValue", {
         assert.deepEqual(this.option("filterValue"), ["field", "=", 2]);
         assert.deepEqual(this.columnsController.columnOption("field", "filterValues"), undefined);
         assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), 2);
-        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), "=");
+        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), undefined);
     });
 
     QUnit.test("skip header filter for equal operation if it has dataSource", function(assert) {
@@ -146,7 +179,7 @@ QUnit.module("Sync with FilterValue", {
         assert.deepEqual(this.option("filterValue"), ["field", "=", 2]);
         assert.deepEqual(this.columnsController.columnOption("field", "filterValues"), undefined);
         assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), 2);
-        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), "=");
+        assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), undefined);
     });
 
     QUnit.test("sync header filter & filterrow on initialization if filterValue = null", function(assert) {
@@ -161,6 +194,56 @@ QUnit.module("Sync with FilterValue", {
         assert.deepEqual(this.columnsController.columnOption("field", "filterType"), "include");
         assert.deepEqual(this.columnsController.columnOption("field", "filterValue"), undefined);
         assert.deepEqual(this.columnsController.columnOption("field", "selectedFilterOperation"), undefined);
+    });
+
+    // T649274
+    QUnit.test("clear filter if the boolean column is filtered with the 'false' value", function(assert) {
+        // arrange
+        this.setupDataGrid({
+            columns: [{ dataField: "field", dataType: "number", filterValue: false }],
+        });
+
+        // act
+        this.option("filterValue", null);
+        this.dataController.optionChanged({ name: "filterValue" });
+
+        // assert
+        assert.deepEqual(this.option("filterValue"), null);
+        assert.deepEqual(this.columnOption("field", "filterValue"), undefined);
+    });
+
+    // T659816
+    QUnit.test("clearFilter() clears filterValue", function(assert) {
+        var dataSourceFilter = ["field", "=", 0];
+        this.setupDataGrid({
+            dataSource: {
+                store: [],
+                filter: dataSourceFilter
+            },
+            columns: [{ dataField: "field", dataType: "number", filterValue: false }],
+            filterValue: [[["field", "=", 1], "and", ["field", "=", 2]], "or", ["field", "=", 3]]
+        });
+
+        this.dataController.clearFilter();
+        assert.equal(this.option("filterValue"), null);
+        assert.equal(this.dataController.getDataSource().filter(), null);
+    });
+
+    // T659816
+    QUnit.test("clearFilter('filterValue') clears only filterValue", function(assert) {
+        var dataSourceFilter = ["field", "=", 0];
+        this.setupDataGrid({
+            dataSource: {
+                store: [],
+                filter: dataSourceFilter
+            },
+            columns: [{ dataField: "field", dataType: "number", filterValue: false }],
+            filterValue: [[["field", "=", 1], "and", ["field", "=", 2]], "or", ["field", "=", 3]]
+        });
+
+        this.dataController.clearFilter("filterValue");
+        assert.equal(this.option("filterValue"), null);
+        assert.deepEqual(this.dataController.getDataSource().filter(), dataSourceFilter);
     });
 
     // T639390
@@ -195,6 +278,61 @@ QUnit.module("Sync with FilterValue", {
 
         // assert
         assert.deepEqual(this.option("filterValue"), [["field", "anyof", ["2", "3"]], "and", ["field2", "=", "1"]]);
+    });
+
+    // T662699
+    QUnit.test("filterRow clears value if column.filterOperations do not contain selectedFilterOperation", function(assert) {
+        this.setupDataGrid({
+            columns: [{
+                dataField: "field",
+                dataType: "number",
+                filterOperations: []
+            }],
+            filterValue: ["field", ">", 1]
+        });
+
+        assert.equal(this.columnOption("field", "filterValue"), undefined);
+        assert.equal(this.columnOption("field", "selectedFilterOperation"), undefined);
+    });
+
+    QUnit.test("filterRow does not clear value if selectedFilterOperations equals defaultFilterOperation", function(assert) {
+        this.setupDataGrid({
+            columns: [{
+                dataField: "field",
+                dataType: "number",
+                defaultFilterOperation: "=",
+                selectedFilterOperation: "=",
+                filterOperations: []
+            }],
+            filterValue: ["field", "=", 1]
+        });
+
+        assert.equal(this.columnOption("field", "filterValue"), 1);
+        assert.equal(this.columnOption("field", "selectedFilterOperation"), "=");
+    });
+
+    QUnit.test("skip sync when change filterType from undefined to 'include' and vice versa", function(assert) {
+        var spy = sinon.spy();
+        // arrange, act
+        this.setupDataGrid({
+            filterValue: ["field", "=", 2]
+        });
+
+        this.filterSyncController.syncHeaderFilter = spy;
+
+        this.dataController.optionChanged({ name: "columns", fullName: "columns[0].filterType", previousValue: "include", value: undefined });
+        // assert
+        assert.deepEqual(spy.callCount, 0);
+
+        // act
+        this.dataController.optionChanged({ name: "columns", fullName: "columns[0].filterType", previousValue: undefined, value: "include" });
+        // assert
+        assert.deepEqual(spy.callCount, 0);
+
+        // act
+        this.dataController.optionChanged({ name: "columns", fullName: "columns[0].filterType", previousValue: "include", value: "exclude" });
+        // assert
+        assert.deepEqual(spy.callCount, 1);
     });
 });
 
@@ -232,6 +370,32 @@ QUnit.module("getCombinedFilter", {
 
         // assert
         assert.deepEqual(this.getCombinedFilter(true), ["Test", "=", 1], "combined filter");
+    });
+
+    // T651579
+    QUnit.test("filter value with name in identifier", function(assert) {
+        // act
+        this.setupDataGrid({
+            dataSource: [],
+            columns: [{ name: "test", allowFiltering: true }],
+            filterValue: ["test", "=", 1]
+        });
+
+        // assert
+        assert.deepEqual(this.getCombinedFilter(true), ["test", "=", 1], "combined filter");
+    });
+
+    // T681595
+    QUnit.test("allowFiltering = false, allowHeaderFiltering = true", function(assert) {
+        // act
+        this.setupDataGrid({
+            dataSource: [],
+            columns: [{ name: "test", allowFiltering: false, allowHeaderFiltering: true }],
+            filterValue: ["test", "=", 1]
+        });
+
+        // assert
+        assert.deepEqual(this.getCombinedFilter(true), ["test", "=", 1], "combined filter");
     });
 
     QUnit.test("between", function(assert) {
@@ -557,6 +721,44 @@ QUnit.module("Sync on initialization", {
         assert.deepEqual(this.columnsController.columnOption("field", "filterValues"), ["1"]);
     });
 
+    // T695018
+    QUnit.test("sync column.filterValue if column has dataField && name", function(assert) {
+        // act
+        this.setupDataGrid({
+            filterValue: null,
+            filterSyncEnabled: true,
+            columns: [{
+                dataField: "field",
+                name: "field1",
+                dataType: "string",
+                selectedFilterOperation: "=",
+                filterValue: "1"
+            }]
+        });
+
+        // assert
+        assert.deepEqual(this.option("filterValue"), ["field", "=", "1" ], "filterValue");
+    });
+
+    QUnit.test("Error E1049", function(assert) {
+        assert.throws(
+            function() {
+                this.setupDataGrid({
+                    filterValue: ["field", "=", "1"],
+                    filterSyncEnabled: true,
+                    columns: [{
+                        caption: "Field",
+                        allowFiltering: true
+                    }]
+                });
+            },
+            function(e) {
+                return /E1049/.test(e.message);
+            },
+            `Сolumn 'Field': filtering is allowed but the 'dataField' or 'name' option is not specified`
+        );
+    });
+
     QUnit.test("sync filterValues if filterValue == null", function(assert) {
         // act
         this.setupDataGrid({
@@ -855,6 +1057,25 @@ QUnit.module("Real dataGrid", {
         assert.deepEqual(dataGrid.columnOption("field", "filterType"), "include");
         assert.deepEqual(dataGrid.columnOption("field", "filterValue"), 100);
         assert.deepEqual(dataGrid.columnOption("field", "selectedFilterOperation"), "=");
+    });
+
+    // T649282
+    QUnit.test("'Reset' operation click when 'Between' operation is active", function(assert) {
+        // arrange
+        var dataGrid = this.initDataGrid({
+            columns: [{ dataField: "dateField", dataType: "date" }],
+            filterValue: ["dateField", "between", [new Date(), new Date()]]
+        });
+
+        // act
+        var filterMenu = $(dataGrid.element()).find('.dx-menu .dx-menu-item');
+        filterMenu.trigger("dxclick");
+        var filterMenuItems = $('.dx-filter-menu.dx-overlay-content').first().find('li'),
+            resetItem = filterMenuItems.find('.dx-menu-item').last();
+        resetItem.trigger('dxclick');
+
+        // assert
+        assert.deepEqual(dataGrid.option("filterValue"), null);
     });
 
     QUnit.test("do not sync if filterSyncEnabled = false", function(assert) {
@@ -1327,16 +1548,16 @@ QUnit.module("Custom operations", {
 
     QUnit.test("anyof editor", function(assert) {
         // arrange
-        var result,
-            $container = $("<div>"),
+        var $container = $("<div>"),
             field = {
                 dataField: "field",
             },
             anyOfOperation = this.getAnyOfOperation(field);
 
         // act
-        result = anyOfOperation.editorTemplate({
+        anyOfOperation.editorTemplate({
             value: [1],
+            text: "1",
             field: field
         }, $container);
 
@@ -1357,6 +1578,7 @@ QUnit.module("Custom operations", {
         // act
         editorTemplate = this.getAnyOfOperation(left).editorTemplate({
             value: [1],
+            text: "1",
             field: left
         }, $container);
 

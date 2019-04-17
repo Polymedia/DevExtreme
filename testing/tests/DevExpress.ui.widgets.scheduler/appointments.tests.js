@@ -1,11 +1,9 @@
-"use strict";
-
 var pointerMock = require("../../helpers/pointerMock.js"),
     keyboardMock = require("../../helpers/keyboardMock.js");
 
 var $ = require("jquery"),
-    VerticalAppointmentsStrategy = require("ui/scheduler/ui.scheduler.appointments.strategy.vertical"),
-    HorizontalMonthAppointmentsStrategy = require("ui/scheduler/ui.scheduler.appointments.strategy.horizontal_month"),
+    VerticalAppointmentsStrategy = require("ui/scheduler/rendering_strategies/ui.scheduler.appointments.strategy.vertical"),
+    HorizontalMonthAppointmentsStrategy = require("ui/scheduler/rendering_strategies/ui.scheduler.appointments.strategy.horizontal_month"),
     SchedulerAppointments = require("ui/scheduler/ui.scheduler.appointments"),
     dropDownAppointments = require("ui/scheduler/ui.scheduler.appointments.drop_down"),
     eventsEngine = require("events/core/events_engine"),
@@ -155,7 +153,10 @@ var moduleOptions = {
                 };
 
                 return result;
-            }
+            },
+            appendSingleAppointmentData: function(data) {
+                return data;
+            },
         };
 
         var observer = {
@@ -788,7 +789,8 @@ QUnit.test("Draggable clone should be correct", function(assert) {
 QUnit.test("Delta time for resizable appointment should be 0 if appointment isn't resized", function(assert) {
     var strategy = new HorizontalMonthAppointmentsStrategy({
             notifyObserver: commonUtils.noop,
-            option: commonUtils.noop
+            option: commonUtils.noop,
+            fire: commonUtils.noop
         }),
         deltaTime = strategy.getDeltaTime({ width: 100 }, { width: 100 });
 

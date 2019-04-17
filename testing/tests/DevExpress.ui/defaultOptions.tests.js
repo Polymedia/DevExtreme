@@ -1,5 +1,3 @@
-"use strict";
-
 window.includeThemesLinks();
 
 var $ = require("jquery"),
@@ -46,7 +44,7 @@ var $ = require("jquery"),
     ScrollView = require("ui/scroll_view"),
     SelectBox = require("ui/select_box"),
     Slider = require("ui/slider"),
-    Swipeable = require("events/gesture/swipeable"), // jshint ignore:line
+    Swipeable = require("events/gesture/swipeable"), // eslint-disable-line no-unused-vars
     Switch = require("ui/switch"),
     Tabs = require("ui/tabs"),
     TabPanel = require("ui/tab_panel"),
@@ -128,7 +126,11 @@ testComponentDefaults(NumberBox,
 
 testComponentDefaults(DateBox,
     {},
-    { adaptivityEnabled: false }
+    {
+        useMaskBehavior: false,
+        advanceCaret: true,
+        adaptivityEnabled: false
+    }
 );
 
 testComponentDefaults(DateBox,
@@ -252,11 +254,11 @@ testComponentDefaults(FakeDialogComponent,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("win8");
+        this.origIsWin8 = themes.isWin8;
+        themes.isWin8 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isWin8 = this.origIsWin8;
     }
 );
 
@@ -281,11 +283,11 @@ testComponentDefaults(DropDownMenu,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -298,11 +300,25 @@ testComponentDefaults(TextEditor,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
+    }
+);
+
+testComponentDefaults(TextEditor,
+    {},
+    {
+        stylingMode: "underlined"
+    },
+    function() {
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
+    },
+    function() {
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -370,11 +386,11 @@ testComponentDefaults(DropDownList,
         popupWidthExtension: 32
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -397,11 +413,11 @@ testComponentDefaults(Autocomplete,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -625,11 +641,11 @@ testComponentDefaults(Lookup,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -657,11 +673,11 @@ testComponentDefaults(Popup,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("win8");
+        this.origIsWin8 = themes.isWin8;
+        themes.isWin8 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isWin8 = this.origIsWin8;
     }
 );
 
@@ -859,11 +875,11 @@ testComponentDefaults(ScrollView,
         reachBottomText: ""
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -934,46 +950,18 @@ testComponentDefaults(Toast,
 testComponentDefaults(Toast,
     {},
     {
-        position: {
-            my: "bottom center",
-            at: "bottom center",
-            offset: "0 0"
-        },
-        minWidth: 288,
+        minWidth: 344,
         maxWidth: 568,
-        animation: {
-            show: {
-                type: "slide",
-                duration: 250,
-                easing: "cubic-bezier(0.4, 0, 1, 1)",
-                from: {
-                    position: {
-                        my: "top",
-                        at: "bottom",
-                        of: window
-                    }
-                },
-            },
-            hide: {
-                type: "slide",
-                duration: 250,
-                easing: "cubic-bezier(0.4, 0, 1, 1)",
-                to: {
-                    position: {
-                        my: "top",
-                        at: "bottom",
-                        of: window
-                    }
-                },
-            }
-        }
+        displayTime: 4000
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() {
+            return true;
+        };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1135,11 +1123,11 @@ testComponentDefaults(LoadPanel,
         message: ""
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1156,11 +1144,11 @@ testComponentDefaults(Button,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1170,11 +1158,11 @@ testComponentDefaults(CheckBox,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1191,11 +1179,11 @@ testComponentDefaults(List,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1209,11 +1197,11 @@ testComponentDefaults(List,
         pageLoadingText: ""
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1230,11 +1218,11 @@ testComponentDefaults(TreeList,
         }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1244,11 +1232,11 @@ testComponentDefaults(Lookup,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1258,11 +1246,11 @@ testComponentDefaults(MenuBase,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1316,11 +1304,11 @@ testComponentDefaults(RadioButton,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1330,11 +1318,11 @@ testComponentDefaults(RadioGroup,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1344,11 +1332,11 @@ testComponentDefaults(SelectBox,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1364,11 +1352,11 @@ testComponentDefaults(Slider,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1378,11 +1366,11 @@ testComponentDefaults(Switch,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1392,11 +1380,11 @@ testComponentDefaults(Tabs,
         useInkRipple: true
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("android5");
+        this.origIsAndroid5 = themes.isAndroid5;
+        themes.isAndroid5 = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isAndroid5 = this.origIsAndroid5;
     }
 );
 
@@ -1407,11 +1395,11 @@ testComponentDefaults(Tabs,
         selectOnFocus: false
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1449,8 +1437,8 @@ testComponentDefaults(Tabs,
 );
 
 testComponentDefaults(NumberBox,
-        { platform: devices.current().platform },
-        { mode: "number" },
+    { platform: devices.current().platform },
+    { mode: "number" },
     function() {
         this.originalRealDevice = devices.real();
         devices.real({
@@ -1466,11 +1454,11 @@ testComponentDefaults(FileUploader,
     { },
     { _uploadButtonType: "default" },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1481,11 +1469,11 @@ testComponentDefaults(Form,
         showColonAfterLabel: false
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1497,11 +1485,11 @@ testComponentDefaults(DataGrid,
         editing: { useIcons: true }
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1529,11 +1517,11 @@ testComponentDefaults(Accordion,
         _animationEasing: "cubic-bezier(0.4, 0, 0.2, 1)"
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material.blue.light");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );
 
@@ -1552,10 +1540,10 @@ testComponentDefaults(Scheduler,
         _appointmentOffset: 30
     },
     function() {
-        this.originalCurrentTheme = themes.current();
-        themes.current("material");
+        this.origIsMaterial = themes.isMaterial;
+        themes.isMaterial = function() { return true; };
     },
     function() {
-        themes.current(this.originalCurrentTheme);
+        themes.isMaterial = this.origIsMaterial;
     }
 );

@@ -1,8 +1,6 @@
 /* eslint-disable no-console */
 /* global jQuery */
 
-"use strict";
-
 !function() {
     var module = QUnit.module;
 
@@ -541,7 +539,7 @@
             if(!timerInfo || !timerInfo.callback) {
                 return false;
             }
-            var callback = String(timerInfo.callback).replace(/\s|\"use strict\";/g, "");
+            var callback = String(timerInfo.callback).replace(/\s|"use strict";/g, "");
 
             if(timerInfo.timerType === "animationFrames" &&
                 [

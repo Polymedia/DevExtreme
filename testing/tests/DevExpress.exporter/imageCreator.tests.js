@@ -1,11 +1,12 @@
-"use strict";
+import $ from "jquery";
+import exporter from "exporter";
 
-var $ = require("jquery"),
-    imageCreator = require("client_exporter").image.creator,
-    typeUtils = require("core/utils/type"),
-    testingMarkupStart = "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' version='1.1' fill='none' stroke='none' stroke-width='0' class='dxc dxc-chart' style='line-height:normal;-ms-user-select:none;-moz-user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);display:block;overflow:hidden;touch-action:pan-x pan-y pinch-zoom;-ms-touch-action:pan-x pan-y pinch-zoom;' width='500' height='250'>",
-    testingMarkupEnd = "</svg>",
-    browser = require("core/utils/browser");
+const imageCreator = exporter.image.creator;
+import typeUtils from "core/utils/type";
+const testingMarkupStart = "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' version='1.1' fill='none' stroke='none' stroke-width='0' class='dxc dxc-chart' style='line-height:normal;-ms-user-select:none;-moz-user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);display:block;overflow:hidden;touch-action:pan-x pan-y pinch-zoom;-ms-touch-action:pan-x pan-y pinch-zoom;' width='500' height='250'>";
+const testingMarkupEnd = "</svg>";
+import browser from "core/utils/browser";
+import proxyUrlFormatter from "data/proxy_url_formatter";
 
 function setupCanvasStub(drawnElements, paths) {
     var prototype = window.CanvasRenderingContext2D.prototype,
@@ -15,7 +16,14 @@ function setupCanvasStub(drawnElements, paths) {
     sinon.stub(prototype, "drawImage", function(img, x, y, width, height) {
         drawnElements.push({
             type: "image",
-            args: arguments
+            args: {
+                node: img.nodeName,
+                src: proxyUrlFormatter.parseUrl(img.src).pathname,
+                x: x,
+                y: y,
+                width: width,
+                height: height
+            }
         });
     });
 
@@ -184,12 +192,8 @@ function setupCanvasStub(drawnElements, paths) {
     // texts
     sinon.stub(prototype, "fillText", function() {
         var tempFont = this.font.replace(/px\s/g, "px__"),
-            fontParts = tempFont.split("__");
-
-        drawnElements.push({
-            type: "text",
-            args: arguments,
-            style: {
+            fontParts = tempFont.split("__"),
+            style = {
                 weight: getFontParam(fontParts[0], "weight"),
                 style: getFontParam(fontParts[0], "style"),
                 size: getFontParam(fontParts[0], "size"),
@@ -197,18 +201,28 @@ function setupCanvasStub(drawnElements, paths) {
                 fillStyle: this.fillStyle,
                 textAlign: this.textAlign,
                 globalAlpha: this.globalAlpha
-            }
+            };
+
+        if(this.shadowBlur) {
+            style.shadow = {
+                offsetX: this.shadowOffsetX,
+                offsetY: this.shadowOffsetY,
+                color: this.shadowColor,
+                blur: this.shadowBlur
+            };
+        }
+
+        drawnElements.push({
+            type: "text",
+            args: arguments,
+            style: style
         });
     });
 
     sinon.stub(prototype, "strokeText", function() {
         var tempFont = this.font.replace(/px\s/g, "px__"),
-            fontParts = tempFont.split("__");
-
-        drawnElements.push({
-            type: "strokeText",
-            args: arguments,
-            style: {
+            fontParts = tempFont.split("__"),
+            style = {
                 weight: getFontParam(fontParts[0], "weight"),
                 style: getFontParam(fontParts[0], "style"),
                 size: getFontParam(fontParts[0], "size"),
@@ -218,7 +232,21 @@ function setupCanvasStub(drawnElements, paths) {
                 lineWidth: this.lineWidth,
                 textAlign: this.textAlign,
                 globalAlpha: this.globalAlpha
-            }
+            };
+
+        if(this.shadowBlur) {
+            style.shadow = {
+                offsetX: this.shadowOffsetX,
+                offsetY: this.shadowOffsetY,
+                color: this.shadowColor,
+                blur: this.shadowBlur
+            };
+        }
+
+        drawnElements.push({
+            type: "strokeText",
+            args: arguments,
+            style: style
         });
     });
 
@@ -391,6 +419,17 @@ QUnit.module("Svg to canvas", {
     },
     afterEach: function() {
         teardownCanvasStub();
+        this.getComputedStyle && this.getComputedStyle.restore();
+    },
+    stubGetComputedStyle: function(testElement, testStyle) {
+        var getComputedStyle = window.getComputedStyle;
+
+        this.getComputedStyle = sinon.stub(window, "getComputedStyle", function(element) {
+            if(element === testElement) {
+                return testStyle;
+            }
+            return getComputedStyle.apply(window, arguments);
+        });
     }
 });
 
@@ -827,6 +866,116 @@ QUnit.test("Circle", function(assert) {
     });
 });
 
+QUnit.test("Image with xlink:href", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart + '<defs><clipPath id="clippath1"><rect x="0" y="30" width="500" height="30"></rect></clipPath></defs><image x="-10" y="-15" width="20" height="25" preserveAspectRatio="xMidYMid" transform="translate(427,82)" xlink:href="/testing/content/exporterTestsContent/test-image.png" visibility="visible" clip-path="url(#clippath1)"></image>' + testingMarkupEnd,
+        imageBlob = getData(markup),
+        context = window.CanvasRenderingContext2D.prototype;
+
+    assert.expect(8);
+    $.when(imageBlob).done(function(blob) {
+        try {
+            assert.equal(that.drawnElements.length, 3, "Canvas elements count");
+
+            assert.equal(that.drawnElements[2].type, "image", "Canvas drawn rect element");
+            assert.deepEqual(that.drawnElements[2].args, {
+                node: "IMG",
+                src: "/testing/content/exporterTestsContent/test-image.png",
+                x: -10,
+                y: -15,
+                width: 20,
+                height: 25
+            });
+            assert.deepEqual(context.translate.getCall(2).args, [427, 82]);
+
+            assert.deepEqual(that.drawnElements[1].args, {
+                height: 30,
+                width: 500,
+                x: 0,
+                y: 30
+            }, "clippath args");
+
+            assert.equal(context.clip.callCount, 1, "Two clips");
+            assert.equal(context.save.callCount, 3, "Two saving");
+            assert.equal(context.restore.callCount, 3, "Two restoring");
+        } finally {
+            done();
+        }
+    });
+});
+
+QUnit.test("Image with href", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart + '<image x="-10" y="-15" width="20" height="25" preserveAspectRatio="xMidYMid" href="/testing/content/exporterTestsContent/test-image.png" visibility="visible"></image>' + testingMarkupEnd,
+        imageBlob = getData(markup);
+
+    assert.expect(3);
+    $.when(imageBlob).done(function(blob) {
+        try {
+            assert.equal(that.drawnElements.length, 2, "Canvas elements count");
+
+            assert.equal(that.drawnElements[1].type, "image", "Canvas drawn rect element");
+            assert.deepEqual(that.drawnElements[1].args, {
+                node: "IMG",
+                src: "/testing/content/exporterTestsContent/test-image.png",
+                x: -10,
+                y: -15,
+                width: 20,
+                height: 25
+            });
+        } finally {
+            done();
+        }
+    });
+});
+
+QUnit.test("Image with 404 href", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart + '<image x="-10" y="-15" width="20" height="25" preserveAspectRatio="xMidYMid" href="/wrongurl" visibility="visible"></image>' + testingMarkupEnd,
+        imageBlob = getData(markup);
+
+    assert.expect(1);
+    $.when(imageBlob).done(function(blob) {
+        try {
+            assert.equal(that.drawnElements.length, 1, "Canvas elements count");
+        } finally {
+            done();
+        }
+    });
+});
+
+QUnit.test("Export image in group", function(assert) {
+    var done = assert.async(),
+        markup = testingMarkupStart + '<g transform="translate(10, 10)"><image x="-10" y="-15" width="20" height="25" preserveAspectRatio="xMidYMid" href="/testing/content/exporterTestsContent/test-image.png" visibility="visible"></image></g>' + testingMarkupEnd,
+        imageBlob = getData(markup),
+        context = window.CanvasRenderingContext2D.prototype;
+
+    assert.expect(5);
+    $.when(imageBlob).done(() => {
+        try {
+            assert.equal(this.drawnElements.length, 2, "Canvas elements count");
+            assert.equal(this.drawnElements[1].type, "image");
+            assert.equal(context.save.callCount, 3);
+            assert.equal(context.restore.callCount, 3);
+            assert.ok(context.restore.secondCall.calledAfter(context.save.lastCall));
+        } finally {
+            done();
+        }
+    });
+});
+
+QUnit.test("Export draws into hidden canvas", function(assert) {
+    var done = assert.async(),
+        markup = testingMarkupStart + '<g transform="translate(10, 10)"><image x="-10" y="-15" width="20" height="25" preserveAspectRatio="xMidYMid" href="/testing/content/exporterTestsContent/test-image.png" visibility="visible"></image></g>' + testingMarkupEnd;
+
+    getData(markup).then(done);
+
+    assert.strictEqual($("canvas")[0].hidden, true);
+});
+
 QUnit.test("Text", function(assert) {
     var that = this,
         done = assert.async(),
@@ -1039,22 +1188,22 @@ QUnit.test("Multiline text", function(assert) {
         done = assert.async(),
         markup = testingMarkupStart +
             '<text x="10" y="30" text-anchor="start" style="font-size:28px; fill:#232323; font-family: sans-serif;">' +
-
             '<tspan x="10" y="30">World </tspan>' +
             '<tspan x="10" dy="28">Populationby</tspan>' +
-            '<tspan x="10" dy="28px"> Decade</tspan>' +
-
-            '</text > ' +
+            '<tspan x="10" y="30">World </tspan>' +
+            '<tspan x="10" dy="34px">Populationby</tspan>' +
+            '<tspan x="10" dy="16">Populationby</tspan>' +
+            '</text>' +
 
             testingMarkupEnd,
         imageBlob = getData(markup);
 
-    assert.expect(7);
+    assert.expect(11);
 
     $.when(imageBlob).done(function(blob) {
         try {
 
-            assert.equal(that.drawnElements.length, 5, "Canvas elements count");
+            assert.equal(that.drawnElements.length, 6, "Canvas elements count");
 
             assert.equal(that.drawnElements[1].args[1], 10, "Text out of tspanElement position X");
             assert.equal(that.drawnElements[1].args[2], 30, "Text out of tspanElement position Y");
@@ -1063,7 +1212,13 @@ QUnit.test("Multiline text", function(assert) {
             assert.equal(that.drawnElements[2].args[2], 30 + 28, "tSpan text element without x,y,dx,dy attributes position Y");
 
             assert.strictEqual(that.drawnElements[3].args[1], 10, "tSpan text element with dx,dy attributes position X");
-            assert.equal(that.drawnElements[3].args[2], 30 + 28 + 28, "tSpan text element with dx,dy attributes position Y");
+            assert.equal(that.drawnElements[3].args[2], 30, "tSpan text element with dx,dy attributes position Y");
+
+            assert.strictEqual(that.drawnElements[4].args[1], 10, "tSpan text element with dx,dy attributes position X");
+            assert.equal(that.drawnElements[4].args[2], 30 + 34, "tSpan text element with dx,dy attributes position Y");
+
+            assert.strictEqual(that.drawnElements[5].args[1], 10, "tSpan text element with dx,dy attributes position X");
+            assert.equal(that.drawnElements[5].args[2], 30 + 34 + 16, "tSpan text element with dx,dy attributes position Y");
         } finally {
             done();
         }
@@ -1099,7 +1254,7 @@ QUnit.test("Text with big amount of spaces", function(assert) {
 QUnit.test("Stroke text", function(assert) {
     var that = this,
         done = assert.async(),
-        markup = testingMarkupStart + "<text x=\"50\" y=\"50\" text-anchor=\"start\" stroke-width=\"5\" style=\"fill:#222; font-family:\'Trebuchet MS\', Verdana; stroke: #F2f2f2; stroke-width: 5px;\"><tspan style=\"font-weight: bold; font-style: italic; \" stroke-opacity=\"0.7\">Age</tspan></text>" + testingMarkupEnd,
+        markup = testingMarkupStart + "<text x=\"50\" y=\"50\" text-anchor=\"start\" stroke-width=\"5\" style=\"fill:#222; font-family:'Trebuchet MS', Verdana; stroke: #F2f2f2; stroke-width: 5px;\"><tspan style=\"font-weight: bold; font-style: italic; \" stroke-opacity=\"0.7\">Age</tspan></text>" + testingMarkupEnd,
         imageBlob = getData(markup);
 
     assert.expect(14);
@@ -1108,7 +1263,7 @@ QUnit.test("Stroke text", function(assert) {
             var strokeText = that.drawnElements[2];
 
             assert.equal(that.drawnElements.length, 3, "Canvas elements count");
-            assert.equal(strokeText.type, "strokeText", "The fird element on canvas is strokeText");
+            assert.equal(strokeText.type, "strokeText", "The third element on canvas is strokeText");
 
             assert.equal(strokeText.style.weight, "bold", "Stroke element style weight");
 
@@ -1124,6 +1279,143 @@ QUnit.test("Stroke text", function(assert) {
             assert.equal(strokeText.args[1], 50, "First line. X coord");
             assert.equal(strokeText.args[2], 50, "First line. Y coord");
 
+        } finally {
+            done();
+        }
+    });
+});
+
+// T697125
+QUnit.test("Multiline text with shadow and stroked texts", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart +
+        '<defs>' +
+        '<filter id="testFilter1" x="-40%" y="-40%" width="180%" height="200%" transform="translate(0,0)"><feGaussianBlur in="SourceGraphic" result="gaussianBlurResult" stdDeviation="1"></feGaussianBlur><feOffset in="gaussianBlurResult" result="offsetResult" dx="0" dy="1"></feOffset><feFlood result="floodResult" flood-color="#223387" flood-opacity="0.2"></feFlood><feComposite in="floodResult" in2="offsetResult" operator="in" result="compositeResult"></feComposite><feComposite in="SourceGraphic" in2="compositeResult" operator="over"></feComposite></filter>' +
+        '</defs>' +
+        '<text filter="url(#testFilter1)" style="white-space: pre; fill: #232323; font-style: italic; font-weight: bold; font-family: \'Trebuchet MS\', Verdana; font-size: 14px; cursor: default;" x="0" y="0" transform="translate(463,51)">' +
+        '<tspan x="0" y="0" stroke="#f2f2f2" stroke-width="1" stroke-opacity="0.3" stroke-linejoin="round">Text1</tspan>' +
+        '<tspan x="0" dy="13px" stroke="#f2f2f2" stroke-width="1" stroke-opacity="0.3" stroke-linejoin="round">Text2</tspan>' +
+        '<tspan x="0" y="0">Text1</tspan>' +
+        '<tspan x="0" dy="13px">Text2</tspan>' +
+        '</text>' + testingMarkupEnd,
+        imageBlob = getData(markup);
+
+    $.when(imageBlob).done(function(blob) {
+        try {
+            assert.equal(that.drawnElements.length, 7, "Canvas elements count");
+
+            assert.equal(that.drawnElements[1].type, "text", "1st stroked element's fillText");
+            assert.equal(that.drawnElements[1].style.weight, "bold", "Style weight");
+            assert.equal(that.drawnElements[1].style.font, "\"Trebuchet MS\",Verdana", "Style font");
+            assert.equal(that.drawnElements[1].style.size, "14px", "Style size");
+            assert.equal(that.drawnElements[1].style.style, "italic", "Style");
+            assert.equal(that.drawnElements[1].style.fillStyle, "#232323", "Style fill");
+            assert.equal(that.drawnElements[1].style.textAlign, "start", "Text element textAlign");
+            assert.equal(that.drawnElements[1].style.globalAlpha, 1, "Style opacity");
+            assert.equal(that.drawnElements[1].args[0], "Text1", "Text");
+            assert.equal(that.drawnElements[1].args[1], 0, "X coord");
+            assert.equal(that.drawnElements[1].args[2], 0, "Y coord");
+            assert.deepEqual(that.drawnElements[1].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
+
+            assert.equal(that.drawnElements[2].type, "strokeText", "1st stroked element's strokeText");
+            assert.equal(that.drawnElements[2].style.weight, "bold", "Stroke element style weight");
+            assert.equal(that.drawnElements[2].style.font, "\"Trebuchet MS\",Verdana", "First line. Style font");
+            assert.equal(that.drawnElements[2].style.size, "14px", "Stroke element font-size");
+            assert.equal(that.drawnElements[2].style.style, "italic", "Stroke element font-style");
+            assert.equal(that.drawnElements[2].style.fillStyle, "#232323", "Stroke element fill color");
+            assert.equal(that.drawnElements[2].style.strokeStyle, "#f2f2f2", "Stroke element stroke color");
+            assert.roughEqual(that.drawnElements[2].style.globalAlpha, 0.3, 0.1, "Stroke element stroke opacity");
+            assert.equal(that.drawnElements[2].style.lineWidth, 1, "Stroke element stroke width");
+            assert.equal(that.drawnElements[2].style.textAlign, "start", "Stroke element stroke textAlign");
+            assert.equal(that.drawnElements[2].args[0], "Text1", "First line. Text");
+            assert.equal(that.drawnElements[2].args[1], 0, "First line. X coord");
+            assert.equal(that.drawnElements[2].args[2], 0, "First line. Y coord");
+            assert.deepEqual(that.drawnElements[2].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
+
+            assert.equal(that.drawnElements[3].type, "text", "2nd stroked element's fillText");
+            assert.equal(that.drawnElements[3].style.weight, "bold", "Style weight");
+            assert.equal(that.drawnElements[3].style.font, "\"Trebuchet MS\",Verdana", "Style font");
+            assert.equal(that.drawnElements[3].style.size, "14px", "Style size");
+            assert.equal(that.drawnElements[3].style.style, "italic", "Style");
+            assert.equal(that.drawnElements[3].style.fillStyle, "#232323", "Style fill");
+            assert.equal(that.drawnElements[3].style.textAlign, "start", "Text element textAlign");
+            assert.equal(that.drawnElements[3].style.globalAlpha, 1, "Style opacity");
+            assert.equal(that.drawnElements[3].args[0], "Text2", "Text");
+            assert.equal(that.drawnElements[3].args[1], 0, "X coord");
+            assert.equal(that.drawnElements[3].args[2], 13, "Y coord");
+            assert.deepEqual(that.drawnElements[3].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
+
+            assert.equal(that.drawnElements[4].type, "strokeText", "2nd stroked element's strokeText");
+            assert.equal(that.drawnElements[4].style.weight, "bold", "Stroke element style weight");
+            assert.equal(that.drawnElements[4].style.font, "\"Trebuchet MS\",Verdana", "First line. Style font");
+            assert.equal(that.drawnElements[4].style.size, "14px", "Stroke element font-size");
+            assert.equal(that.drawnElements[4].style.style, "italic", "Stroke element font-style");
+            assert.equal(that.drawnElements[4].style.fillStyle, "#232323", "Stroke element fill color");
+            assert.equal(that.drawnElements[4].style.strokeStyle, "#f2f2f2", "Stroke element stroke color");
+            assert.roughEqual(that.drawnElements[4].style.globalAlpha, 0.3, 0.1, "Stroke element stroke opacity");
+            assert.equal(that.drawnElements[4].style.lineWidth, 1, "Stroke element stroke width");
+            assert.equal(that.drawnElements[4].style.textAlign, "start", "Stroke element stroke textAlign");
+            assert.equal(that.drawnElements[4].args[0], "Text2", "First line. Text");
+            assert.equal(that.drawnElements[4].args[1], 0, "First line. X coord");
+            assert.equal(that.drawnElements[4].args[2], 13, "First line. Y coord");
+            assert.deepEqual(that.drawnElements[4].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
+
+            assert.equal(that.drawnElements[5].type, "text", "3rd element's fillText");
+            assert.equal(that.drawnElements[5].style.weight, "bold", "Style weight");
+            assert.equal(that.drawnElements[5].style.font, "\"Trebuchet MS\",Verdana", "Style font");
+            assert.equal(that.drawnElements[5].style.size, "14px", "Style size");
+            assert.equal(that.drawnElements[5].style.style, "italic", "Style");
+            assert.equal(that.drawnElements[5].style.fillStyle, "#232323", "Style fill");
+            assert.equal(that.drawnElements[5].style.textAlign, "start", "Text element textAlign");
+            assert.equal(that.drawnElements[5].style.globalAlpha, 1, "Style opacity");
+            assert.equal(that.drawnElements[5].args[0], "Text1", "Text");
+            assert.equal(that.drawnElements[5].args[1], 0, "X coord");
+            assert.equal(that.drawnElements[5].args[2], 0, "Y coord");
+            assert.deepEqual(that.drawnElements[5].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
+
+            assert.equal(that.drawnElements[6].type, "text", "4th element's fillText");
+            assert.equal(that.drawnElements[6].style.weight, "bold", "Style weight");
+            assert.equal(that.drawnElements[6].style.font, "\"Trebuchet MS\",Verdana", "Style font");
+            assert.equal(that.drawnElements[6].style.size, "14px", "Style size");
+            assert.equal(that.drawnElements[6].style.style, "italic", "Style");
+            assert.equal(that.drawnElements[6].style.fillStyle, "#232323", "Style fill");
+            assert.equal(that.drawnElements[6].style.textAlign, "start", "Text element textAlign");
+            assert.equal(that.drawnElements[6].style.globalAlpha, 1, "Style opacity");
+            assert.equal(that.drawnElements[6].args[0], "Text2", "Text");
+            assert.equal(that.drawnElements[6].args[1], 0, "X coord");
+            assert.equal(that.drawnElements[6].args[2], 13, "Y coord");
+            assert.deepEqual(that.drawnElements[6].style.shadow, {
+                blur: 1,
+                color: "rgba(34, 51, 135, 0.2)",
+                offsetX: 0,
+                offsetY: 1
+            });
         } finally {
             done();
         }
@@ -1528,6 +1820,30 @@ QUnit.test("Elements with visibility", function(assert) {
     });
 });
 
+QUnit.test("Do not export elements with 'hidden-for-export' attribute", function(assert) {
+    const done = assert.async();
+    const markup = testingMarkupStart + '<g hidden-for-export="true"><rect x="20" y="20" width="200" height="200" fill="#FF0000"></rect></g><rect x="50" y="50" width="200" height="200" fill="#00FF00"></rect>' + testingMarkupEnd;
+
+    assert.expect(3);
+    getData(markup).then(() => {
+        try {
+            assert.equal(this.drawnElements.length, 3, "Canvas elements count");
+            assert.deepEqual(this.drawnElements[1].args, {
+                x: 50,
+                y: 50,
+                width: 200,
+                height: 200
+            }, "Rect args");
+            assert.deepEqual(this.drawnElements[2].style, {
+                fillStyle: "#00ff00",
+                globalAlpha: 1
+            }, "Rect style");
+        } finally {
+            done();
+        }
+    });
+});
+
 QUnit.test("Defined background color", function(assert) {
     var that = this,
         done = assert.async(),
@@ -1701,13 +2017,81 @@ QUnit.test("getData returns Base64 when Blob not supported by Browser", function
     });
 });
 
+QUnit.test("Read computed style of elements if export target is attached element", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart + '<text x="20" y="30" style="font-style: italic; font-size:16px; font-family:\'Segoe UI Light\', \'Helvetica Neue Light\', \'Segoe UI\', \'Helvetica Neue\', \'Trebuchet MS\', Verdana; font-weight:bold; fill:#232323; opacity: 0.3;">Test</text>' + testingMarkupEnd,
+        element = new window.DOMParser().parseFromString(markup, "image/svg+xml").childNodes[0];
+
+    $("#qunit-fixture").append(element);
+    this.stubGetComputedStyle(element.childNodes[0], { fill: "#ff0000", "font-size": "25px", "font-style": "" });
+
+    // act
+    var imageBlob = getData(element);
+
+    assert.expect(7);
+    $.when(imageBlob).done(function() {
+        try {
+            var textElem = that.drawnElements[1];
+
+            assert.equal(textElem.style.weight, "bold", "Style weight");
+
+            assert.equal(textElem.type, "text", "The second element on canvas is text");
+            assert.equal(textElem.style.font, "\"Segoe UI Light\",\"Helvetica Neue Light\",\"Segoe UI\",\"Helvetica Neue\",\"Trebuchet MS\",Verdana", "Style font");
+            assert.equal(textElem.style.size, "25px", "Size from computed");
+            assert.equal(textElem.style.style, "italic", "Style");
+            assert.equal(textElem.style.fillStyle, "#ff0000", "Style fill");
+            assert.roughEqual(textElem.style.globalAlpha, 0.3, 0.1, "Style opacity");
+        } finally {
+            done();
+        }
+    });
+});
+
+QUnit.test("Read computed style of elements. Ignore default opacity", function(assert) {
+    var that = this,
+        done = assert.async(),
+        markup = testingMarkupStart + '<rect x="20" y="30" width="100" height="200" fill="#232323" stroke="#454545" stroke-width="1" stroke-opacity="0.5" fill-opacity="0.5" opacity="0.3" ></rect>' + testingMarkupEnd,
+        element = new window.DOMParser().parseFromString(markup, "image/svg+xml").childNodes[0];
+
+    $("#qunit-fixture").append(element);
+    this.stubGetComputedStyle(element.childNodes[0], { fill: "#ff0000", "opacity": "1", "stroke-opacity": "0.1", "fill-opacity": "" });
+
+    // act
+    var imageBlob = getData(element);
+
+    assert.expect(4);
+    $.when(imageBlob).done(function() {
+        try {
+            assert.equal(that.drawnElements[2].style.fillStyle, "#ff0000", "fill");
+            assert.roughEqual(that.drawnElements[2].style.globalAlpha, 0.15, 0.001, "fill opacity");
+
+            assert.equal(that.drawnElements[3].style.strokeStyle, "#454545", "stroke");
+            assert.roughEqual(that.drawnElements[3].style.globalAlpha, 0.03, 0.001, "stroke opacity");
+        } finally {
+            done();
+        }
+    });
+});
+
 // T403049
 QUnit.test("getElementOptions should work correctly with empty attributs element", function(assert) {
+    var done = assert.async();
     var markup = "<svg>Brazil</svg>";
-    imageCreator.getData(markup, {
+    var parsedAttributes;
+    var imageBlob = imageCreator.getData(markup, {
         __parseAttributesFn: function(attributes) {
-            assert.ok(typeUtils.isDefined(attributes), "Attributes are always defined");
+            parsedAttributes = attributes;
             return {};
+        }
+    });
+
+    assert.expect(1);
+    $.when(imageBlob).done(function() {
+        try {
+            assert.ok(typeUtils.isDefined(parsedAttributes), "Attributes are always defined");
+        } finally {
+            done();
         }
     });
 });

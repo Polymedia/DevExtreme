@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     renderer = require("core/renderer"),
     eventsEngine = require("events/core/events_engine"),
@@ -95,6 +93,117 @@ QUnit.test("basic animation", function(assert) {
     assert.ok($element.position().left > 0 && $element.position().left < 1000, "animation is performing");
 
     this.clock.tick(20);
+});
+
+QUnit.test("basic animation when window was scrolled", function(assert) {
+    assert.expect(2);
+
+    var $container = $("#container"),
+        $wrapper = $("<div>").appendTo("body"),
+        $element = $("<div>").appendTo("body");
+
+    try {
+        $wrapper.css({ height: "150%", width: "150%", position: "absolute", top: "0", left: "0" });
+        $element.css({ height: 50, width: 50, top: "200px", background: 'blue' });
+
+        var initialTopPosition = $element.get(0).getBoundingClientRect().top,
+            initialLeftPosition = $element.get(0).getBoundingClientRect().left;
+
+        var done = assert.async();
+
+        window.scrollBy(200, 200);
+
+        this.animate($element, {
+            type: 'slide',
+            position: {
+                my: "right",
+                at: "right",
+                of: $container
+            },
+            duration: 200,
+            complete: function() {
+                assert.roughEqual($element.get(0).getBoundingClientRect().top, initialTopPosition - 200, 1.5, "position after animation is correct");
+                assert.roughEqual($element.get(0).getBoundingClientRect().left, initialLeftPosition - 200, 1, "position after animation is correct");
+                done();
+            }
+        });
+        this.clock.tick(250);
+    } finally {
+        window.scroll(0, 0);
+        $wrapper.remove();
+        $element.remove();
+    }
+});
+
+QUnit.test("animation when window was scrolled", function(assert) {
+    assert.expect(3);
+
+    var $wrapper = $("<div>").appendTo("body"),
+        $target = $("<div>").appendTo($wrapper),
+        $element = $("<div>").appendTo("body");
+
+    try {
+        $wrapper.css({ height: "150%", width: "150%", position: "absolute", top: "0", left: "0" });
+        $target.css({ height: 50, width: 50, position: "absolute", top: "320px", left: "120px", background: 'green' });
+        $element.css({ height: 50, width: 50, top: "200px", background: 'blue', position: "absolute" });
+
+        var done = assert.async();
+        window.scrollBy(100, 200);
+
+        this.animate($element, {
+            type: 'slide',
+            from: {
+                position: {
+                    my: 'top',
+                    at: 'bottom',
+                    of: window
+                }
+            },
+            to: {
+                position: {
+                    my: 'bottom',
+                    at: 'bottom',
+                    of: window
+                }
+            },
+            duration: 100,
+            complete: function() {
+                assert.roughEqual($element.get(0).getBoundingClientRect().top, $(window).height() - $element.height(), 1, "position after animation is correct");
+            }
+        });
+        this.clock.tick(150);
+
+        this.animate($element, {
+            type: 'slide',
+            from: {
+                position: {
+                    my: 'top left',
+                    at: 'top left',
+                    of: $target
+                }
+            },
+            to: {
+                position: {
+                    my: 'top left',
+                    at: 'bottom right',
+                    of: $target
+                }
+            },
+            duration: 100,
+            complete: function() {
+                var offset = $element.offset();
+                assert.roughEqual(offset.top, 370, 1.5, "top position after animation to the target element is correct");
+                assert.roughEqual(offset.left, 170, 1.5, "left position after animation to the target element is correct");
+                done();
+            }
+        });
+        this.clock.tick(150);
+    } finally {
+        window.scroll(0, 0);
+        $wrapper.remove();
+        $target.remove();
+        $element.remove();
+    }
 });
 
 QUnit.test("draw callback", function(assert) {
@@ -903,15 +1012,14 @@ if(support.transition()) {
         sinon.spy(eventsEngine, "off");
 
         var animation = fx.createAnimation($test, {
-                type: 'slide',
-                from: { left: 0 },
-                to: { left: 100 },
-                duration: 100
-            }),
-            result;
+            type: 'slide',
+            from: { left: 0 },
+            to: { left: 100 },
+            duration: 100
+        });
 
         animation.setup();
-        result = animation.start()
+        animation.start()
             .done(function() {
                 assert.fail("Should be rejected when the element is removed from DOM");
             }).fail(function() {
@@ -949,15 +1057,14 @@ if(support.transition()) {
         sinon.spy(eventsEngine, "off");
 
         var animation = fx.createAnimation($test, {
-                type: 'slide',
-                from: { left: 0 },
-                to: { left: 100 },
-                duration: 100
-            }),
-            result;
+            type: 'slide',
+            from: { left: 0 },
+            to: { left: 100 },
+            duration: 100
+        });
 
         animation.setup();
-        result = animation.start()
+        animation.start()
             .done(function() {
                 assert.equal(eventUsedTimes(eventsEngine.on, testedEventName), 1);
                 assert.equal(eventUsedTimes(eventsEngine.off, testedEventName), 2);

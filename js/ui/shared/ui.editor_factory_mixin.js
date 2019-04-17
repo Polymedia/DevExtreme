@@ -1,7 +1,6 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     noop = require("../../core/utils/common").noop,
+    eventsEngine = require("../../events/core/events_engine"),
     typeUtils = require("../../core/utils/type"),
     isWrapped = require("../../core/utils/variable_wrapper").isWrapped,
     compileGetter = require("../../core/utils/data").compileGetter,
@@ -9,7 +8,8 @@ var $ = require("../../core/renderer"),
     extend = require("../../core/utils/extend").extend,
     devices = require("../../core/devices"),
     getPublicElement = require("../../core/utils/dom").getPublicElement,
-    normalizeDataSourceOptions = require("../../data/data_source/data_source").normalizeDataSourceOptions;
+    normalizeDataSourceOptions = require("../../data/data_source/data_source").normalizeDataSourceOptions,
+    normalizeKeyName = require("../../events/utils").normalizeKeyName;
 
 require("../text_box");
 require("../number_box");
@@ -34,13 +34,12 @@ var EditorFactoryMixin = (function() {
     };
 
     var checkEnterBug = function() {
-        return (browser.msie && parseInt(browser.version) <= 11) || browser.mozilla || devices.real().ios;// Workaround for T344096, T249363, T314719, caused by https://connect.microsoft.com/IE/feedback/details/1552272/
+        return browser.msie || browser.mozilla || devices.real().ios;// Workaround for T344096, T249363, T314719, caused by https://connect.microsoft.com/IE/feedback/details/1552272/
     };
 
     var getTextEditorConfig = function(options) {
-        var isValueChanged = false,
-            data = {},
-            isEnterBug = !options.updateValueImmediately && checkEnterBug(),
+        var data = {},
+            isEnterBug = checkEnterBug(),
             sharedData = options.sharedData || data;
 
         return getResultConfig({
@@ -48,38 +47,29 @@ var EditorFactoryMixin = (function() {
             width: options.width,
             value: options.value,
             onValueChanged: function(e) {
-                var updateValue = function(e, notFireEvent) {
-                    isValueChanged = false;
-                    options && options.setValue(e.value, notFireEvent);
-                };
+
+                var needDelayedUpdate = options.parentType === "filterRow" || options.parentType === "searchPanel",
+                    isKeyUpEvent = e.event && e.event.type === "keyup",
+                    updateValue = function(e, notFireEvent) {
+                        options && options.setValue(e.value, notFireEvent);
+                    };
 
                 clearTimeout(data.valueChangeTimeout);
 
-                if(e.event && e.event.type === "keyup" && !options.updateValueImmediately) {
-                    if(options.parentType === "filterRow" || options.parentType === "searchPanel") {
-                        sharedData.valueChangeTimeout = data.valueChangeTimeout = setTimeout(function() {
-                            updateValue(e, data.valueChangeTimeout !== sharedData.valueChangeTimeout);
-                        }, typeUtils.isDefined(options.updateValueTimeout) ? options.updateValueTimeout : 0);
-                    } else {
-                        isValueChanged = true;
-                    }
+                if(isKeyUpEvent && needDelayedUpdate) {
+                    sharedData.valueChangeTimeout = data.valueChangeTimeout = setTimeout(function() {
+                        updateValue(e, data.valueChangeTimeout !== sharedData.valueChangeTimeout);
+                    }, typeUtils.isDefined(options.updateValueTimeout) ? options.updateValueTimeout : 0);
                 } else {
                     updateValue(e);
                 }
             },
-            onFocusOut: function(e) {
-                if(isEnterBug && isValueChanged) {
-                    isValueChanged = false;
-                    options.setValue(e.component.option("value"));
-                }
-            },
             onKeyDown: function(e) {
-                if(isEnterBug && isValueChanged && e.event.keyCode === 13) {
-                    isValueChanged = false;
-                    options.setValue(e.component.option("value"));
+                if(isEnterBug && normalizeKeyName(e.event) === "enter") {
+                    eventsEngine.trigger($(e.component._input()), "change");
                 }
             },
-            valueChangeEvent: "change" + (options.parentType === "filterRow" || isEnterBug ? " keyup" : "")
+            valueChangeEvent: "change" + (options.parentType === "filterRow" ? " keyup" : "")
         }, options);
     };
 
@@ -92,7 +82,7 @@ var EditorFactoryMixin = (function() {
                 options.setValue(args.value);
             },
             onKeyDown: function(e) {
-                if(checkEnterBug() && e.event.keyCode === 13) {
+                if(checkEnterBug() && normalizeKeyName(e.event) === "enter") {
                     e.component.blur();
                     e.component.focus();
                 }
@@ -114,7 +104,7 @@ var EditorFactoryMixin = (function() {
 
         config.value = toString(options.value);
         config.valueChangeEvent += (isSearching ? " keyup search" : "");
-        config.mode = isSearching ? "search" : "text";
+        config.mode = config.mode || (isSearching ? "search" : "text");
 
         options.editorName = "dxTextBox";
         options.editorOptions = config;
@@ -216,7 +206,7 @@ var EditorFactoryMixin = (function() {
             focusStateEnabled: !options.readOnly,
             activeStateEnabled: false,
             onValueChanged: function(e) {
-                options.setValue && options.setValue(e.value, e);
+                options.setValue && options.setValue(e.value, e /* for selection */);
             },
         }, options);
     };

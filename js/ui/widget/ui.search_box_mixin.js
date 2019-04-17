@@ -1,10 +1,9 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     extend = require("../../core/utils/extend").extend,
     messageLocalization = require("../../localization/message"),
     TextBox = require("../text_box"),
-    errors = require("../widget/ui.errors");
+    errors = require("../widget/ui.errors"),
+    Deferred = require("../../core/utils/deferred").Deferred;
 
 /**
 * @name SearchBoxMixin
@@ -106,14 +105,19 @@ module.exports = {
             valueChangeEvent: "input",
             onValueChanged: function(e) {
                 var searchTimeout = that.option("searchTimeout");
+                that._valueChangeDeferred = new Deferred();
                 clearTimeout(that._valueChangeTimeout);
+
+                that._valueChangeDeferred.done(function() {
+                    this.option("searchValue", e.value);
+                }.bind(that));
 
                 if(e.event && e.event.type === "input" && searchTimeout) {
                     that._valueChangeTimeout = setTimeout(function() {
-                        that.option("searchValue", e.value);
+                        that._valueChangeDeferred.resolve();
                     }, searchTimeout);
                 } else {
-                    that.option("searchValue", e.value);
+                    that._valueChangeDeferred.resolve();
                 }
             }
         }, userEditorOptions);
@@ -138,6 +142,10 @@ module.exports = {
         this.callBase(e, isFocused);
     },
 
+    getOperationBySearchMode: function(searchMode) {
+        return searchMode === "equals" ? "=" : searchMode;
+    },
+
     _optionChanged: function(args) {
         switch(args.name) {
             case "searchEnabled":
@@ -151,7 +159,11 @@ module.exports = {
                     errors.log("W1009");
                     return;
                 }
-                this._dataSource[args.name === "searchMode" ? "searchOperation" : args.name](args.value);
+                if(args.name === "searchMode") {
+                    this._dataSource.searchOperation(this.getOperationBySearchMode(args.value));
+                } else {
+                    this._dataSource[args.name](args.value);
+                }
                 this._dataSource.load();
                 break;
             case "searchTimeout":
@@ -165,6 +177,14 @@ module.exports = {
         if(!this.option("focusedElement") && this.option("searchEnabled")) {
             this._searchEditor && this._searchEditor.focus();
             return;
+        }
+
+        this.callBase();
+    },
+
+    _refresh: function() {
+        if(this._valueChangeDeferred) {
+            this._valueChangeDeferred.resolve();
         }
 
         this.callBase();

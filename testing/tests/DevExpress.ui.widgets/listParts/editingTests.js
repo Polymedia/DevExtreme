@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     typeUtils = require("core/utils/type"),
     executeAsyncMock = require("../../../helpers/executeAsyncMock.js"),
@@ -292,7 +290,7 @@ QUnit.test("items reordering by keyboard", function(assert) {
 
     $lastItem.trigger("dxpointerdown");
     this.clock.tick();
-    $lastItem.trigger($.Event("keydown", { which: 38, shiftKey: true }));
+    $lastItem.trigger($.Event("keydown", { key: "ArrowUp", shiftKey: true }));
 
     assert.deepEqual(list.option("items"), items, "reordering by keyboard is impossible if 'allowItemReordering' = false ");
 
@@ -301,11 +299,11 @@ QUnit.test("items reordering by keyboard", function(assert) {
     $lastItem = $list.find("." + LIST_ITEM_CLASS).eq(2);
     $lastItem.trigger("dxpointerdown");
     this.clock.tick();
-    $list.trigger($.Event("keydown", { which: 38, shiftKey: true }));
+    $list.trigger($.Event("keydown", { key: "ArrowUp", shiftKey: true }));
 
     assert.deepEqual(list.option("items"), ["1", "3", "2"], "items were reordered");
 
-    $lastItem.trigger($.Event("keydown", { which: 40, shiftKey: true }));
+    $lastItem.trigger($.Event("keydown", { key: "ArrowDown", shiftKey: true }));
 
     assert.deepEqual(list.option("items"), items, "items were reordered");
 });

@@ -1,5 +1,3 @@
-"use strict";
-
 var extend = require("../../../core/utils/extend").extend,
 
     _extend = extend,
@@ -20,16 +18,18 @@ var extend = require("../../../core/utils/extend").extend,
 
 module.exports = _extend({}, symbolPoint, {
 
-    correctCoordinates: function(correctOptions) {
-        var that = this,
-            correction = _floor(correctOptions.offset - (correctOptions.width / 2));
+    correctCoordinates(correctOptions) {
+        const that = this;
+        const correction = _floor(correctOptions.offset - (correctOptions.width / 2));
 
         if(that._options.rotated) {
             that.height = correctOptions.width;
             that.yCorrection = correction;
+            that.xCorrection = null;
         } else {
             that.width = correctOptions.width;
             that.xCorrection = correction;
+            that.yCorrection = null;
         }
     },
 
@@ -245,6 +245,10 @@ module.exports = _extend({}, symbolPoint, {
         return coord;
     },
 
+    _getErrorBarBaseEdgeLength() {
+        return this._options.rotated ? this.height : this.width;
+    },
+
     _translateErrorBars: function(argVisibleArea) {
         symbolPoint._translateErrorBars.call(this);
         if(this._errorBarPos < argVisibleArea.min || this._errorBarPos > argVisibleArea.max) {
@@ -272,7 +276,7 @@ module.exports = _extend({}, symbolPoint, {
 
         that[argAxis] = arg = arg === null ? arg : arg + (that[argAxis + "Correction"] || 0);
 
-        val = valTranslator.translate(that.value);
+        val = valTranslator.translate(that.value, 1);
         minVal = valTranslator.translate(that.minValue);
 
         that["v" + valAxis] = val;

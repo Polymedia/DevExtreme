@@ -1,5 +1,3 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
@@ -12,6 +10,7 @@ var noop = require("../../core/utils/common").noop,
     _sqrt = Math.sqrt,
     DataHelperMixin = require("../../data_helper"),
     _isFunction = require("../../core/utils/type").isFunction,
+    _isDefined = require("../../core/utils/type").isDefined,
     _isArray = Array.isArray,
     vizUtils = require("../core/utils"),
     _parseScalar = vizUtils.parseScalar,
@@ -46,6 +45,10 @@ function getSelection(selectionMode) {
         selection = { state: {}, single: selection };
     }
     return selection;
+}
+
+function getName(opt, index) {
+    return (opt[index] || {}).name;
 }
 
 function EmptySource() { }
@@ -133,44 +136,6 @@ function customizeHandles(proxies, callback, widget) {
     callback.call(widget, proxies);
 }
 
-// DEPRECATED_15_2
-function customizeHandles_deprecated(proxies, callback) {
-    var i,
-        ii = proxies.length,
-        proxy,
-        settings;
-    for(i = 0; i < ii; ++i) {
-        proxy = proxies[i];
-        settings = callback.call(proxy, proxy) || {};
-        proxy.applySettings(settings);
-        if(settings.isSelected) {
-            proxy.selected(true);
-        }
-    }
-}
-
-// DEPRECATED_15_2
-function patchProxies(handles, name, data) {
-    var type = { areas: "area", markers: "marker" }[name],
-        i,
-        ii = handles.length,
-        dataItem;
-    for(i = 0; i < ii; ++i) {
-        handles[i].proxy.type = type;
-    }
-    if(type === "marker") {
-        for(i = 0; i < ii; ++i) {
-            dataItem = data.item(i);
-            _extend(handles[i].proxy, {
-                text: dataItem.text,
-                value: dataItem.value,
-                values: dataItem.values,
-                url: dataItem.url
-            });
-        }
-    }
-}
-
 // TODO: Consider moving it inside a strategy
 function setAreaLabelVisibility(label) {
     label.text.attr({ visibility: label.size[0] / label.spaceSize[0] < TOLERANCE && label.size[1] / label.spaceSize[1] < TOLERANCE ? null : "hidden" });
@@ -181,9 +146,8 @@ function setLineLabelVisibility(label) {
     label.text.attr({ visibility: label.size[0] / label.spaceSize[0] < TOLERANCE || label.size[1] / label.spaceSize[1] < TOLERANCE ? null : "hidden" });
 }
 
-// DEPRECATED_15_2 (just proxy.attribute(dataField) must stay)
-function getDataValue(proxy, dataField, deprecatedField) {
-    return proxy.attribute(dataField) || proxy[deprecatedField];
+function getDataValue(proxy, dataField) {
+    return proxy.attribute(dataField);
 }
 
 var TYPE_TO_TYPE_MAP = {
@@ -248,7 +212,9 @@ var emptyStrategy = {
 
     arrange: _noop,
 
-    updateGrouping: _noop
+    updateGrouping: _noop,
+
+    getDefaultColor: _noop
 };
 
 var strategiesByType = {};
@@ -292,7 +258,9 @@ strategiesByType[TYPE_AREA] = {
 
     updateGrouping: function(context) {
         groupByColor(context);
-    }
+    },
+
+    getDefaultColor: _noop
 };
 
 strategiesByType[TYPE_LINE] = {
@@ -334,7 +302,9 @@ strategiesByType[TYPE_LINE] = {
 
     updateGrouping: function(context) {
         groupByColor(context);
-    }
+    },
+
+    getDefaultColor: _noop
 };
 
 strategiesByType[TYPE_MARKER] = {
@@ -375,6 +345,10 @@ strategiesByType[TYPE_MARKER] = {
     updateGrouping: function(context) {
         groupByColor(context);
         groupBySize(context);
+    },
+
+    getDefaultColor: function(ctx, palette) {
+        return ctx.params.themeManager.getAccentColor(palette);
     }
 };
 
@@ -484,7 +458,7 @@ strategiesByElementType[TYPE_MARKER] = {
             }
 
             for(i = 0; i < ii; ++i) {
-                values[i] = _max(getDataValue(handles[i].proxy, dataField, "value") || 0, 0);
+                values[i] = _max(getDataValue(handles[i].proxy, dataField) || 0, 0);
             }
             minValue = _min.apply(null, values);
             maxValue = _max.apply(null, values);
@@ -499,7 +473,7 @@ strategiesByElementType[TYPE_MARKER] = {
             var dataField = context.settings.dataField;
             strategiesByType[TYPE_MARKER].updateGrouping(context);
             groupBySize(context, function(proxy) {
-                return getDataValue(proxy, dataField, "value");
+                return getDataValue(proxy, dataField);
             });
         }
     },
@@ -511,9 +485,7 @@ strategiesByElementType[TYPE_MARKER] = {
         },
 
         refresh: function(ctx, figure, data, proxy, settings) {
-            var values = getDataValue(proxy, ctx.settings.dataField, "values") || [],
-                i,
-                ii = values.length || 0,
+            var values = getDataValue(proxy, ctx.settings.dataField) || [],
                 colors = settings._colors,
                 sum = 0,
                 pie = figure.pie,
@@ -521,15 +493,23 @@ strategiesByElementType[TYPE_MARKER] = {
                 dataKey = ctx.dataKey,
                 r = (settings.size > 0 ? _Number(settings.size) : 0) / 2,
                 start = 90,
-                end = start;
-            for(i = 0; i < ii; ++i) {
-                sum += values[i] || 0;
+                end = start,
+                zeroSum = false;
+
+            sum = values.reduce(function(total, item) {
+                return total + (item || 0);
+            }, 0);
+
+            if(sum === 0) {
+                zeroSum = true;
+                sum = 360 / values.length;
             }
-            for(i = 0; i < ii; ++i) {
+
+            values.forEach(function(item, i) {
                 start = end;
-                end += (values[i] || 0) / sum * 360;
+                end += zeroSum ? sum : (item || 0) / sum * 360;
                 renderer.arc(0, 0, 0, r, start, end).attr({ "stroke-linejoin": "round", fill: colors[i] }).data(dataKey, data).append(pie);
-            }
+            });
             figure.border.attr({ r: r });
         },
 
@@ -562,7 +542,7 @@ strategiesByElementType[TYPE_MARKER] = {
                 count = 0,
                 palette;
             for(i = 0; i < ii; ++i) {
-                values = getDataValue(handles[i].proxy, dataField, "values");
+                values = getDataValue(handles[i].proxy, dataField);
                 if(values && values.length > count) {
                     count = values.length;
                 }
@@ -589,7 +569,7 @@ strategiesByElementType[TYPE_MARKER] = {
         },
 
         refresh: function(ctx, figure, data, proxy) {
-            figure.image.attr({ href: getDataValue(proxy, ctx.settings.dataField, "url") });
+            figure.image.attr({ href: getDataValue(proxy, ctx.settings.dataField) });
         },
 
         _getStyles: function(styles, style) {
@@ -694,7 +674,6 @@ function transformLineLabel(label, projection, coordinates) {
 
 function getItemSettings(context, proxy, settings) {
     var result = combineSettings(context.settings, settings);
-    proxy.text = proxy.text || settings.text;   // DEPRECATED_15_2
     applyGrouping(context.grouping, proxy, result);
     if(settings.color === undefined && settings.paletteIndex >= 0) {
         result.color = result._colors[settings.paletteIndex];
@@ -747,8 +726,10 @@ function combineSettings(common, partial) {
     return obj;
 }
 
-function processCommonSettings(type, options, themeManager) {
-    var settings = combineSettings(themeManager.theme("layer:" + type) || { label: {} }, options),
+function processCommonSettings(context, options) {
+    var themeManager = context.params.themeManager,
+        strategy = context.str,
+        settings = combineSettings(_extend({ label: {}, color: strategy.getDefaultColor(context, options.palette) }, themeManager.theme("layer:" + strategy.fullType)), options),
         colors,
         i,
         palette;
@@ -776,7 +757,7 @@ var performGrouping = function(context, partition, settingField, dataField, valu
             partition: partition,
             values: values
         };
-        context.params.dataExchanger.set(context.name, settingField, { partition: partition, values: values });
+        context.params.dataExchanger.set(context.name, settingField, { partition: partition, values: values, defaultColor: context.settings.color });
     }
 };
 
@@ -945,14 +926,12 @@ MapLayer.prototype = _extend({
     ///#ENDDEBUG
 
     setOptions: function(options) {
-        var that = this,
-            name;   // DEPRECATED_15_2
+        var that = this;
         options = that._options = options || {};
-        name = !("dataSource" in options) && "data" in options ? "data" : "dataSource"; // DEPRECATED_15_2
-        if(name in options && options[name] !== that._options_dataSource) {
-            that._options_dataSource = options[name];
+        if("dataSource" in options && options.dataSource !== that._options_dataSource) {
+            that._options_dataSource = options.dataSource;
             that._params.notifyDirty();
-            that._specificDataSourceOption = wrapToDataSource(options[name]);
+            that._specificDataSourceOption = wrapToDataSource(options.dataSource);
             that._refreshDataSource();
         } else if(that._data.count() > 0) {
             that._params.notifyDirty();
@@ -969,14 +948,14 @@ MapLayer.prototype = _extend({
             context.str.reset(context);
             context.root.clear();
             context.labelRoot && context.labelRoot.clear();
-            that._params.tracker.reset();   // T173037; TODO: There is no need to reset the entire tracker - only its memory about items
+            that._params.tracker.reset(); // T173037; TODO: There is no need to reset the entire tracker - only its memory about items
             that._destroyHandles();
             context.str = selectStrategy(that._options, that._data);
             context.str.setup(context);
             that.proxy.type = context.str.type;
             that.proxy.elementType = context.str.elementType;
         }
-        context.settings = processCommonSettings(context.str.fullType, that._options, that._params.themeManager);
+        context.settings = processCommonSettings(context, that._options);
         context.hasSeparateLabel = !!(context.settings.label.enabled && context.str.hasLabelsGroup);
         context.hover = !!_parseScalar(context.settings.hoverEnabled, true);
         // There is intentionally no attempt to preserve previous selection (or part of it)
@@ -1039,13 +1018,7 @@ MapLayer.prototype = _extend({
             handles[i] = new MapLayerElement(context, i, geometry(dataItem), attributes(dataItem));
         }
         // Customization must be performed before anything else happens to element (that is the idea of customization)
-        if(_isFunction(that._options.customize)) {
-            (that._options._deprecated ? customizeHandles_deprecated : customizeHandles)(that.getProxies(), that._options.customize, that._params.widget);
-        }
-        // DEPRECATED_15_2
-        if(that._options._deprecated) {
-            patchProxies(handles, context.name, data);
-        }
+        _isFunction(that._options.customize) && customizeHandles(that.getProxies(), that._options.customize, that._params.widget);
 
         for(i = 0; i < ii; ++i) {
             handle = handles[i];
@@ -1342,7 +1315,7 @@ MapLayerElement.prototype = {
         if(selection && currentState !== newState) {
             that._state = setFlag(that._state, STATE_SELECTED, newState);
             tmp = selection.state[selection.single];
-            selection.state[selection.single] = null;   // This is to prevent stack overflow
+            selection.state[selection.single] = null; // This is to prevent stack overflow
             if(tmp) {
                 tmp.setSelected(false);
             }
@@ -1506,6 +1479,7 @@ MapLayerCollection.prototype = {
     dispose: function() {
         var that = this;
         that._clip.dispose();
+        that._layers.forEach(l => l.dispose());
         that._offTracker();
         that._params = that._offTracker = that._layers = that._layerByName = that._clip = that._background = that._container = null;
     },
@@ -1541,48 +1515,31 @@ MapLayerCollection.prototype = {
         });
     },
 
-    setOptions: function(options) {
-        var optionList = options ? (options.length ? options : [options]) : [],
-            layers = this._layers,
-            layerByName = this._layerByName,
-            params = this._params,
-            container = this._container,
-            name,
-            layer,
-            i,
-            ii;
-        for(i = optionList.length, ii = layers.length; i < ii; ++i) {
-            layer = layers[i];
-            delete layerByName[layer.proxy.name];
-            layer.dispose();
-        }
-        layers.splice(optionList.length, layers.length - optionList.length);
-        for(i = layers.length, ii = optionList.length; i < ii; ++i) {
-            name = (optionList[i] || {}).name || ("map-layer-" + i);
-            layer = layers[i] = new MapLayer(params, container, name, i);
-            layerByName[name] = layer;
-        }
-        for(i = 0, ii = optionList.length; i < ii; ++i) {
-            name = optionList[i] && optionList[i].name;
-            layer = layers[i];
-            /*
-             * Note that when layer name is changed and hence new layer replaces the old one the order of layer groups becomes broken -
-             * group of the new layer is the last among its siblings which is wrong if the layer is not the last also (generally it isn't).
-             * However let it stay so for now because except for internal nonintegrity it does not cause side effects -
-             * there no any promises about layer groups order.
-             * Note also that when layer name is changed new layer is created - though the old one could just adopt the new name.
-             * That is so because layer name is unique identifier both for internal communications and for external.
-             * Layer index is a more appropriate identifier for internal communication. When it is used instead of layer name there will be no reasons
-             * to recreate layer when its "name" option is changed (at least it seems so now).
-             */
-            if(name && name !== layer.proxy.name) {
-                delete layerByName[layer.proxy.name];
-                layer.dispose();
-                layer = layers[i] = new MapLayer(params, container, name, i);
+    setOptions(options) {
+        const that = this;
+        const optionList = options ? (_isArray(options) ? options : [options]) : [];
+        let layerByName = that._layerByName;
+        let layers = that._layers;
+        const needToCreateLayers = optionList.length !== layers.length || layers.some((l, i) => {
+            const name = getName(optionList, i);
+            return _isDefined(name) && name !== l.proxy.name;
+        });
+
+        if(needToCreateLayers) {
+            that._params.tracker.reset();
+            that._layers.forEach(l => l.dispose());
+            that._layerByName = layerByName = {};
+            that._layers = layers = [];
+            for(let i = 0, ii = optionList.length; i < ii; ++i) {
+                const name = getName(optionList, i) || ("map-layer-" + i);
+                const layer = layers[i] = new MapLayer(that._params, that._container, name, i);
                 layerByName[name] = layer;
             }
-            layer.setOptions(optionList[i]);
         }
+
+        layers.forEach((l, i) => {
+            l.setOptions(optionList[i]);
+        });
     },
 
     _updateClip: function() {

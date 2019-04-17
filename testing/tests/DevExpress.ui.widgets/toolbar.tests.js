@@ -1,19 +1,17 @@
-"use strict";
+import "ui/action_sheet";
+import "ui/drop_down_menu";
 
-require("ui/action_sheet");
-require("ui/drop_down_menu");
+import $ from "jquery";
+import Toolbar from "ui/toolbar";
+import fx from "animation/fx";
+import { hideCallback as hideTopOverlayCallback } from "mobile/hide_top_overlay";
+import resizeCallbacks from "core/utils/resize_callbacks";
+import pointerMock from "../../helpers/pointerMock.js";
+import themes from "ui/themes";
 
-var $ = require("jquery"),
-    Toolbar = require("ui/toolbar"),
-    fx = require("animation/fx"),
-    hideTopOverlayCallback = require("mobile/hide_top_overlay").hideCallback,
-    resizeCallbacks = require("core/utils/resize_callbacks"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    themes = require("ui/themes");
-
-require("common.css!");
-require("ui/button");
-require("ui/tabs");
+import "common.css!";
+import "ui/button";
+import "ui/tabs";
 
 $("#qunit-fixture").html('<style>\
         #toolbarWithMenu .dx-toolbar-menu-container {\
@@ -30,17 +28,20 @@ $("#qunit-fixture").html('<style>\
     <div id="widget"></div>\
     <div id="widthRootStyle" style="width: 300px;"></div>');
 
-var TOOLBAR_CLASS = "dx-toolbar",
-    TOOLBAR_ITEM_CLASS = "dx-toolbar-item",
-    TOOLBAR_BEFORE_CONTAINER_CLASS = "dx-toolbar-before",
-    TOOLBAR_AFTER_CONTAINER_CLASS = "dx-toolbar-after",
-    TOOLBAR_CENTER_CONTAINER_CLASS = "dx-toolbar-center",
-    TOOLBAR_LABEL_CLASS = "dx-toolbar-label",
-    TOOLBAR_MENU_BUTTON_CLASS = "dx-toolbar-menu-button",
-    TOOLBAR_LIST_VISIBLE_CLASS = "dx-toolbar-list-visible",
-    TOOLBAR_ITEMS_CONTAINER_CLASS = "dx-toolbar-items-container",
+const TOOLBAR_CLASS = "dx-toolbar";
+const TOOLBAR_ITEM_CLASS = "dx-toolbar-item";
+const TOOLBAR_BEFORE_CONTAINER_CLASS = "dx-toolbar-before";
+const TOOLBAR_AFTER_CONTAINER_CLASS = "dx-toolbar-after";
+const TOOLBAR_CENTER_CONTAINER_CLASS = "dx-toolbar-center";
+const TOOLBAR_LABEL_CLASS = "dx-toolbar-label";
+const TOOLBAR_MENU_BUTTON_CLASS = "dx-toolbar-menu-button";
+const TOOLBAR_LIST_VISIBLE_CLASS = "dx-toolbar-list-visible";
+const TOOLBAR_ITEMS_CONTAINER_CLASS = "dx-toolbar-items-container";
+const TOOLBAR_MENU_SECTION_CLASS = "dx-toolbar-menu-section";
+const LIST_ITEM_CLASS = "dx-list-item";
 
-    DROP_DOWN_MENU_CLASS = "dx-dropdownmenu";
+const DROP_DOWN_MENU_CLASS = "dx-dropdownmenu";
+const DROP_DOWN_MENU_POPUP_WRAPPER_CLASS = "dx-dropdownmenu-popup-wrapper";
 
 QUnit.module("render", {
     beforeEach: function() {
@@ -134,7 +135,7 @@ QUnit.test("Center element has correct margin with RTL", function(assert) {
     assert.equal(margin, "0px auto", "aligned by center");
 });
 
-QUnit.test("useFlatButtons change dx-button-flat class in runtime in Material", function(assert) {
+QUnit.test("buttons has text style in Material", function(assert) {
     var origIsMaterial = themes.isMaterial;
     themes.isMaterial = function() { return true; };
     var element = this.element.dxToolbar({
@@ -149,37 +150,37 @@ QUnit.test("useFlatButtons change dx-button-flat class in runtime in Material", 
         }),
         button = element.find(".dx-button").first();
 
-    assert.ok(button.hasClass("dx-button-flat"));
-
-    element.dxToolbar("instance").option("useFlatButtons", false);
-    button = element.find(".dx-button").first();
-
-    assert.notOk(button.hasClass("dx-button-flat"));
+    assert.ok(button.hasClass("dx-button-mode-text"));
 
     themes.isMaterial = origIsMaterial;
 });
 
-QUnit.test("Button save elementAttr.class class on container in Material", function(assert) {
-    var origIsMaterial = themes.isMaterial;
-    themes.isMaterial = function() { return true; };
-    var element = this.element.dxToolbar({
-            items: [{
-                location: 'before',
-                widget: 'dxButton',
-                options: {
-                    type: 'default',
-                    text: 'Back',
-                    elementAttr: { class: 'custom-class1 custom-class2' }
-                }
-            }]
+var TOOLBAR_COMPACT_CLASS = "dx-toolbar-compact";
+
+QUnit.test("Toolbar with compact mode has the compact class", function(assert) {
+    var $toolbar = this.element.dxToolbar({
+            items: [
+                { location: 'before', text: 'before' },
+                { location: 'center', text: 'center' }
+            ],
+            compactMode: true,
+            width: 20
         }),
-        button = element.find(".dx-button").first();
+        toolbar = $toolbar.dxToolbar("instance");
 
-    assert.ok(button.hasClass("dx-button-flat"));
-    assert.ok(button.hasClass("custom-class1"));
-    assert.ok(button.hasClass("custom-class2"));
+    assert.ok($toolbar.hasClass(TOOLBAR_COMPACT_CLASS), "toolbar with compact mode and small width has the compact class");
 
-    themes.isMaterial = origIsMaterial;
+    toolbar.option("compactMode", false);
+
+    assert.ok(!$toolbar.hasClass(TOOLBAR_COMPACT_CLASS), "toolbar without compact mode hasn't the compact class");
+
+    toolbar.option("compactMode", true);
+
+    assert.ok($toolbar.hasClass(TOOLBAR_COMPACT_CLASS), "compact class has been added to the toolbar");
+
+    toolbar.option("width", 400);
+
+    assert.ok(!$toolbar.hasClass(TOOLBAR_COMPACT_CLASS), "toolbar with compact mode hasn't the compact class if widget has a large width");
 });
 
 QUnit.test("Buttons has default style in generic theme", function(assert) {
@@ -195,7 +196,36 @@ QUnit.test("Buttons has default style in generic theme", function(assert) {
         }),
         button = element.find(".dx-button");
 
-    assert.notOk(button.hasClass("dx-button-flat"));
+    assert.notOk(button.hasClass("dx-button-mode-text"));
+});
+
+QUnit.test("Toolbar provides it's own templates for the item widgets", function(assert) {
+    var templateUsed;
+
+    this.element.dxToolbar({
+        items: [{
+            location: 'before',
+            widget: 'dxButton',
+            options: { template: 'custom' }
+        }],
+        integrationOptions: {
+            templates: {
+                custom: {
+                    render: (options) => {
+                        templateUsed = true;
+                        $("<div>")
+                            .attr("data-options", "dxTemplate: { name: 'custom' }")
+                            .addClass("custom-template")
+                            .text("Custom text")
+                            .appendTo(options.container);
+                    }
+                }
+            }
+        }
+    });
+
+    assert.ok(templateUsed);
+    assert.equal(this.element.find(".custom-template").length, 1);
 });
 
 
@@ -497,8 +527,8 @@ QUnit.module("swipe", {
 QUnit.test("container swipe", function(assert) {
     this.$element.dxToolbar({
         items: [
-                { text: 'a' },
-                { location: 'menu', text: 'b' }
+            { text: 'a' },
+            { location: 'menu', text: 'b' }
         ],
         submenuType: "listBottom",
         renderAs: "bottomToolbar"
@@ -577,11 +607,7 @@ QUnit.test("close win8 appbar on 'back' button click", function(assert) {
 });
 
 QUnit.test("close win8 appbar on menu item click", function(assert) {
-    var count = 0;
     this.$element.dxToolbar({
-        onItemClick: function() {
-            count++;
-        },
         items: [
             { location: 'menu', text: 'item1' },
             { location: 'menu', text: 'item2' }
@@ -688,8 +714,8 @@ QUnit.test("default", function(assert) {
     var $element = $("#widget").dxToolbar({
         items: [
             { location: 'before', text: 'before' },
-                    { location: 'after', text: 'after' },
-                    { location: 'center', text: 'center' }
+            { location: 'after', text: 'after' },
+            { location: 'center', text: 'center' }
         ]
     });
 
@@ -725,8 +751,8 @@ QUnit.test("change width", function(assert) {
 QUnit.test("text should crop in the label inside the toolbar on toolbar's width changing", function(assert) {
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: 'before', text: 'Before long text label' },
-            { location: 'after', text: 'after' }
+                { location: 'before', text: 'Before long text label' },
+                { location: 'after', text: 'after' }
             ],
             width: 300
         }),
@@ -796,7 +822,6 @@ QUnit.test("title should be centered considering different before/after block wi
     assert.equal($center.width(), 230);
 });
 
-
 QUnit.test("title should be centered considering different before/after block widths (big after case)", function(assert) {
     var title = "LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongText";
 
@@ -837,6 +862,38 @@ QUnit.test("title should be centered considering different before/after block wi
     assert.equal(parseInt($center.css("margin-left")), 60);
 });
 
+QUnit.test("items should be arranged after rendering in the dxToolbarBase used in the dxPopup", function(assert) {
+    var title = "LongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongText";
+
+    var $element = $("#widget").dxToolbarBase({
+        onItemRendered: function(args) {
+            if($(args.itemElement).text() === title) {
+                $(args.itemElement).css("maxWidth", 200);
+            }
+        },
+        items: [
+            {
+                location: "before", template: function() {
+                    return $("<div>").width(100);
+                }
+            },
+            { location: "center", text: title },
+            {
+                location: "after", template: function() {
+                    return $("<div>").width(50);
+                }
+            }
+        ],
+        width: 400
+    });
+
+    var $center = $element.find(".dx-toolbar-center").eq(0);
+    assert.equal(parseInt($center.css("margin-left")), 110);
+    assert.equal(parseInt($center.css("margin-right")), 60);
+    assert.equal($center.css("float"), "none");
+    assert.equal($center.width(), 230);
+});
+
 
 QUnit.module("adaptivity", {
     beforeEach: function() {
@@ -852,9 +909,9 @@ QUnit.module("adaptivity", {
 QUnit.test("center section should be at correct position for huge after section", function(assert) {
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $("<div>").width(50); } },
-            { location: "center", template: function() { return $("<div>").width(50); } },
-            { location: "after", template: function() { return $("<div>").width(200); } },
+                { location: "before", template: function() { return $("<div>").width(50); } },
+                { location: "center", template: function() { return $("<div>").width(50); } },
+                { location: "after", template: function() { return $("<div>").width(200); } },
             ],
             width: 400
         }),
@@ -886,9 +943,9 @@ QUnit.test("items in center section should be at correct position after resize",
 QUnit.test("center section should be at correct position for huge before section", function(assert) {
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $("<div>").width(200); } },
-            { location: "center", template: function() { return $("<div>").width(50); } },
-            { location: "after", template: function() { return $("<div>").width(50); } },
+                { location: "before", template: function() { return $("<div>").width(200); } },
+                { location: "center", template: function() { return $("<div>").width(50); } },
+                { location: "after", template: function() { return $("<div>").width(50); } },
             ],
             width: 400
         }),
@@ -903,9 +960,9 @@ QUnit.test("center section should be at correct position for huge after section 
     var $item = $("<div>").width(200);
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $("<div>").width(50); } },
-            { location: "center", template: function() { return $("<div>").width(50); } },
-            { location: "after", template: function() { return $item; } },
+                { location: "before", template: function() { return $("<div>").width(50); } },
+                { location: "center", template: function() { return $("<div>").width(50); } },
+                { location: "after", template: function() { return $item; } },
             ],
             width: 400
         }),
@@ -922,9 +979,9 @@ QUnit.test("center section should be at correct position for huge before section
     var $item = $("<div>").width(200);
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $item; } },
-            { location: "center", template: function() { return $("<div>").width(50); } },
-            { location: "after", template: function() { return $("<div>").width(50); } },
+                { location: "before", template: function() { return $item; } },
+                { location: "center", template: function() { return $("<div>").width(50); } },
+                { location: "after", template: function() { return $("<div>").width(50); } },
             ],
             width: 400
         }),
@@ -1135,11 +1192,11 @@ QUnit.test("dropdown menu strategy should be used if there is overflow widget", 
 QUnit.test("visibility of dropdown menu should be changed if overflow items was hidden/shown after resize", function(assert) {
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $("<div>").width(100); } },
-            { location: "center", template: function() { return $("<div>").width(150); } },
-            { location: "center", locateInMenu: "auto", template: function() { return $("<div>").width(100); } },
-            { location: "center", template: function() { return $("<div>").width(100); } },
-            { location: "after", template: function() { return $("<div>").width(100); } },
+                { location: "before", template: function() { return $("<div>").width(100); } },
+                { location: "center", template: function() { return $("<div>").width(150); } },
+                { location: "center", locateInMenu: "auto", template: function() { return $("<div>").width(100); } },
+                { location: "center", template: function() { return $("<div>").width(100); } },
+                { location: "after", template: function() { return $("<div>").width(100); } },
             ],
             width: 400
         }),
@@ -1402,7 +1459,6 @@ QUnit.test("toolbar menu should have correct item element", function(assert) {
     assert.equal($(".dx-list-item").length, 1, "only one item in menu is rendered");
 });
 
-
 QUnit.test("toolbar menu should be rendered after change item visible", function(assert) {
     assert.expect(3);
 
@@ -1462,8 +1518,8 @@ QUnit.testInActiveWindow("items should not be rearranged if width is not changed
 
     var $element = $("#widget").dxToolbar({
             items: [
-            { location: "before", template: function() { return $("<div>").width(300); } },
-            { location: "before", locateInMenu: "auto", template: function() { return $input; } }
+                { location: "before", template: function() { return $("<div>").width(300); } },
+                { location: "before", locateInMenu: "auto", template: function() { return $input; } }
             ],
             width: 300
         }),
@@ -1474,6 +1530,80 @@ QUnit.testInActiveWindow("items should not be rearranged if width is not changed
     resizeCallbacks.fire("height");
 
     assert.ok($input.is(":focus"), "focus is not lost");
+});
+
+QUnit.test("add a custom CSS to item of menu", function(assert) {
+    var $element = $("#widget").dxToolbar({
+        items: [
+            {
+                location: "before",
+                locateInMenu: "always",
+                cssClass: "test"
+            }
+        ]
+    });
+
+    var $dropDownMenu = $element.find("." + DROP_DOWN_MENU_CLASS),
+        dropDown = $dropDownMenu.dxDropDownMenu("instance");
+
+    dropDown.open();
+
+    assert.equal($("." + TOOLBAR_MENU_SECTION_CLASS + " ." + LIST_ITEM_CLASS + ".test").length, 1, "item with the custom CSS");
+});
+
+QUnit.test("dropDown should use default container", (assert) => {
+    const $element = $("#widget").dxToolbar({
+        items: [
+            {
+                location: "before",
+                locateInMenu: "always",
+                cssClass: "test"
+            }
+        ]
+    });
+
+    $element.find(`.${DROP_DOWN_MENU_CLASS}`).trigger("dxclick");
+
+    assert.strictEqual($element.find(`.${DROP_DOWN_MENU_POPUP_WRAPPER_CLASS}`).length, 0, "Toolbar's container isn't contains a dropDown list");
+});
+
+QUnit.test("init Toolbar with new menuContainer", (assert) => {
+    const $element = $("#widget");
+
+    $element.dxToolbar({
+        menuContainer: $element,
+        items: [
+            {
+                location: "before",
+                locateInMenu: "always",
+                cssClass: "test"
+            }
+        ]
+    });
+
+    $element.find(`.${DROP_DOWN_MENU_CLASS}`).trigger("dxclick");
+
+    assert.strictEqual($element.find(`.${DROP_DOWN_MENU_POPUP_WRAPPER_CLASS}`).length, 1, "Toolbar's container contains a dropDown list");
+});
+
+QUnit.test("change Toolbar menuContainer", (assert) => {
+    const $element = $("#widget");
+
+    const instance = $element.dxToolbar({
+        items: [
+            {
+                location: "before",
+                locateInMenu: "always",
+                cssClass: "test"
+            }
+        ]
+    }).dxToolbar("instance");
+
+    instance.option("menuContainer", $element);
+
+    $element.find(`.${DROP_DOWN_MENU_CLASS}`).trigger("dxclick");
+
+    assert.strictEqual($element.find(`.${DROP_DOWN_MENU_POPUP_WRAPPER_CLASS}`).length, 1, "Toolbar's container contains a dropDown list");
 });
 
 
@@ -1521,47 +1651,49 @@ QUnit.module("adaptivity without hiding in menu", {
         this.getToolbarItems = function() {
             return this.element.find("." + TOOLBAR_ITEM_CLASS);
         };
+
+        this.MEASURE_SAFE_TEXT = "xyvxyv";
     }
 });
 
 QUnit.test("items in before section should have correct sizes, width decreases", function(assert) {
     var toolBar = this.element.dxToolbar({
         items: [
-            { location: 'before', text: 'before1' },
-            { location: 'before', text: 'before2' },
-            { location: 'before', text: 'before3' }
+            { location: 'before', text: this.MEASURE_SAFE_TEXT },
+            { location: 'before', text: this.MEASURE_SAFE_TEXT },
+            { location: 'before', text: this.MEASURE_SAFE_TEXT }
         ],
         width: 250,
         height: 50
     }).dxToolbar("instance");
 
     $.each(this.getToolbarItems(), function(index, $item) {
-        assert.roughEqual($($item).outerWidth(), 59, 2, "Width is correct");
+        assert.roughEqual($($item).outerWidth(), 58, 2, "Width is correct");
     });
 
     toolBar.option("width", 180);
 
     $.each(this.getToolbarItems(), function(index, $item) {
         if(index < 2) {
-            assert.roughEqual($($item).outerWidth(), 59, 1, "Width is correct");
+            assert.roughEqual($($item).outerWidth(), 58, 1, "Width is correct");
         } else {
-            assert.roughEqual($($item).outerWidth(), 42, 1, "Width is correct");
+            assert.roughEqual($($item).outerWidth(), 44, 1, "Width is correct");
         }
     });
 
     toolBar.option("width", 100);
 
-    assert.roughEqual(this.getToolbarItems().eq(0).outerWidth(), 59, 1, "Width of the first item is correct");
-    assert.roughEqual(this.getToolbarItems().eq(1).outerWidth(), 21, 1, "Width of the second item is correct");
+    assert.roughEqual(this.getToolbarItems().eq(0).outerWidth(), 58, 1, "Width of the first item is correct");
+    assert.roughEqual(this.getToolbarItems().eq(1).outerWidth(), 22, 1, "Width of the second item is correct");
     assert.roughEqual(this.getToolbarItems().eq(2).outerWidth(), 10, 1, "Width of the third item is correct");
 });
 
 QUnit.test("items in center section should have correct sizes, width decreases", function(assert) {
     var toolBar = this.element.dxToolbar({
         items: [
-            { location: 'center', text: 'center1' },
-            { location: 'center', text: 'center1' },
-            { location: 'center', text: 'center3' }
+            { location: 'center', text: this.MEASURE_SAFE_TEXT },
+            { location: 'center', text: this.MEASURE_SAFE_TEXT },
+            { location: 'center', text: this.MEASURE_SAFE_TEXT }
         ],
         width: 250,
         height: 50
@@ -1593,9 +1725,9 @@ QUnit.test("items in center section should have correct sizes, width decreases",
 QUnit.test("items in before section should have correct sizes, width increases", function(assert) {
     var toolBar = this.element.dxToolbar({
         items: [
-            { location: 'before', text: 'before1' },
-            { location: 'before', text: 'before2' },
-            { location: 'before', text: 'before3' }
+            { location: 'before', text: this.MEASURE_SAFE_TEXT },
+            { location: 'before', text: this.MEASURE_SAFE_TEXT },
+            { location: 'before', text: this.MEASURE_SAFE_TEXT }
         ],
         width: 100,
         height: 50
@@ -1605,25 +1737,25 @@ QUnit.test("items in before section should have correct sizes, width increases",
 
     var $toolbarItems = this.getToolbarItems();
 
-    assert.roughEqual($toolbarItems.eq(0).outerWidth(), 59, 1, "Width of the first item is correct");
-    assert.roughEqual($toolbarItems.eq(1).outerWidth(), 32, 1, "Width of the second item is correct");
+    assert.roughEqual($toolbarItems.eq(0).outerWidth(), 58, 1, "Width of the first item is correct");
+    assert.roughEqual($toolbarItems.eq(1).outerWidth(), 34, 1, "Width of the second item is correct");
     assert.roughEqual($toolbarItems.eq(2).outerWidth(), 10, 1, "Width of the third item is correct");
 
     toolBar.option("width", 250);
 
     $toolbarItems = this.getToolbarItems();
 
-    assert.roughEqual($toolbarItems.eq(0).outerWidth(), 59, 1, "Width of the first item is correct");
-    assert.roughEqual($toolbarItems.eq(1).outerWidth(), 59, 1, "Width of the second item is correct");
-    assert.roughEqual($toolbarItems.eq(2).outerWidth(), 21, 1, "Width of the third item is correct");
+    assert.roughEqual($toolbarItems.eq(0).outerWidth(), 58, 1, "Width of the first item is correct");
+    assert.roughEqual($toolbarItems.eq(1).outerWidth(), 58, 1, "Width of the second item is correct");
+    assert.roughEqual($toolbarItems.eq(2).outerWidth(), 22, 1, "Width of the third item is correct");
 });
 
 QUnit.test("items in center section should have correct sizes, width increases", function(assert) {
     var toolBar = this.element.dxToolbar({
         items: [
-            { location: 'center', text: 'center1' },
-            { location: 'center', text: 'center1' },
-            { location: 'center', text: 'center3' }
+            { location: 'center', text: this.MEASURE_SAFE_TEXT },
+            { location: 'center', text: this.MEASURE_SAFE_TEXT },
+            { location: 'center', text: this.MEASURE_SAFE_TEXT }
         ],
         width: 50,
         height: 50

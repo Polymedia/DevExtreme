@@ -1,5 +1,3 @@
-"use strict";
-
 var vizMocks = require("../../helpers/vizMocks.js"),
     linearIndicatorsModule = require("viz/gauges/linear_indicators"),
     getTextCloudInfo = require("viz/gauges/base_indicators").getTextCloudInfo,
@@ -211,8 +209,10 @@ QUnit.module('TextCloudMarker', {
             verticalOffset: 4,
             color: 'black',
             text: {
-                format: 'fixedPoint',
-                precision: 1,
+                format: {
+                    type: 'fixedPoint',
+                    precision: 1
+                },
                 font: { color: 'someColor', size: 'someSize' }
             },
             currentValue: 25

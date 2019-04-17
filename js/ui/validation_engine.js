@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../core/class"),
     extend = require("../core/utils/extend").extend,
     inArray = require("../core/utils/array").inArray,
@@ -16,6 +14,10 @@ var BaseRuleValidator = Class.inherit({
 
     defaultMessage: function(value) { return messageLocalization.getFormatter("validation-" + this.NAME)(value); },
     defaultFormattedMessage: function(value) { return messageLocalization.getFormatter("validation-" + this.NAME + "-formatted")(value); },
+
+    _isValueEmpty: function(value) {
+        return !rulesValidators.required.validate(value, {});
+    },
 
     validate: function(value, rule) {
         var valueArray = Array.isArray(value) ? value : [value],
@@ -77,8 +79,13 @@ var NumericRuleValidator = BaseRuleValidator.inherit({
      * @type string
      * @default 'Value should be a number'
      */
+    /**
+     * @name NumericRule.ignoreEmptyValue
+     * @type boolean
+     * @default true
+     */
     _validate: function(value, rule) {
-        if(!rulesValidators.required.validate(value, {})) {
+        if(rule.ignoreEmptyValue !== false && this._isValueEmpty(value)) {
             return true;
         }
 
@@ -115,14 +122,18 @@ var RangeRuleValidator = BaseRuleValidator.inherit({
      * @type boolean
      * @default false
      */
-
+    /**
+     * @name RangeRule.ignoreEmptyValue
+     * @type boolean
+     * @default true
+     */
     _validate: function(value, rule) {
-        if(!rulesValidators.required.validate(value, {})) {
+        if(rule.ignoreEmptyValue !== false && this._isValueEmpty(value)) {
             return true;
         }
 
         var validNumber = rulesValidators["numeric"].validate(value, rule),
-            validValue = typeUtils.isDefined(value),
+            validValue = typeUtils.isDefined(value) && value !== "",
             number = validNumber ? parseFloat(value) : validValue && value.valueOf(),
             min = rule.min,
             max = rule.max;
@@ -171,10 +182,19 @@ var StringLengthRuleValidator = BaseRuleValidator.inherit({
      * @type string
      * @default 'The length of the value is not correct'
      */
+    /**
+     * @name StringLengthRule.ignoreEmptyValue
+     * @type boolean
+     * @default false
+     */
     _validate: function(value, rule) {
         value = typeUtils.isDefined(value) ? String(value) : "";
         if(rule.trim || !typeUtils.isDefined(rule.trim)) {
             value = value.trim();
+        }
+
+        if(rule.ignoreEmptyValue && this._isValueEmpty(value)) {
+            return true;
         }
 
         return rulesValidators.range.validate(value.length,
@@ -209,7 +229,16 @@ var CustomRuleValidator = BaseRuleValidator.inherit({
      * @type boolean
      * @default false
      */
+    /**
+     * @name CustomRule.ignoreEmptyValue
+     * @type boolean
+     * @default false
+     */
     validate: function(value, rule) {
+        if(rule.ignoreEmptyValue && this._isValueEmpty(value)) {
+            return true;
+        }
+
         var validator = rule.validator,
             dataGetter = validator && typeUtils.isFunction(validator.option) && validator.option("dataGetter"),
             data = typeUtils.isFunction(dataGetter) && dataGetter(),
@@ -254,9 +283,18 @@ var CompareRuleValidator = BaseRuleValidator.inherit({
      * @type boolean
      * @default true
      */
+    /**
+     * @name CompareRule.ignoreEmptyValue
+     * @type boolean
+     * @default false
+     */
     _validate: function(value, rule) {
         if(!rule.comparisonTarget) {
             throw errors.Error("E0102");
+        }
+
+        if(rule.ignoreEmptyValue && this._isValueEmpty(value)) {
+            return true;
         }
 
         extend(rule, { reevaluate: true });
@@ -266,9 +304,9 @@ var CompareRuleValidator = BaseRuleValidator.inherit({
 
         switch(type) {
             case "==":
-                return value == otherValue; // jshint ignore:line
+                return value == otherValue; // eslint-disable-line eqeqeq
             case "!=":
-                return value != otherValue; // jshint ignore:line
+                return value != otherValue; // eslint-disable-line eqeqeq
             case "===":
                 return value === otherValue;
             case "!==":
@@ -302,8 +340,13 @@ var PatternRuleValidator = BaseRuleValidator.inherit({
      * @type string
      * @default 'Value does not match pattern'
      */
+    /**
+     * @name PatternRule.ignoreEmptyValue
+     * @type boolean
+     * @default true
+     */
     _validate: function(value, rule) {
-        if(!rulesValidators.required.validate(value, {})) {
+        if(rule.ignoreEmptyValue !== false && this._isValueEmpty(value)) {
             return true;
         }
         var pattern = rule.pattern;
@@ -326,15 +369,20 @@ var EmailRuleValidator = BaseRuleValidator.inherit({
      * @type string
      * @default 'Email is invalid'
      */
+    /**
+     * @name EmailRule.ignoreEmptyValue
+     * @type boolean
+     * @default true
+     */
     _validate: function(value, rule) {
-        if(!rulesValidators.required.validate(value, {})) {
+        if(rule.ignoreEmptyValue !== false && this._isValueEmpty(value)) {
             return true;
         }
         return rulesValidators.pattern.validate(value,
             extend({},
                 rule,
                 {
-                    pattern: /^[\d\w\._\-]+@([\d\w\._\-]+\.)+[\w]+$/i
+                    pattern: /^[\d\w._-]+@([\d\w._-]+\.)+[\w]+$/i
                 }));
     }
 });

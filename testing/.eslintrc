@@ -1,0 +1,13 @@
+{
+    "env": {
+        "qunit": true,
+        "browser": true
+    },
+    "globals": {
+        "define": true,
+        "Promise": true,
+        "SystemJS": true,
+        "DevExpress": true,
+        "sinon": true
+    }
+}

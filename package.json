@@ -1,6 +1,6 @@
 {
   "name": "devextreme",
-  "version": "18.2.0",
+  "version": "18.2.7",
   "description": "HTML5 JavaScript Component Suite for Responsive Web Development",
   "keywords": [
     "html5",
@@ -21,10 +21,16 @@
   "homepage": "https://js.devexpress.com/",
   "bugs": "https://www.devexpress.com/support/",
   "author": "Developer Express Inc.",
-  "repository": "https://github.com/DevExpress/DevExtreme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DevExpress/DevExtreme.git"
+  },
   "license": "SEE LICENSE IN README.md",
   "dependencies": {
-    "jszip": "^2.0.0 || ^3.0.0"
+    "jszip": "^2.0.0 || ^3.0.0",
+    "quill": "^1.3.6",
+    "showdown": "^1.8.6",
+    "turndown": "^5.0.1"
   },
   "devDependencies": {
     "@types/jquery": "^2.0.34",
@@ -34,13 +40,13 @@
     "babel-plugin-add-module-exports": "^0.2.1",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
     "babel-preset-env": "^1.6.1",
-    "bootstrap": "^3.3.7",
+    "bootstrap": "^4.3.1",
     "cldr-core": "latest",
     "cldrjs": "^0.5.0",
     "del": "^2.2.2",
     "dot": "1.1.2",
-    "eslint": "^3.12.2",
-    "eslint-plugin-spellcheck": "0.0.6",
+    "eslint": "^5.9.0",
+    "eslint-plugin-spellcheck": "0.0.11",
     "globalize": "^1.3.0",
     "gulp": "^3.9.1",
     "gulp-babel": "^7.0.1",
@@ -51,11 +57,13 @@
     "gulp-header": "^1.7.1",
     "gulp-if": "^2.0.0",
     "gulp-jsbeautifier": "^2.0.3",
+    "gulp-json-editor": "^2.5.1",
     "gulp-ll": "^1.0.4",
     "gulp-notify": "^2.2.0",
     "gulp-plumber": "^1.1.0",
     "gulp-rename": "^1.2.2",
     "gulp-replace": "^0.5.4",
+    "gulp-tap": "^1.0.1",
     "gulp-template": "^4.0.0",
     "gulp-typescript": "^3.0.2",
     "gulp-uglify": "^1.5.3",
@@ -66,17 +74,18 @@
     "jquery.1": "^1.0.0",
     "jquery.2": "^1.0.0",
     "jquery.tmpl": "0.0.2",
-    "jshint": "^2.9.3",
     "jsrender": "0.9.90",
     "knockout": "^3.4.2",
     "lazypipe": "^1.0.1",
     "less": "^2.7.1",
+    "less-plugin-autoprefix": "^2.0.0",
     "lint-staged": "^3.4.0",
     "merge-stream": "^1.0.0",
     "mustache": "2.3.0",
     "pre-commit": "^1.2.2",
     "qunitjs": "^2.0.1",
     "run-sequence": "^1.1.5",
+    "string-replace-loader": "^2.1.1",
     "systemjs": "<=0.19.41",
     "systemjs-plugin-babel": "0.0.25",
     "systemjs-plugin-css": "0.1.33",
@@ -95,11 +104,20 @@
     "devextreme-bundler": "bin/bundler.js"
   },
   "scripts": {
-    "lint": "jshint --verbose . && eslint .",
+    "lint": "eslint .",
     "lint-staged": "lint-staged",
     "build": "dotnet build build/build-dotnet.sln && gulp default",
     "build-dist": "dotnet build build/build-dotnet.sln && gulp default --uglify",
-    "build-themes": "gulp style-compiler-themes"
+    "build-themes": "gulp style-compiler-themes",
+    "build-themebuilder-assets": "gulp style-compiler-tb-assets",
+    "dev": "gulp dev",
+    "test-env": "node testing/launch"
   },
+  "browserslist": [
+    "last 2 versions",
+    "ios > 8",
+    "ie > 10",
+    "> 1%"
+  ],
   "pre-commit": "lint-staged"
 }

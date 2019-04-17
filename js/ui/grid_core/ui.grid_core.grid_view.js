@@ -1,15 +1,14 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    modules = require("./ui.grid_core.modules"),
-    commonUtils = require("../../core/utils/common"),
-    windowUtils = require("../../core/utils/window"),
-    each = require("../../core/utils/iterator").each,
-    typeUtils = require("../../core/utils/type"),
-    messageLocalization = require("../../localization/message"),
-    when = require("../../core/utils/deferred").when,
-    domAdapter = require("../../core/dom_adapter"),
-    browser = require("../../core/utils/browser");
+import $ from "../../core/renderer";
+import modules from "./ui.grid_core.modules";
+import commonUtils from "../../core/utils/common";
+import windowUtils from "../../core/utils/window";
+import { each } from "../../core/utils/iterator";
+import typeUtils from "../../core/utils/type";
+import gridCoreUtils from "./ui.grid_core.utils";
+import messageLocalization from "../../localization/message";
+import { when, Deferred } from "../../core/utils/deferred";
+import domAdapter from "../../core/dom_adapter";
+import browser from "../../core/utils/browser";
 
 var TABLE_CLASS = "table",
     BORDERS_CLASS = "borders",
@@ -53,6 +52,24 @@ var getContainerHeight = function($container) {
     return clientHeight - paddingTop - paddingBottom;
 };
 
+var calculateFreeWidth = function(that, widths) {
+    var contentWidth = that._rowsView.contentWidth(),
+        totalWidth = that._getTotalWidth(widths, contentWidth);
+
+    return contentWidth - totalWidth;
+};
+
+var calculateFreeWidthWithCurrentMinWidth = function(that, columnIndex, currentMinWidth, widths) {
+    return calculateFreeWidth(that, widths.map(function(width, index) {
+        return index === columnIndex ? currentMinWidth : width;
+    }));
+};
+
+var restoreFocus = function(focusedElement, selectionRange) {
+    focusedElement.focus();
+    gridCoreUtils.setSelectionRange(focusedElement, selectionRange);
+};
+
 var ResizingController = modules.ViewController.inherit({
     _initPostRenderHandlers: function() {
         var that = this,
@@ -71,16 +88,16 @@ var ResizingController = modules.ViewController.inherit({
                     if(!isDelayed) {
                         resizeDeferred = that.resize();
                     }
-                } else if(changeType === "update") {
+                } else if(changeType === "update" && e.changeTypes) {
                     if((items.length > 1 || e.changeTypes[0] !== "insert") &&
-                        !(items.length === 0 && e.changeTypes[0] === "remove")) {
+                        !(items.length === 0 && e.changeTypes[0] === "remove") && !e.needUpdateDimensions) {
                         that._rowsView.resize();
                     } else {
                         resizeDeferred = that.resize();
                     }
                 }
 
-                if(changeType && changeType !== "updateSelection" && !isDelayed) {
+                if(changeType && changeType !== "updateSelection" && changeType !== "updateFocusedRow" && !isDelayed) {
                     when(resizeDeferred).done(function() {
                         that._setAriaRowColCount();
                         that.component._fireContentReadyAction();
@@ -127,14 +144,15 @@ var ResizingController = modules.ViewController.inherit({
         var columnsController = this._columnsController;
         columnsController.beginUpdate();
         each(visibleColumns, function(index, column) {
-            var columnId = column.command ? "command:" + column.command : column.index;
+            var columnId = columnsController.getColumnId(column);
             columnsController.columnOption(columnId, "visibleWidth", widths[index]);
         });
         columnsController.endUpdate();
     },
 
     _toggleBestFitModeForView: function(view, className, isBestFit) {
-        if(!view) return;
+        if(!view || !view.isVisible()) return;
+
         var $rowsTable = this._rowsView._getTableElement(),
             $viewTable = view._getTableElement(),
             $tableBody;
@@ -154,7 +172,7 @@ var ResizingController = modules.ViewController.inherit({
         var $element = this.component.$element(),
             that = this;
 
-        if(!this.option("legacyRendering")) {
+        if(!that.option("legacyRendering")) {
             var $rowsTable = that._rowsView._getTableElement(),
                 $rowsFixedTable = that._rowsView.getTableElements().eq(1);
 
@@ -164,6 +182,15 @@ var ResizingController = modules.ViewController.inherit({
 
             that._toggleBestFitModeForView(that._columnHeadersView, "dx-header", isBestFit);
             that._toggleBestFitModeForView(that._footerView, "dx-footer", isBestFit);
+
+            if(that._needStretch()) {
+                $rowsTable.get(0).style.width = isBestFit ? "auto" : "";
+            }
+            if(browser.msie && parseInt(browser.version) === 11) {
+                $rowsTable.find("." + this.addWidgetPrefix(TABLE_FIXED_CLASS)).each(function() {
+                    this.style.width = isBestFit ? "10px" : "";
+                });
+            }
         } else {
             $element.find("." + this.addWidgetPrefix(TABLE_CLASS)).toggleClass(this.addWidgetPrefix(TABLE_FIXED_CLASS), !isBestFit);
 
@@ -186,17 +213,19 @@ var ResizingController = modules.ViewController.inherit({
             isColumnWidthsCorrected = false,
             resultWidths = [],
             focusedElement,
+            isFocusOutsideWindow,
+            selectionRange,
             normalizeWidthsByExpandColumns = function() {
                 var expandColumnWidth;
 
                 each(visibleColumns, function(index, column) {
-                    if(column.command === "expand") {
+                    if(column.type === "groupExpand") {
                         expandColumnWidth = resultWidths[index];
                     }
                 });
 
                 each(visibleColumns, function(index, column) {
-                    if(column.command === "expand" && expandColumnWidth) {
+                    if(column.type === "groupExpand" && expandColumnWidth) {
                         resultWidths[index] = expandColumnWidth;
                     }
                 });
@@ -220,6 +249,7 @@ var ResizingController = modules.ViewController.inherit({
 
         if(needBestFit) {
             focusedElement = domAdapter.getActiveElement();
+            selectionRange = gridCoreUtils.getSelectionRange(focusedElement);
             that._toggleBestFitMode(true);
             resetBestFitMode = true;
         }
@@ -229,7 +259,7 @@ var ResizingController = modules.ViewController.inherit({
                 resultWidths = that._getBestFitWidths();
 
                 each(visibleColumns, function(index, column) {
-                    var columnId = column.command ? "command:" + column.command : column.index;
+                    var columnId = columnsController.getColumnId(column);
                     columnsController.columnOption(columnId, "bestFitWidth", resultWidths[index], true);
                 });
             } else if(hasMinWidth) {
@@ -237,9 +267,10 @@ var ResizingController = modules.ViewController.inherit({
             }
 
             each(visibleColumns, function(index) {
-                if(this.width !== "auto") {
-                    if(this.width) {
-                        resultWidths[index] = this.width;
+                var width = this.width;
+                if(width !== "auto") {
+                    if(typeUtils.isDefined(width)) {
+                        resultWidths[index] = typeUtils.isNumeric(width) ? parseFloat(width) : width;
                     } else if(!columnAutoWidth) {
                         resultWidths[index] = undefined;
                     }
@@ -250,7 +281,14 @@ var ResizingController = modules.ViewController.inherit({
                 that._toggleBestFitMode(false);
                 resetBestFitMode = false;
                 if(focusedElement && focusedElement !== domAdapter.getActiveElement()) {
-                    browser.msie ? setTimeout(function() { focusedElement.focus(); }) : focusedElement.focus();
+                    isFocusOutsideWindow = focusedElement.getBoundingClientRect().bottom < 0;
+                    if(!isFocusOutsideWindow) {
+                        if(browser.msie) {
+                            setTimeout(function() { restoreFocus(focusedElement, selectionRange); });
+                        } else {
+                            restoreFocus(focusedElement, selectionRange);
+                        }
+                    }
                 }
             }
 
@@ -276,15 +314,14 @@ var ResizingController = modules.ViewController.inherit({
     },
 
     _needStretch: function() {
-        return this.option("legacyRendering");
+        return this.option("legacyRendering") || this._columnsController.getVisibleColumns().some(c => c.width === "auto" && !c.command);
     },
 
     _getAverageColumnsWidth: function(resultWidths) {
-        var contentWidth = this._rowsView.contentWidth(),
-            totalWidth = this._getTotalWidth(resultWidths, contentWidth),
+        var freeWidth = calculateFreeWidth(this, resultWidths),
             columnCountWithoutWidth = resultWidths.filter(function(width) { return width === undefined; }).length;
 
-        return (contentWidth - totalWidth) / columnCountWithoutWidth;
+        return freeWidth / columnCountWithoutWidth;
     },
 
     _correctColumnWidths: function(resultWidths, visibleColumns) {
@@ -302,18 +339,27 @@ var ResizingController = modules.ViewController.inherit({
             var index = i,
                 column = visibleColumns[index],
                 isHiddenColumn = resultWidths[index] === HIDDEN_COLUMNS_WIDTH,
-                width = resultWidths[index];
+                width = resultWidths[index],
+                minWidth = column.minWidth;
 
-            if(width === undefined && column.minWidth) {
-                averageColumnsWidth = that._getAverageColumnsWidth(resultWidths);
-                width = averageColumnsWidth;
+            if(minWidth) {
+                if(width === undefined) {
+                    averageColumnsWidth = that._getAverageColumnsWidth(resultWidths);
+                    width = averageColumnsWidth;
+                } else if(isPercentWidth(width)) {
+                    var freeWidth = calculateFreeWidthWithCurrentMinWidth(that, index, minWidth, resultWidths);
+
+                    if(freeWidth < 0) {
+                        width = -1;
+                    }
+                }
             }
-            if(width < column.minWidth && !isHiddenColumn) {
-                resultWidths[index] = column.minWidth;
+            if(minWidth && that._getRealColumnWidth(width) < minWidth && !isHiddenColumn) {
+                resultWidths[index] = minWidth;
                 isColumnWidthsCorrected = true;
                 i = -1;
             }
-            if(!column.width) {
+            if(!typeUtils.isDefined(column.width)) {
                 hasAutoWidth = true;
             }
             if(isPercentWidth(column.width)) {
@@ -331,11 +377,9 @@ var ResizingController = modules.ViewController.inherit({
                 scrollbarWidth = that._rowsView.getScrollbarWidth(),
                 totalWidth = that._getTotalWidth(resultWidths, contentWidth);
 
-            if(totalWidth <= contentWidth) {
-                lastColumnIndex = resultWidths.length - 1;
-                while(lastColumnIndex >= 0 && visibleColumns[lastColumnIndex] && (visibleColumns[lastColumnIndex].command || resultWidths[lastColumnIndex] === HIDDEN_COLUMNS_WIDTH || visibleColumns[lastColumnIndex].fixed || visibleColumns[lastColumnIndex].allowResizing === false)) {
-                    lastColumnIndex--;
-                }
+            if(totalWidth < contentWidth) {
+                lastColumnIndex = gridCoreUtils.getLastResizableColumnIndex(visibleColumns, resultWidths);
+
                 if(lastColumnIndex >= 0) {
                     resultWidths[lastColumnIndex] = "auto";
                     isColumnWidthsCorrected = true;
@@ -377,11 +421,26 @@ var ResizingController = modules.ViewController.inherit({
                 }
                 resultSizes[i] += diffElement;
                 if(onePixelElementsCount > 0) {
-                    resultSizes[i]++;
-                    onePixelElementsCount--;
+                    if(onePixelElementsCount < 1) {
+                        resultSizes[i] += onePixelElementsCount;
+                        onePixelElementsCount = 0;
+                    } else {
+                        resultSizes[i]++;
+                        onePixelElementsCount--;
+                    }
                 }
             }
         }
+    },
+
+    _getRealColumnWidth: function(width, groupWidth) {
+        if(!isPercentWidth(width)) {
+            return parseFloat(width);
+        }
+
+        groupWidth = groupWidth || this._rowsView.contentWidth();
+
+        return parseFloat(width) * groupWidth / 100;
     },
 
     _getTotalWidth: function(widths, groupWidth) {
@@ -392,7 +451,7 @@ var ResizingController = modules.ViewController.inherit({
         for(i = 0; i < widths.length; i++) {
             width = widths[i];
             if(width && width !== HIDDEN_COLUMNS_WIDTH) {
-                result += isPercentWidth(width) ? (parseInt(width) * groupWidth / 100) : parseInt(width);
+                result += this._getRealColumnWidth(width, groupWidth);
             }
         }
 
@@ -446,19 +505,25 @@ var ResizingController = modules.ViewController.inherit({
             return;
         }
 
-        return commonUtils.deferRender(function() {
-            that._rowsView.height("");
-            if(that._dataController.isLoaded()) {
-                that._synchronizeColumns();
-            }
-            commonUtils.deferUpdate(function() {
-                commonUtils.deferRender(function() {
-                    commonUtils.deferUpdate(function() {
-                        that._updateDimensionsCore();
+        var prevResult = that._resizeDeferred,
+            result = that._resizeDeferred = new Deferred();
+
+        when(prevResult).always(function() {
+            commonUtils.deferRender(function() {
+                if(that._dataController.isLoaded()) {
+                    that._synchronizeColumns();
+                }
+                commonUtils.deferUpdate(function() {
+                    commonUtils.deferRender(function() {
+                        commonUtils.deferUpdate(function() {
+                            that._updateDimensionsCore();
+                        });
                     });
                 });
-            });
+            }).done(result.resolve).fail(result.reject);
         });
+
+        return result.promise();
     },
     _checkSize: function(checkSize) {
         var $rootElement = this.component.$element();
@@ -468,25 +533,48 @@ var ResizingController = modules.ViewController.inherit({
         }
         return true;
     },
+    _setScrollerSpacingCore: function(hasHeight) {
+        var that = this,
+            vScrollbarWidth = hasHeight ? that._rowsView.getScrollbarWidth() : 0,
+            hScrollbarWidth = that._rowsView.getScrollbarWidth(true);
+
+        commonUtils.deferRender(function() {
+            that._columnHeadersView && that._columnHeadersView.setScrollerSpacing(vScrollbarWidth);
+            that._footerView && that._footerView.setScrollerSpacing(vScrollbarWidth);
+            that._rowsView.setScrollerSpacing(vScrollbarWidth, hScrollbarWidth);
+        });
+    },
+    _setScrollerSpacing: function(hasHeight) {
+        var that = this,
+            scrollable = that._rowsView.getScrollable();
+
+        if(!scrollable && hasHeight) { // T722415
+            commonUtils.deferRender(() => {
+                commonUtils.deferUpdate(() => {
+                    that._setScrollerSpacingCore(hasHeight);
+                });
+            });
+        } else {
+            that._setScrollerSpacingCore(hasHeight);
+        }
+    },
     _updateDimensionsCore: function() {
         var that = this,
+            hasHeight,
             dataController = that._dataController,
             rowsView = that._rowsView,
-            columnHeadersView = that._columnHeadersView,
-            footerView = that._footerView,
             $rootElement = that.component.$element(),
             groupElement = $rootElement.children().get(0),
             rootElementHeight = $rootElement && ($rootElement.get(0).clientHeight || $rootElement.height()),
             maxHeight = parseFloat($rootElement.css("maxHeight")),
             maxHeightHappened = maxHeight && rootElementHeight >= maxHeight,
-            hasHeight = that._hasHeight || maxHeightHappened,
             height = that.option("height") || $rootElement.get(0).style.height,
             editorFactory = that.getController("editorFactory"),
-            rowsViewHeight = "",
             isMaxHeightApplied = maxHeightHappened && groupElement.scrollHeight === groupElement.offsetHeight,
             $testDiv;
 
         that.updateSize($rootElement);
+        hasHeight = that._hasHeight || maxHeightHappened;
 
         if(height && (that._hasHeight ^ height !== "auto")) {
             $testDiv = $("<div>").height(height).appendTo($rootElement);
@@ -494,32 +582,20 @@ var ResizingController = modules.ViewController.inherit({
             $testDiv.remove();
         }
 
-        if(isMaxHeightApplied) {
-            rowsViewHeight = rowsView.height();
-        }
-
         commonUtils.deferRender(function() {
-            rowsView.height(rowsViewHeight, hasHeight);
+            rowsView.height(null, hasHeight);
             // IE11
             if(maxHeightHappened && !isMaxHeightApplied) {
                 $(groupElement).css("height", maxHeight);
             }
 
             if(!dataController.isLoaded()) {
-                rowsView.setLoading(true);
+                rowsView.setLoading(dataController.isLoading());
                 return;
             }
             commonUtils.deferUpdate(function() {
                 that._updateLastSizes($rootElement);
-
-                var vScrollbarWidth = hasHeight ? rowsView.getScrollbarWidth() : 0;
-                var hScrollbarWidth = rowsView.getScrollbarWidth(true);
-
-                commonUtils.deferRender(function() {
-                    columnHeadersView && columnHeadersView.setScrollerSpacing(vScrollbarWidth);
-                    footerView && footerView.setScrollerSpacing(vScrollbarWidth);
-                    rowsView.setScrollerSpacing(vScrollbarWidth, hScrollbarWidth);
-                });
+                that._setScrollerSpacing(hasHeight);
 
                 each(VIEW_NAMES, function(index, viewName) {
                     var view = that.getView(viewName);
@@ -546,6 +622,7 @@ var ResizingController = modules.ViewController.inherit({
                 this.resize();
                 /* falls through */
             case "legacyRendering":
+            case "renderAsync":
                 args.handled = true;
                 return;
             default:
@@ -689,7 +766,13 @@ module.exports = {
              * @default false
              */
             showBorders: false,
-            legacyRendering: false
+            /**
+             * @name GridBaseOptions.renderAsync
+             * @type boolean
+             * @default false
+             */
+            renderAsync: false,
+            legacyRendering: false,
         };
     },
     controllers: {

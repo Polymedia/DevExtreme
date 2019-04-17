@@ -1,5 +1,3 @@
-"use strict";
-
 import { renderValueText } from "../filter_builder/filter_builder";
 
 var $ = require("../../core/renderer"),
@@ -55,6 +53,10 @@ function baseOperation(grid) {
                 column = extend({}, column, { filterType: "include", filterValues: [value] });
                 var dataSourceOptions = headerFilterController.getDataSource(column);
                 dataSourceOptions.paginate = false;
+                let headerFilterDataSource = headerFilter && headerFilter.dataSource;
+                if(!headerFilterDataSource && lookup.items) {
+                    dataSourceOptions.store = lookup.items;
+                }
                 var dataSource = new DataSourceModule.DataSource(dataSourceOptions),
                     result = new deferredUtils.Deferred();
 
@@ -76,7 +78,7 @@ function baseOperation(grid) {
                     .appendTo(container),
                 column = extend(true, {}, grid.columnOption(conditionInfo.field.dataField));
 
-            renderValueText(div, conditionInfo.value);
+            renderValueText(div, conditionInfo.text && conditionInfo.text.split("|"));
 
             var setValue = function(value) {
                 conditionInfo.setValue(value);
@@ -93,7 +95,7 @@ function baseOperation(grid) {
                     headerFilterController.hideHeaderFilterMenu();
                 },
                 onHidden: function() {
-                    $("body").trigger("dxpointerdown");
+                    conditionInfo.closeEditor();
                 },
                 isFilterBuilder: true
             });

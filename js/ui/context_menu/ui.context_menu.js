@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     domAdapter = require("../../core/dom_adapter"),
     eventsEngine = require("../../events/core/events_engine"),
@@ -14,7 +12,6 @@ var $ = require("../../core/renderer"),
     inArray = require("../../core/utils/array").inArray,
     extend = require("../../core/utils/extend").extend,
     windowUtils = require("../../core/utils/window"),
-    getPublicElement = require("../../core/utils/dom").getPublicElement,
     fx = require("../../animation/fx"),
     positionUtils = require("../../animation/position"),
     devices = require("../../core/devices"),
@@ -74,7 +71,7 @@ var ContextMenu = MenuBase.inherit((function() {
             return extend(this.callBase(), {
                 /**
                 * @name dxContextMenuOptions.items
-                * @type Array<dxContextMenuItemTemplate>
+                * @type Array<dxContextMenuItem>
                 * @inheritdoc
                 */
                 /**
@@ -186,10 +183,10 @@ var ContextMenu = MenuBase.inherit((function() {
                 target: undefined,
 
                 /**
-                * @name dxContextMenuOptions.itemHoldAction
-                * @hidden
-                * @inheritdoc
-                */
+                 * @name dxContextMenuOptions.itemHoldAction
+                 * @hidden
+                 * @inheritdoc
+                 */
 
                 /**
                 * @name dxContextMenuOptions.onItemReordered
@@ -203,14 +200,14 @@ var ContextMenu = MenuBase.inherit((function() {
                 * @inheritdoc
                 */
                 /**
-                * @name dxContextMenuItemTemplate
-                * @inherits dxMenuBaseItemTemplate
+                * @name dxContextMenuItem
+                * @inherits dxMenuBaseItem
                 * @type object
                 * @inheritdoc
                 */
                 /**
-                * @name dxContextMenuItemTemplate.items
-                * @type Array<dxContextMenuItemTemplate>
+                * @name dxContextMenuItem.items
+                * @type Array<dxContextMenuItem>
                 * @inheritdoc
                 */
 
@@ -571,7 +568,9 @@ var ContextMenu = MenuBase.inherit((function() {
                 overlayOptions = {
                     focusStateEnabled: this.option("focusStateEnabled"),
                     animation: overlayAnimation,
+                    innerOverlay: true,
                     closeOnOutsideClick: this._closeOnOutsideClickHandler.bind(this),
+                    propagateOutsideClick: true,
                     closeOnTargetScroll: true,
                     deferRendering: false,
                     position: {
@@ -708,8 +707,8 @@ var ContextMenu = MenuBase.inherit((function() {
 
         _hideSubmenusOnSameLevel: function($item) {
             var $expandedItems = $item
-                    .parent("." + DX_MENU_ITEM_WRAPPER_CLASS).siblings()
-                    .find("." + DX_MENU_ITEM_EXPANDED_CLASS);
+                .parent("." + DX_MENU_ITEM_WRAPPER_CLASS).siblings()
+                .find("." + DX_MENU_ITEM_EXPANDED_CLASS);
 
             if($expandedItems.length) {
                 $expandedItems.removeClass(DX_MENU_ITEM_EXPANDED_CLASS);
@@ -908,7 +907,6 @@ var ContextMenu = MenuBase.inherit((function() {
                     break;
                 case "target":
                     args.previousValue && this._detachShowContextMenuEvents(args.previousValue);
-                    this.option("position").of = null;
                     this._invalidate();
                     break;
                 case "closeOnOutsideClick":

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     PivotGridDataSource = require("ui/pivot_grid/data_source"),
     executeAsyncMock = require("../../helpers/executeAsyncMock.js");
@@ -335,7 +333,7 @@ QUnit.test("Not redraw chart during virtual scrolling", function(assert) {
     pivotGrid.bindChart(chart);
     chart.on("done", chartReady);
     pivotGrid._dataController.scrollChanged.empty();
-   // act
+    // act
     pivotGrid._dataController.setViewportPosition(0, 2000);
 
     assert.strictEqual(chartReady.callCount, 0);
@@ -346,10 +344,10 @@ QUnit.module("Chart dataSource item generation with single dataField", {
         executeAsyncMock.setup();
 
         this.fields = [
-                { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
-                { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
-                { dataField: "ShipCity", dataType: "string", area: "row" },
-                { summaryType: "count", caption: 'Count', area: "data" }
+            { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
+            { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
+            { dataField: "ShipCity", dataType: "string", area: "row" },
+            { summaryType: "count", caption: 'Count', area: "data" }
         ];
 
         var that = this,
@@ -553,11 +551,11 @@ QUnit.module("Chart dataSource item generation with several dataFields", {
         executeAsyncMock.setup();
 
         this.fields = [
-                { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
-                { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
-                { dataField: "ShipCity", dataType: "string", area: "row" },
-                { summaryType: "count", caption: 'Count', area: "data" },
-                { dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: 'fixedPoint', precision: 2, area: "data" }
+            { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
+            { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
+            { dataField: "ShipCity", dataType: "string", area: "row" },
+            { summaryType: "count", caption: 'Count', area: "data" },
+            { dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: { type: 'fixedPoint', precision: 2 }, area: "data" }
         ];
 
         var that = this,
@@ -896,10 +894,10 @@ QUnit.module("Value Axis Options", {
         executeAsyncMock.setup();
 
         this.fields = [
-                { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
-                { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
-                { dataField: "ShipCity", dataType: "string", area: "row" },
-                { summaryType: "count", caption: 'Count', area: "data", dataType: "number", precision: 2, format: "fixedPoint" }
+            { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
+            { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
+            { dataField: "ShipCity", dataType: "string", area: "row" },
+            { summaryType: "count", caption: 'Count', area: "data", dataType: "number", format: { type: "fixedPoint", precision: 2 } }
         ];
 
         var that = this,
@@ -934,12 +932,12 @@ QUnit.test("Single dataField. Numeric", function(assert) {
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: "fixedPoint",
-            precision: 2
+            format: { type: "fixedPoint", precision: 2 }
         },
         name: "Count",
         title: "Count",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 45 }
     }]);
 });
 
@@ -970,15 +968,15 @@ QUnit.test("Single dataField. customizeText", function(assert) {
 });
 
 QUnit.test("Single dataField. DateTime", function(assert) {
-    this.pivotGridDataSource.field("Count", { dataType: "date", precision: undefined, format: "shortDate" });
+    this.pivotGridDataSource.field("Count", { dataType: "date", format: { type: "shortDate", precision: undefined } });
     this.pivotGridDataSource.load();
 
     this.createBinding({});
+    delete this.valueAxisOptions[0]["visualRange"];
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: "shortDate",
-            precision: undefined
+            format: { type: "shortDate", precision: undefined }
         },
         name: "Count",
         title: "Count",
@@ -987,24 +985,24 @@ QUnit.test("Single dataField. DateTime", function(assert) {
 });
 
 QUnit.test("Single dataField. value type is undefined", function(assert) {
-    this.pivotGridDataSource.field("Count", { dataType: undefined, precision: undefined, format: undefined });
+    this.pivotGridDataSource.field("Count", { dataType: undefined, format: { type: undefined, precision: undefined } });
     this.pivotGridDataSource.load();
 
     this.createBinding({});
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: undefined,
-            precision: undefined
+            format: { type: "decimal", precision: undefined }
         },
         name: "Count",
         title: "Count",
-        valueType: undefined
+        valueType: undefined,
+        visualRange: { startValue: 0, endValue: 45 }
     }]);
 });
 
 QUnit.test("Several dataField", function(assert) {
-    this.fields.push({ dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: 'percent', precision: 3, area: "data" });
+    this.fields.push({ dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: { type: 'percent', precision: 3 }, area: "data" });
 
     this.pivotGridDataSource.fields(this.fields);
     this.pivotGridDataSource.load();
@@ -1013,21 +1011,27 @@ QUnit.test("Several dataField", function(assert) {
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: "fixedPoint",
-            precision: 2
+            format: {
+                type: "fixedPoint",
+                precision: 2
+            }
         },
         name: "Count",
         title: "Count",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 45 }
     },
     {
         label: {
-            format: "percent",
-            precision: 3
+            format: {
+                type: "percent",
+                precision: 3
+            }
         },
         name: "Avg Freight",
         title: "Avg Freight",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 180 }
     }]);
 });
 
@@ -1041,11 +1045,11 @@ QUnit.test("Several dataField. dataFieldsDisplayMode is 'singleAxis'", function(
         dataFieldsDisplayMode: "singleAxis"
     });
 
-    assert.deepEqual(this.valueAxisOptions, [{}]);
+    assert.deepEqual(this.valueAxisOptions, [{ visualRange: { startValue: 0, endValue: 100 } }]);
 });
 
 QUnit.test("Several dataField. dataFieldsDisplayMode is 'splitPanes'", function(assert) {
-    this.fields.push({ dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: 'percent', precision: 3, area: "data" });
+    this.fields.push({ dataField: "Freight", dataType: 'number', summaryType: "avg", caption: 'Avg Freight', format: { type: 'percent', precision: 3 }, area: "data" });
 
     this.pivotGridDataSource.fields(this.fields);
     this.pivotGridDataSource.load();
@@ -1056,23 +1060,29 @@ QUnit.test("Several dataField. dataFieldsDisplayMode is 'splitPanes'", function(
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: "fixedPoint",
-            precision: 2
+            format: {
+                type: "fixedPoint",
+                precision: 2
+            }
         },
         name: "Count",
         pane: "Count",
         title: "Count",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 50 }
     },
     {
         label: {
-            format: "percent",
-            precision: 3
+            format: {
+                type: "percent",
+                precision: 3
+            }
         },
         pane: "Avg Freight",
         name: "Avg Freight",
         title: "Avg Freight",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 100 }
     }]);
 });
 
@@ -1083,12 +1093,15 @@ QUnit.test("Single dataField is placed on argument Axis", function(assert) {
 
     assert.deepEqual(this.valueAxisOptions, [{
         label: {
-            format: "fixedPoint",
-            precision: 2
+            format: {
+                type: "fixedPoint",
+                precision: 2
+            }
         },
         name: "Count",
         title: "Count",
-        valueType: "numeric"
+        valueType: "numeric",
+        visualRange: { startValue: 0, endValue: 45 }
     }]);
 });
 
@@ -1101,7 +1114,7 @@ QUnit.test("Several dataField. dataFields are placed on argument Axis", function
         putDataFieldsInto: "args"
     });
 
-    assert.deepEqual(this.valueAxisOptions, [{}]);
+    assert.deepEqual(this.valueAxisOptions, [{ visualRange: { startValue: 0, endValue: 100 } }]);
 });
 
 
@@ -1110,10 +1123,10 @@ QUnit.module("Customize Chart", {
         executeAsyncMock.setup();
 
         this.fields = [
-                { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
-                { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
-                { dataField: "ShipCity", dataType: "string", area: "row" },
-                { summaryType: "count", caption: 'Count', area: "data" }
+            { dataField: "OrderDate", dataType: "date", area: "column", filterValues: [[1996], [1997]] },
+            { dataField: "ShipCountry", dataType: "string", area: "row", filterValues: ["Argentina", "Brazil"] },
+            { dataField: "ShipCity", dataType: "string", area: "row" },
+            { summaryType: "count", caption: 'Count', area: "data" }
         ];
 
         var that = this,
@@ -1276,8 +1289,7 @@ QUnit.test("Customize Chart options", function(assert) {
         valueAxis: [
             {
                 label: {
-                    format: undefined,
-                    precision: undefined
+                    format: undefined
                 },
                 name: "Count",
                 title: "Count",

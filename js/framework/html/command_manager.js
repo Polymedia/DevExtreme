@@ -1,5 +1,3 @@
-"use strict";
-
 require("../../integration/jquery");
 
 var $ = require("jquery"),
@@ -31,8 +29,8 @@ var CommandManager = Class.inherit({
             adapters = commandToDXWidgetAdapters;
 
         if(componentNames) {
-            for(var index in componentNames) {
-                var widgetName = componentNames[index];
+            for(var i = 0; i < componentNames.length; i++) {
+                var widgetName = componentNames[i];
                 if(widgetName in adapters) {
                     // TODO return the adapter instance here
                     return adapters[widgetName];
@@ -43,13 +41,13 @@ var CommandManager = Class.inherit({
     },
     findCommands: function($items) {
         var items = $items.find(".dx-command").add($items.filter(".dx-command"));
-        var result = iteratorUtils.map(items, function(element) {
+        var result = [].slice.call(items).map(function(element) {
             return $(element).dxCommand("instance");
         });
         return result;
     },
     findCommandContainers: function($markup) {
-        var result = iteratorUtils.map($markup.find(".dx-command-container"), function(element) {
+        var result = [].slice.call($markup.find(".dx-command-container")).map(function(element) {
             return $(element).dxCommandContainer("instance");
         });
         return result;

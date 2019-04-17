@@ -1,11 +1,8 @@
-"use strict";
-
-var commonUtils = require("../../core/utils/common"),
-    isDefined = require("../../core/utils/type").isDefined,
-    extend = require("../../core/utils/extend").extend,
-    stateStoringCore = require("./ui.grid_core.state_storing_core"),
-    equalByValue = commonUtils.equalByValue;
-
+import { equalByValue, getKeyHash } from "../../core/utils/common";
+import { isDefined } from "../../core/utils/type";
+import { extend } from "../../core/utils/extend";
+import stateStoringCore from "./ui.grid_core.state_storing_core";
+import { Deferred } from "../../core/utils/deferred";
 
 // TODO move processLoadState to target modules (data, columns, pagerView)
 var processLoadState = function(that) {
@@ -18,8 +15,8 @@ var processLoadState = function(that) {
     if(columnsController) {
         columnsController.columnsChanged.add(function() {
             var columnsState = columnsController.getUserState(),
-                columnsStateHash = commonUtils.getKeyHash(columnsState),
-                currentColumnsStateHash = commonUtils.getKeyHash(that._state.columns);
+                columnsStateHash = getKeyHash(columnsState),
+                currentColumnsStateHash = getKeyHash(that._state.columns);
 
             if(!equalByValue(currentColumnsStateHash, columnsStateHash)) {
                 extend(that._state, {
@@ -43,12 +40,14 @@ var processLoadState = function(that) {
     if(dataController) {
         that._initialPageSize = that.option("paging.pageSize");
         dataController.changed.add(function() {
-            var userState = dataController.getUserState();
+            var userState = dataController.getUserState(),
+                focusedRowEnabled = that.option("focusedRowEnabled");
 
             extend(that._state, userState, {
                 allowedPageSizes: pagerView ? pagerView.getPageSizes() : undefined,
                 filterPanel: { filterEnabled: that.option("filterPanel.filterEnabled") },
-                filterValue: that.option("filterValue")
+                filterValue: that.option("filterValue"),
+                focusedRowKey: focusedRowEnabled ? that.option("focusedRowKey") : undefined
             });
             that.isEnabled() && that.save();
         });
@@ -127,9 +126,12 @@ module.exports = {
                     that.callBase();
 
                     dataController.stateLoaded.add(function() {
-                        if(dataController.isLoaded()) {
+                        if(dataController.isLoaded() && !dataController.getDataSource()) {
                             that.setLoading(false);
                             that.renderNoDataText();
+                            var columnHeadersView = that.component.getView("columnHeadersView");
+                            columnHeadersView && columnHeadersView.render();
+                            that.component._fireContentReadyAction();
                         }
                     });
                 }
@@ -169,8 +171,11 @@ module.exports = {
                         selectionFilter = state.selectionFilter,
                         exportController = that.getController("export"),
                         columnsController = that.getController("columns"),
+                        dataController = that.getController("data"),
                         filterSyncController = that.getController("filterSync"),
-                        scrollingMode = that.option("scrolling.mode");
+                        scrollingMode = that.option("scrolling.mode"),
+                        isVirtualScrollingMode = scrollingMode === "virtual" || scrollingMode === "infinite",
+                        showPageSizeSelector = that.option("pager.visible") === true && that.option("pager.showPageSizeSelector");
 
                     that.component.beginUpdate();
 
@@ -190,6 +195,10 @@ module.exports = {
                         that.option("pager").allowedPageSizes = allowedPageSizes;
                     }
 
+                    if(that.option("focusedRowEnabled")) {
+                        that.option("focusedRowKey", state.focusedRowKey);
+                    }
+
                     that.component.endUpdate();
 
                     that.option("searchPanel.text", searchText || "");
@@ -198,8 +207,10 @@ module.exports = {
 
                     that.option("filterPanel.filterEnabled", state.filterPanel ? state.filterPanel.filterEnabled : true);
 
-                    that.option("paging.pageSize", scrollingMode !== "virtual" && scrollingMode !== "infinite" && isDefined(state.pageSize) ? state.pageSize : that._initialPageSize);
+                    that.option("paging.pageSize", (!isVirtualScrollingMode || showPageSizeSelector) && isDefined(state.pageSize) ? state.pageSize : that._initialPageSize);
                     that.option("paging.pageIndex", state.pageIndex || 0);
+
+                    dataController && dataController.reset();
                 }
             },
             columns: {
@@ -222,13 +233,16 @@ module.exports = {
                     if(stateStoringController.isEnabled() && !stateStoringController.isLoaded()) {
                         clearTimeout(that._restoreStateTimeoutID);
 
+                        var deferred = new Deferred();
                         that._restoreStateTimeoutID = setTimeout(function() {
                             stateStoringController.load().always(function() {
                                 that._restoreStateTimeoutID = null;
                                 callBase.call(that);
                                 that.stateLoaded.fire();
+                                deferred.resolve();
                             });
                         });
+                        return deferred.promise();
                     } else if(!that.isStateLoading()) {
                         callBase.call(that);
                     }

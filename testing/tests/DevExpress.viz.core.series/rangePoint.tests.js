@@ -1,5 +1,3 @@
-"use strict";
-
 import $ from "jquery";
 import * as vizMocks from "../../helpers/vizMocks.js";
 import pointModule from "viz/series/points/base_point";
@@ -1836,7 +1834,7 @@ QUnit.test("Apply style when top marker is invisible", function(assert) {
     point.translate();
     point.draw(this.renderer, this.groups);
 
-    point.applyStyle();
+    point.applyView();
 
     assert.ok(point.graphic);
     assert.ok(!point.graphic.topMarker);
@@ -1851,7 +1849,7 @@ QUnit.test("Apply style when bottom marker is invisible", function(assert) {
     point.translate();
     point.draw(this.renderer, this.groups);
 
-    point.applyStyle();
+    point.applyView();
 
     assert.ok(point.graphic);
     assert.ok(point.graphic.topMarker);

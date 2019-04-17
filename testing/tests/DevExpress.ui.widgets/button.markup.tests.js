@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     isRenderer = require("core/utils/type").isRenderer,
     config = require("core/config");
@@ -15,7 +13,7 @@ QUnit.testStart(function() {
             <div data-options="dxTemplate: { name: \'content\' }" data-bind="text: text"></div>\
         </div>\
         <div id="buttonWithAnonymousTemplate">\
-            test\
+            <div id="content">test</div>\
         </div>';
 
     $("#qunit-fixture").html(markup);
@@ -27,7 +25,9 @@ var BUTTON_CLASS = "dx-button",
     BUTTON_HAS_ICON_CLASS = "dx-button-has-icon",
     BUTTON_CONTENT_CLASS = "dx-button-content",
     BUTTON_BACK_CLASS = "dx-button-back",
-    TEMPLATE_WRAPPER_CLASS = "dx-template-wrapper";
+    TEMPLATE_WRAPPER_CLASS = "dx-template-wrapper",
+    BUTTON_TEXT_STYLE_CLASS = "dx-button-mode-text",
+    BUTTON_CONTAINED_STYLE_CLASS = "dx-button-mode-contained";
 
 QUnit.module("Button markup");
 
@@ -55,6 +55,13 @@ QUnit.test("init with options", function(assert) {
     assert.ok(element.hasClass(BUTTON_HAS_TEXT_CLASS), "button with text has text class");
 });
 
+QUnit.test("submit element should have tabindex attribute", function(assert) {
+    var $element = $("#button").dxButton({ useSubmitBehavior: true }),
+        $submitElement = $element.find("input");
+
+    assert.equal($submitElement.attr("tabindex"), -1, "submit input is not focusable");
+});
+
 QUnit.test("class added from type (back)", function(assert) {
     var element = $("#button").dxButton({
             type: "back"
@@ -63,6 +70,22 @@ QUnit.test("class added from type (back)", function(assert) {
 
     assert.ok(element.hasClass(BUTTON_BACK_CLASS), "class was added");
     assert.ok(buttonContent.find(".dx-icon").length, "icon class was added");
+});
+
+QUnit.test("class added from stylingMode", function(assert) {
+    var element = $("#button").dxButton({
+        stylingMode: "text"
+    });
+
+    assert.ok(element.hasClass(BUTTON_TEXT_STYLE_CLASS), "class was added");
+});
+
+QUnit.test("Default value should be used if stylingMode has wrong value", function(assert) {
+    var element = $("#button").dxButton({
+        stylingMode: "someWrongValue"
+    });
+
+    assert.ok(element.hasClass(BUTTON_CONTAINED_STYLE_CLASS), "class was added");
 });
 
 QUnit.test("icon must rendered after change type of button on 'back'", function(assert) {
@@ -144,9 +167,17 @@ QUnit.test("dxButton content class appear on correct container (T256387)", funct
 });
 
 QUnit.test("dxButton with anonymous template", function(assert) {
-    var $button = $("#buttonWithAnonymousTemplate").dxButton();
+    const $button = $("#buttonWithAnonymousTemplate").dxButton();
 
     assert.equal($.trim($button.text()), "test", "anonymous template rendered");
+});
+
+QUnit.test("anonymous content template rendering", function(assert) {
+    const $contentElement = $("#buttonWithAnonymousTemplate #content");
+
+    const $button = $("#buttonWithAnonymousTemplate").dxButton();
+
+    assert.equal($button.find("#content")[0], $contentElement[0], "content element preserved");
 });
 
 QUnit.test("dxButton with template as function", function(assert) {

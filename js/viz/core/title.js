@@ -1,5 +1,3 @@
-"use strict";
-
 var _Number = Number,
     _isString = require("../../core/utils/type").isString,
     extend = require("../../core/utils/extend").extend,
@@ -282,18 +280,11 @@ exports.plugin = {
         this._title.dispose();
         this._title = null;
     },
-    members: {
-        // DEPRECATED_15_2
-        // Method exists only to be overridden in gauges.
-        _getTitleOptions: function() {
-            return extend(true, {}, this._themeManager.theme("title"), processTitleOptions(this.option("title")));
-        }
-    },
     customize: function(constructor) {
         constructor.addChange({
             code: "TITLE",
             handler: function() {
-                if(this._title.update(this._getTitleOptions())) {
+                if(this._title.update(extend(true, {}, this._themeManager.theme("title"), processTitleOptions(this.option("title"))))) {
                     this._change(["LAYOUT"]);
                 }
             },

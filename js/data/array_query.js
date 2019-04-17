@@ -1,5 +1,3 @@
-"use strict";
-
 var Class = require("../core/class"),
     typeUtils = require("../core/utils/type"),
     iteratorUtils = require("../core/utils/iterator"),
@@ -309,8 +307,8 @@ var compileCriteria = (function() {
 
     function compileEquals(getter, value, negate) {
         return function(obj) {
-            /* jshint eqeqeq:false */
             obj = toComparable(getter(obj));
+            // eslint-disable-next-line eqeqeq
             var result = useStrictComparison(value) ? obj === value : obj == value;
             if(negate) {
                 result = !result;
@@ -338,7 +336,7 @@ var compileCriteria = (function() {
         if(typeUtils.isFunction(crit)) {
             return crit;
         }
-        if(Array.isArray(crit[0])) {
+        if(dataUtils.isGroupCriterion(crit)) {
             return compileGroup(crit);
         }
         if(dataUtils.isUnaryOperation(crit)) {

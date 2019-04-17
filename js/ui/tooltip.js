@@ -1,8 +1,7 @@
-"use strict";
-
 /**
  * @name dxTooltip
  * @inherits dxPopover
+ * @hasTranscludedContent
  * @module ui/tooltip
  * @export default
  */

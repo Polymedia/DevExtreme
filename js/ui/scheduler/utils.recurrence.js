@@ -1,5 +1,3 @@
-"use strict";
-
 var errors = require("../../core/errors"),
     extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
@@ -127,7 +125,11 @@ var dateGetterMap = {
 
         current.setHours(0, 0, 0);
         current.setDate(current.getDate() + diff);
-        daysFromYearStart = 1 + (current - new Date(current.getFullYear(), 0, 1)) / dayInMilliseconds;
+
+        var yearStart = new Date(current.getFullYear(), 0, 1),
+            timezoneDiff = (yearStart.getTimezoneOffset() - current.getTimezoneOffset()) * toMs("minute");
+
+        daysFromYearStart = 1 + (current - yearStart + timezoneDiff) / dayInMilliseconds;
 
         return Math.ceil(daysFromYearStart / 7);
     },
@@ -173,11 +175,11 @@ var normalizeInterval = function(rule) {
     return intervalObject;
 };
 
-var getDatesByRecurrenceException = function(ruleValues) {
+var getDatesByRecurrenceException = function(ruleValues, date) {
     var result = [];
 
     for(var i = 0, len = ruleValues.length; i < len; i++) {
-        result[i] = getDateByAsciiString(ruleValues[i]);
+        result[i] = getDateByAsciiString(ruleValues[i], date);
     }
 
     return result;
@@ -191,7 +193,7 @@ var dateIsRecurrenceException = function(date, recurrenceException) {
     }
 
     var splitDates = recurrenceException.split(","),
-        exceptDates = getDatesByRecurrenceException(splitDates),
+        exceptDates = getDatesByRecurrenceException(splitDates, date),
         shortFormat = /\d{8}$/;
 
     for(var i = 0, len = exceptDates.length; i < len; i++) {
@@ -317,7 +319,7 @@ var pushToResult = function(iteration, iterationResult, currentDate, i, config, 
 
 var checkDate = function(currentDate, i, config, verifiedField) {
     if(!dateIsRecurrenceException(currentDate, config.exception)) {
-        var duration = dateUtils.sameDate(currentDate, config.recurrenceEndDate) ? config.recurrenceEndDate.getTime() - currentDate.getTime() : config.duration;
+        var duration = dateUtils.sameDate(currentDate, config.recurrenceEndDate) && config.recurrenceEndDate.getTime() > currentDate.getTime() ? config.recurrenceEndDate.getTime() - currentDate.getTime() : config.duration;
 
         if(currentDate.getTime() >= config.recurrenceStartDate.getTime() && (currentDate.getTime() + duration) > config.min.getTime()) {
             return verifiedField || checkDateByRule(currentDate, [config.dateRules[i]], config.rule["wkst"]);
@@ -553,7 +555,7 @@ var parseRecurrenceRule = function(recurrence) {
     return ruleObject;
 };
 
-var getDateByAsciiString = function(string) {
+var getDateByAsciiString = function(string, initialDate) {
     if(typeof string !== "string") {
         return string;
     }
@@ -565,8 +567,10 @@ var getDateByAsciiString = function(string) {
     }
 
     var isUTC = arrayDate[8] !== undefined,
-        currentOffset = resultUtils.getTimeZoneOffset() * 60000,
+        currentOffset = initialDate ? initialDate.getTimezoneOffset() : resultUtils.getTimeZoneOffset(),
         date = new (Function.prototype.bind.apply(Date, prepareDateArrayToParse(arrayDate)))();
+
+    currentOffset = currentOffset * 60000;
 
     if(isUTC) {
         date = new Date(date.getTime() - currentOffset);
@@ -596,7 +600,11 @@ var daysFromByDayRule = function(rule) {
     var result = [];
 
     if(rule["byday"]) {
-        result = rule["byday"].split(",");
+        if(Array.isArray(rule["byday"])) {
+            result = rule["byday"];
+        } else {
+            result = rule["byday"].split(",");
+        }
     }
 
     return result;
@@ -705,7 +713,7 @@ var getDatesByCount = function(dateRules, startDate, recurrenceStartDate, rule) 
     var result = [],
         count = rule.count,
         counter = 0,
-        date = new Date(startDate.setDate(1));
+        date = prepareDate(startDate, dateRules);
 
     while(counter < count) {
         var dates = getDatesByRules(dateRules, date, rule);
@@ -739,6 +747,18 @@ var getDatesByCount = function(dateRules, startDate, recurrenceStartDate, rule) 
     }
 
     return result;
+};
+
+var prepareDate = function(startDate, dateRules) {
+    var date = new Date(startDate);
+
+    if(dateRules.length && dateRules[0]["byday"]) {
+        date.setDate(date.getDate() - date.getDay() + dateRules[0]["byday"]);
+    } else {
+        date.setDate(1);
+    }
+
+    return date;
 };
 
 var checkDateByRule = function(date, rules, weekStart) {

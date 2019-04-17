@@ -62,12 +62,14 @@
         "dxFileUploader-uploaded": "Uppladdad",
         "dxFileUploader-readyToUpload": "Klar att ladda upp",
         "dxFileUploader-uploadFailedMessage": "Uppladdning misslyckades",
+        "dxFileUploader-invalidFileExtension": "",
+        "dxFileUploader-invalidMaxFileSize": "",
+        "dxFileUploader-invalidMinFileSize": "",
 
         "dxRangeSlider-ariaFrom": "Från",
         "dxRangeSlider-ariaTill": "Till",
-
-        "dxSwitch-onText": "PÅ",
-        "dxSwitch-offText": "AV",
+        "dxSwitch-switchedOnText": "PÅ",
+        "dxSwitch-switchedOffText": "AV",
 
         "dxForm-optionalMark": "valfri",
         "dxForm-requiredMessage": "{0} är nödvändigt",
@@ -266,6 +268,20 @@
         "dxFilterBuilder-filterOperationIsNotBlank": "Är inte tom",
         "dxFilterBuilder-filterOperationBetween": "Mellan",
         "dxFilterBuilder-filterOperationAnyOf": "Någon av",
-        "dxFilterBuilder-filterOperationNoneOf": "Ingen av"
+        "dxFilterBuilder-filterOperationNoneOf": "Ingen av",
+
+        "dxHtmlEditor-dialogColorCaption": "!TODO!",
+        "dxHtmlEditor-dialogBackgroundCaption": "!TODO!",
+        "dxHtmlEditor-dialogLinkCaption": "!TODO!",
+        "dxHtmlEditor-dialogLinkUrlField": "!TODO!",
+        "dxHtmlEditor-dialogLinkTextField": "!TODO!",
+        "dxHtmlEditor-dialogLinkTargetField": "!TODO!",
+        "dxHtmlEditor-dialogImageCaption": "!TODO!",
+        "dxHtmlEditor-dialogImageUrlField": "!TODO!",
+        "dxHtmlEditor-dialogImageAltField": "!TODO!",
+        "dxHtmlEditor-dialogImageWidthField": "!TODO!",
+        "dxHtmlEditor-dialogImageHeightField": "!TODO!",
+        "dxHtmlEditor-heading": "!TODO!",
+        "dxHtmlEditor-normalText": "!TODO!"
     }
 }

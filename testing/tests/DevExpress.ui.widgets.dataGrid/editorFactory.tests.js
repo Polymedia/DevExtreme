@@ -1,7 +1,5 @@
-"use strict";
-
-var $ = require("jquery");
-var dataUtils = require("core/element_data");
+import $ from "jquery";
+import dataUtils from "core/element_data";
 
 QUnit.testStart(function() {
     var markup =
@@ -29,23 +27,20 @@ QUnit.testStart(function() {
     $("#qunit-fixture").html(markup);
 });
 
-require("common.css!");
+import "common.css!";
 
-require("ui/data_grid/ui.data_grid");
-require("ui/lookup");
-var TextArea = require("ui/text_area");
+import "ui/data_grid/ui.data_grid";
+import "ui/lookup";
+import TextArea from "ui/text_area";
 
-var executeAsyncMock = require("../../helpers/executeAsyncMock.js"),
-    dateLocalization = require("localization/date"),
-    browser = require("core/utils/browser"),
-    devices = require("core/devices"),
-    SelectBox = require("ui/select_box"),
-    dataGridMocks = require("../../helpers/dataGridMocks.js"),
-    config = require("core/config"),
-    typeUtils = require("core/utils/type"),
-    MockColumnsController = dataGridMocks.MockColumnsController,
-    MockDataController = dataGridMocks.MockDataController,
-    setupDataGridModules = dataGridMocks.setupDataGridModules;
+import executeAsyncMock from "../../helpers/executeAsyncMock.js";
+import dateLocalization from "localization/date";
+import browser from "core/utils/browser";
+import devices from "core/devices";
+import SelectBox from "ui/select_box";
+import { MockColumnsController, MockDataController, setupDataGridModules } from "../../helpers/dataGridMocks.js";
+import config from "core/config";
+import typeUtils from "core/utils/type";
 
 var TEXTEDITOR_INPUT_SELECTOR = ".dx-texteditor-input";
 
@@ -85,17 +80,17 @@ QUnit.test('Text editor', function(assert) {
     textBox.option('value', 'B');
 
     // assert
-    if((browser.msie && parseInt(browser.version) <= 11) || browser.mozilla || devices.real().ios) {
-        assert.equal(valueChangeEvent, 'change keyup', 'value change event is correct for ie <= 11 and ios');
-    } else {
-        assert.equal(valueChangeEvent, 'change', 'value change event is correct');
-    }
+    assert.equal(valueChangeEvent, 'change', 'value change event is correct');
 
     assert.equal(value, 'B', 'value after change');
 });
 
-// T344096
-QUnit.test('Text editor enter in ios', function(assert) {
+QUnit.test('Text editor enter in ios (T344096)', function(assert) {
+    if(!browser.webkit) {
+        assert.ok(true, "Not webkit browser");
+        return;
+    }
+
     var $container = $('#container'),
         value = 'A';
 
@@ -117,21 +112,25 @@ QUnit.test('Text editor enter in ios', function(assert) {
     assert.ok(textBox, 'dxTextBox created');
     assert.equal(textBox.option('value'), 'A', 'text editor value');
 
+    // mock for real blur
+    $container.find("input").on("blur", function(e) {
+        $(e.target).trigger("change");
+    });
+
     // act
+    $container.find("input").focus();
     $container.find("input").val('AB');
-    $container.find("input").trigger($.Event("keyup"));
-    $container.find("input").trigger($.Event("keydown", { keyCode: 13 }));
+    $container.find("input").trigger($.Event("keydown", { key: "Enter" }));
 
     // assert
-    assert.equal(valueChangeEvent, 'change keyup', 'value change event for ios');
+    assert.equal(valueChangeEvent, 'change', 'value change event for ios');
     assert.equal(value, 'AB', 'value after change');
 
     devices.real(originalDevice);
 });
 
-if(browser.msie && parseInt(browser.version) === 11) {
-    // T305674
-    QUnit.test('Text editor enter work in IE', function(assert) {
+if(browser.msie) {
+    QUnit.test("Enter does not change the text editor value in IE, EDGE (T305674, T336478, T635192)", function(assert) {
         var $container = $('#container'),
             value = 'A',
             setValueCallCount = 0;
@@ -150,13 +149,18 @@ if(browser.msie && parseInt(browser.version) === 11) {
         assert.ok(textBox, 'dxTextBox created');
         assert.equal(textBox.option('value'), 'A', 'text editor value');
 
+        // mock for real blur
+        $($container.find("input")).get(0).blur = function() {
+            $container.find("input").trigger("change");
+        };
+
         // act
+        $container.find("input").focus();
         $container.find("input").val("AB");
-        $container.find("input").trigger($.Event("keyup"));
-        // T336478
-        $container.find("input").trigger($.Event("keydown", { keyCode: 13 }));
+        $container.find("input").trigger($.Event("keydown", { key: "Enter" }));
 
         this.clock.tick();
+
         // assert
         assert.equal(value, 'AB', 'value after enter key');
         assert.equal(setValueCallCount, 1, 'setValue call count');
@@ -193,7 +197,7 @@ if(browser.msie && parseInt(browser.version) === 11) {
         assert.ok(dateBox, 'dxTextBox created');
 
         // act
-        $container.find("input").trigger($.Event("keydown", { keyCode: 13 }));
+        $container.find("input").trigger($.Event("keydown", { key: "Enter" }));
 
         // assert
         assert.deepEqual(methods, ["blur", "focus"], "blur and focus called");
@@ -224,11 +228,13 @@ if(browser.msie && parseInt(browser.version) === 11) {
         $container.find("input").val("AB");
         $container.find("input").trigger($.Event("keyup"));
         $(window).trigger("focus");
+        // mock change on focus change
+        $container.find("input").trigger("change");
 
         this.clock.tick();
-
         // assert
-        assert.equal(value, 'AB', 'value after enter key');
+        assert.equal(textBox.option('valueChangeEvent'), 'change', 'valueChangeEvent');
+        assert.equal(textBox.option('value'), 'AB', 'value');
         assert.equal(setValueCallCount, 1, 'setValue call count');
     });
 }
@@ -1246,10 +1252,10 @@ QUnit.module("Focus", {
             return $("#container");
         };
         that.columns = [
-                    { caption: 'Column 1', visible: true, allowEditing: true, dataField: "Column1" },
-                    { caption: 'Column 2', visible: true, allowEditing: true, dataField: "Column2" },
-                    { caption: 'Column 3', visible: true, allowEditing: true, dataField: "Column3" },
-                    { caption: 'Column 4', visible: true, allowEditing: true, dataField: "Column4", dataType: "boolean", showEditorAlways: true }
+            { caption: 'Column 1', visible: true, allowEditing: true, dataField: "Column1" },
+            { caption: 'Column 2', visible: true, allowEditing: true, dataField: "Column2" },
+            { caption: 'Column 3', visible: true, allowEditing: true, dataField: "Column3" },
+            { caption: 'Column 4', visible: true, allowEditing: true, dataField: "Column4", dataType: "boolean", showEditorAlways: true }
         ];
 
         that.setupDataGrid = function() {
@@ -1331,7 +1337,7 @@ QUnit.test("Update focus on tab keydown", function(assert) {
         isFocused = true;
     };
 
-    testElement.trigger($.Event('keydown.dxDataGridEditorFactory', { which: 9 }));
+    testElement.trigger($.Event('keydown.dxDataGridEditorFactory', { key: "Tab" }));
     this.clock.tick();
 
     // assert
@@ -1482,6 +1488,7 @@ QUnit.testInActiveWindow("Focus on a filtering cell after editing cell in 'batch
 
     // act
     $testElement.find(".dx-datagrid-filter-row input").eq(1).trigger("focus");
+    $testElement.find(".dx-datagrid-filter-row input").eq(1).trigger("dxpointerdown");
     $testElement.find(".dx-datagrid-filter-row input").eq(1).trigger("dxclick");
     that.clock.tick();
 

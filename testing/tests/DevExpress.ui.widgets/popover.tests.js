@@ -1,13 +1,11 @@
-"use strict";
+import $ from "jquery";
+import fixtures from "../../helpers/positionFixtures.js";
+import fx from "animation/fx";
+import pointerMock from "../../helpers/pointerMock.js";
+import positionUtils from "animation/position";
+import Popover from "ui/popover";
 
-var $ = require("jquery"),
-    fx = require("animation/fx"),
-    positionUtils = require("animation/position"),
-    Popover = require("ui/popover"),
-    pointerMock = require("../../helpers/pointerMock.js"),
-    fixtures = require("../../helpers/positionFixtures.js");
-
-require("common.css!");
+import "common.css!";
 
 var POPOVER_CLASS = "dx-popover",
     POPOVER_WRAPPER_CLASS = "dx-popover-wrapper",
@@ -123,6 +121,20 @@ QUnit.test("position shortcuts", function(assert) {
     fixtures.simple.create();
     new Popover($("#what"), { target: "#where", visible: true, position: "left" });
     assert.ok(wrapper().hasClass("dx-position-left"), "popover has left position");
+    fixtures.simple.drop();
+});
+
+QUnit.test("popup should not render arrow when the position side is center (T701940)", (assert) => {
+    fixtures.simple.create();
+
+    const popover = new Popover($("#what"), {
+        position: { my: 'top left', at: 'center', of: window },
+        visible: true
+    });
+    const arrow = popover.$element().find(`.${POPOVER_ARROW_CLASS}`);
+
+    assert.strictEqual(arrow.height(), 0);
+    assert.strictEqual(arrow.width(), 0);
     fixtures.simple.drop();
 });
 
@@ -1310,7 +1322,6 @@ QUnit.test("flipping with right position", function(assert) {
 QUnit.module("animation");
 
 QUnit.test("content position with animation type = 'slide'", function(assert) {
-    var count = 0;
     fixtures.collisionTopLeft.create();
     fx.off = true;
     try {
@@ -1324,10 +1335,7 @@ QUnit.test("content position with animation type = 'slide'", function(assert) {
                 },
                 width: 50,
                 height: 50,
-                visible: false,
-                shownAction: function() {
-                    count++;
-                }
+                visible: false
             });
 
         popover.option("visible", true);

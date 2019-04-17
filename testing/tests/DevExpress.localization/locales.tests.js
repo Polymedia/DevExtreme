@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     messageLocalization = require("localization/message"),
     localization = require("localization"),
@@ -43,7 +41,10 @@ var compareLocales = function(first, second, assert) {
             "dxFilterBuilder-and",
             "dxFilterBuilder-or",
             "dxFilterBuilder-notAnd",
-            "dxFilterBuilder-notOr"
+            "dxFilterBuilder-notOr",
+            "dxHtmlEditor-dialogImageUrlField",
+            "dxHtmlEditor-dialogLinkUrlField",
+            "dxHtmlEditor-dialogLinkTextField"
         ];
 
     $.each(firstLocaleMessages, function(name, value) {

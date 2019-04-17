@@ -1,14 +1,10 @@
-"use strict";
-
-require("ui/tree_list/ui.tree_list");
-
-var $ = require("jquery"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    ArrayStore = require("data/array_store"),
-    Guid = require("core/guid"),
-    query = require("data/query"),
-    treeListMocks = require("../../helpers/treeListMocks.js"),
-    setupTreeListModules = treeListMocks.setupTreeListModules;
+import 'ui/tree_list/ui.tree_list';
+import $ from 'jquery';
+import { DataSource } from 'data/data_source/data_source';
+import ArrayStore from 'data/array_store';
+import Guid from 'core/guid';
+import query from 'data/query';
+import { setupTreeListModules } from '../../helpers/treeListMocks.js';
 
 var createDataSource = function(data, storeOptions, dataSourceOptions) {
     var arrayStore = new ArrayStore(storeOptions ? $.extend(true, { data: data }, storeOptions) : data),
@@ -28,7 +24,7 @@ var setupModule = function() {
         }
     };
 
-    setupTreeListModules(this, ["data", "columns", "masterDetail"]);
+    setupTreeListModules(this, ["data", "columns", "keyboardNavigation", "focus", "masterDetail", "virtualScrolling"]);
 
     this.applyOptions = function(options) {
         $.extend(this.options, options);
@@ -179,6 +175,43 @@ QUnit.test("nodes should not be recreated after expand", function(assert) {
     // assert
     assert.strictEqual(nodesInitialized.callCount, 1, "nodesInitialized called once on first load");
     assert.strictEqual(this.getRootNode(), rootNode, "root node is not changed");
+});
+
+// T635433
+QUnit.test("sorting should not be reapplied after expand", function(assert) {
+    // arrange
+    var array = [
+            { name: 'SubCategory1', phone: '55-66-77', id: 3, parentId: 2 },
+            { name: 'Category2', phone: '55-55-55', id: 1, parentId: 0 },
+            { name: 'Category1', phone: '98-75-21', id: 2, parentId: 0 }
+        ],
+        dataSource = createDataSource(array);
+
+    this.dataController.setDataSource(dataSource);
+
+    dataSource.load();
+
+    var calculateSortValueCalled = false;
+
+    this.columnOption("name", "calculateSortValue", function(data) {
+        calculateSortValueCalled = true;
+        return data.name;
+    });
+
+    // act
+    this.columnOption("name", "sortOrder", "asc");
+
+    // assert
+    assert.ok(calculateSortValueCalled, "sorting is applied");
+
+
+    // act
+    calculateSortValueCalled = false;
+    this.expandRow(2);
+
+    // assert
+    assert.notOk(calculateSortValueCalled, "sorting is not reapplied");
+    assert.equal(this.getVisibleRows()[0].data.name, "Category1", "rows are sorted");
 });
 
 QUnit.test("nodes should be recreated after change sorting", function(assert) {
@@ -457,6 +490,33 @@ QUnit.test("Initialize from dataSource with plain structure when virtual scrolli
     assert.equal(items[2].key, 3, "key of third item");
 });
 
+QUnit.test("Initialize when remoteOperations and virtual scrolling are enabled and two pages are loaded", function(assert) {
+    // arrange
+    var array = [
+            { name: 'SubCategory1', phone: '55-66-77', id: 5, parentId: 2 },
+            { name: 'Category1', phone: '55-55-55', id: 1, parentId: 0 },
+            { name: 'Category2', phone: '98-75-21', id: 2, parentId: 0 },
+            { name: 'Category3', phone: '98-75-22', id: 3, parentId: 0 },
+            { name: 'Category4', phone: '98-75-23', id: 4, parentId: 0 }
+        ],
+        dataSource = createDataSource(array, {}, { pageSize: 2 });
+
+    // act
+    this.applyOptions({
+        scrolling: {
+            mode: "virtual"
+        },
+        remoteOperations: { filtering: true },
+        autoExpandAll: true,
+        dataSource: dataSource
+    });
+
+    // assert
+    assert.equal(this.dataController.totalItemsCount(), 5, "totalItemsCount");
+    assert.equal(this.getVisibleRows().length, 4, "row count");
+    assert.strictEqual(this.getVisibleRows()[0].node, this.getNodeByKey(1), "first node instance is correct");
+});
+
 QUnit.test("Expand node when virtual scrolling enabled", function(assert) {
     // arrange
     var items,
@@ -560,6 +620,41 @@ QUnit.test("The expandRowKeys should be not changed when loading data when there
     // assert
     assert.deepEqual(expandedRowKeys, [1], "expandedRowKeys value when data isn't loaded");
     assert.deepEqual(that.option("expandedRowKeys"), [3], "expandedRowKeys value when data is loaded");
+});
+
+QUnit.test("TreeList should not throw exception on filtering if focused row is not in filter condition (T724482)", function(assert) {
+    // arrange
+    let clock = sinon.useFakeTimers();
+    this.applyOptions({
+        remoteOperations: true,
+        dataSource: [
+            { id: 1, parentId: 0 },
+            { id: 2, parentId: 1 },
+            { id: 3, parentId: 0 },
+            { id: 4, parentId: 3 }
+        ],
+        parentIdExpr: "parentId",
+        keyExpr: "id",
+        expandNodesOnFiltering: true,
+        focusedRowEnabled: true,
+        focusedRowKey: 4,
+        loadPanel: {
+            enabled: true
+        }
+    });
+
+    // act, assert
+    try {
+        this.getDataSource().filter(["id", "=", 2]);
+        this.getDataSource().load();
+        clock.tick();
+    } catch(e) {
+        assert.ok(false, e);
+    }
+    // assert
+    assert.notOk(this.dataController.isLoading(), "Is loading");
+    assert.equal(this.dataController.getVisibleRows().length, 2, "Visible rows count");
+    clock.restore();
 });
 
 QUnit.test("Get node by key", function(assert) {
@@ -764,6 +859,65 @@ QUnit.test("Nodes should be expanded after refresh method is called at boot time
     } finally {
         clock.restore();
     }
+});
+
+// T713250
+QUnit.test("Initialize when data as classes with a hierarchical structure", function(assert) {
+    // arrange
+    function Person(id, items) {
+        this._id = id;
+        this._items = items;
+    }
+    Object.defineProperty(Person.prototype, "ID", {
+        configurable: true,
+        enumerable: false,
+        get: function() { return this._id; },
+        set: function(value) { this._id = value; }
+    });
+    Object.defineProperty(Person.prototype, "items", {
+        configurable: true,
+        enumerable: false,
+        get: function() { return this._items; },
+        set: function(value) { this._items = value; }
+    });
+
+    var dataSource = [
+        new Person(1, [
+            new Person(2, [
+                new Person(3),
+                new Person(4),
+                new Person(5),
+            ])
+        ])
+    ];
+
+    // act
+    this.applyOptions({
+        autoExpandAll: true,
+        dataSource: dataSource,
+        dataStructure: "tree",
+        keyExpr: "ID",
+        itemsExpr: "items"
+    });
+
+    // assert
+    var rows = this.getVisibleRows();
+    assert.strictEqual(rows.length, 5, "row count");
+
+    assert.strictEqual(rows[0].node.key, 1, "key of the first node");
+    assert.strictEqual(rows[0].node.level, 0, "level of the first node");
+
+    assert.strictEqual(rows[1].node.key, 2, "key of the second node");
+    assert.strictEqual(rows[1].node.level, 1, "level of the second node");
+
+    assert.strictEqual(rows[2].node.key, 3, "key of the third node");
+    assert.strictEqual(rows[2].node.level, 2, "level of the third node");
+
+    assert.strictEqual(rows[3].node.key, 4, "key of the fourth node");
+    assert.strictEqual(rows[3].node.level, 2, "level of the fourth node");
+
+    assert.strictEqual(rows[4].node.key, 5, "key of the fifth node");
+    assert.strictEqual(rows[4].node.level, 2, "level of the fifth node");
 });
 
 
@@ -1025,7 +1179,6 @@ QUnit.test("Cancel collapse row on a collapsing event", function(assert) {
     items = that.dataController.items();
     assert.equal(items.length, 2, "count item");
 });
-
 
 QUnit.module("Sorting", { beforeEach: function() {
     this.items = [
@@ -1511,6 +1664,56 @@ QUnit.test("Initial load when dataSource has filter and filterMode is extended (
     assert.strictEqual(items[3].node.hasChildren, false, "item 4 name hasChildren");
     assert.equal(items[3].node.children.length, 0, "item 4 name children length");
     assert.equal(items[3].level, 0, "item 4 level");
+});
+
+// T698573
+QUnit.test("Collapse node when dataSource has filter and filterMode is extended (default)", function(assert) {
+    // arrange, act
+    var loadingArgs = [];
+
+    var arrayStore = new ArrayStore({
+        data: this.items
+    });
+
+    this.setupTreeList({
+        expandNodesOnFiltering: true,
+        hasItemsExpr: function() {
+            return true;
+        },
+        dataSource: {
+            load: function(loadOptions) {
+                var d = $.Deferred();
+                loadingArgs.push(loadOptions);
+                setTimeout(function() {
+                    arrayStore.load(loadOptions).done(function(data) {
+                        d.resolve(data);
+                    }).fail(d.reject);
+                });
+
+                return d;
+            },
+            filter: ["age", "=", 19]
+        }
+    });
+
+    this.clock.tick();
+
+    assert.equal(loadingArgs.length, 2, "two loading on init");
+
+    // act
+    loadingArgs = [];
+    this.collapseRow(1);
+    this.clock.tick();
+
+    // assert
+    var items = this.dataController.items();
+    assert.equal(loadingArgs.length, 0, "no loadings on collapse row");
+    assert.strictEqual(items.length, 2, "item count");
+    assert.strictEqual(this.isRowExpanded(items[0].key), false, "item 0 is collapsed");
+    assert.strictEqual(items[0].node.children.length, 1, "item 0 children");
+    assert.strictEqual(items[0].node.hasChildren, true, "item 0 hasChildren");
+    assert.strictEqual(items[1].node.children.length, 0, "item 1 children");
+    assert.strictEqual(items[1].node.hasChildren, false, "item 1 hasChildren");
 });
 
 QUnit.test("Filter changing should expand nodes", function(assert) {
@@ -2341,4 +2544,85 @@ QUnit.test("loadOptions.parendIds should be correct when expanding several nodes
     items = this.dataController.items();
     assert.equal(items.length, 3, "item count");
     assert.deepEqual(loadOptions[2].parentIds, [2], "parentIds");
+});
+
+QUnit.module("Filtering", { beforeEach: function() {
+    this.items = [
+        { id: 1, parentId: 0, name: "Name 3", age: 19 },
+        { id: 2, parentId: 0, name: "Name 1", age: 19 },
+        { id: 3, parentId: 0, name: "Name 2", age: 18 },
+        { id: 4, parentId: 1, name: "Name 6", age: 16 },
+        { id: 5, parentId: 1, name: "Name 5", age: 15 },
+        { id: 6, parentId: 1, name: "Name 4", age: 15 },
+        { id: 7, parentId: 6, name: "Name 7", age: 18 }
+    ];
+
+    this.setupTreeList = function(options) {
+        if(!("loadingTimeout" in options)) {
+            options.loadingTimeout = null;
+        }
+        setupTreeListModules(this, ["data", "columns", "filterRow", "search"], {
+            initDefaultOptions: true,
+            options: options
+        });
+    };
+}, afterEach: teardownModule });
+
+QUnit.test("Search should work correctly with hierarchical structure", function(assert) {
+    // arrange
+    var items;
+
+    // act
+    this.setupTreeList({
+        itemsExpr: "items",
+        dataStructure: "tree",
+        dataSource: [
+            { name: "Alex", items: [{ name: "Bob" }] },
+            { name: "Tom", items: [{ name: "John" }] }
+        ],
+        searchPanel: {
+            text: "Bob"
+        }
+    });
+
+    // assert
+    items = this.dataController.items();
+    assert.strictEqual(items.length, 2, "item count");
+    assert.deepEqual(items[0].data, { "id": 1, "name": "Alex", "parentId": 0 }, "first item");
+    assert.deepEqual(items[1].data, { "id": 2, "name": "Bob", "parentId": 1 }, "second item");
+});
+
+// T724827
+QUnit.test("The filter query should be correct after resetting the filter value", function(assert) {
+    // arrange
+    var items,
+        filter,
+        store = new ArrayStore(this.items);
+
+    this.setupTreeList({
+        remoteOperations: {
+            filtering: true
+        },
+        dataSource: {
+            load: function(loadOptions) {
+                filter = filter || loadOptions.filter;
+                return store.load(loadOptions);
+            }
+        },
+        columns: [{ dataField: "name", dataType: "string" }, { dataField: "age", dataType: "number", filterValue: 18 }]
+    });
+
+    // assert
+    items = this.dataController.items();
+    assert.strictEqual(items.length, 4, "item count");
+    assert.deepEqual(filter, ["age", "=", 18], "filter");
+
+    // act
+    filter = null;
+    this.columnOption("age", "filterValue", undefined);
+
+    // assert
+    items = this.dataController.items();
+    assert.strictEqual(items.length, 3, "item count");
+    assert.deepEqual(filter, ["parentId", "=", 0], "filter");
 });

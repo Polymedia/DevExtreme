@@ -1,25 +1,20 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    windowUtils = require("../../core/utils/window"),
-    window = windowUtils.getWindow(),
-    eventsEngine = require("../../events/core/events_engine"),
-    commonUtils = require("../../core/utils/common"),
-    styleUtils = require("../../core/utils/style"),
-    typeUtils = require("../../core/utils/type"),
-    each = require("../../core/utils/iterator").each,
-    extend = require("../../core/utils/extend").extend,
-    stringUtils = require("../../core/utils/string"),
-    getDefaultAlignment = require("../../core/utils/position").getDefaultAlignment,
-    compileGetter = require("../../core/utils/data").compileGetter,
-    errors = require("../widget/ui.errors"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    columnsView = require("./ui.grid_core.columns_view"),
-    Scrollable = require("../scroll_view/ui.scrollable"),
-    removeEvent = require("../../core/remove_event"),
-    messageLocalization = require("../../localization/message"),
-    browser = require("../../core/utils/browser"),
-    isDefined = typeUtils.isDefined;
+import $ from "../../core/renderer";
+import { getWindow, hasWindow } from "../../core/utils/window";
+import eventsEngine from "../../events/core/events_engine";
+import { deferRender, deferUpdate } from "../../core/utils/common";
+import styleUtils from "../../core/utils/style";
+import { isDefined, isNumeric, isString } from "../../core/utils/type";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import { isEmpty } from "../../core/utils/string";
+import { getDefaultAlignment } from "../../core/utils/position";
+import { compileGetter } from "../../core/utils/data";
+import { setEmptyText, getGroupRowSummaryText, getDisplayValue, formatValue, renderLoadPanel, renderNoDataText } from "./ui.grid_core.utils";
+import columnsView from "./ui.grid_core.columns_view";
+import Scrollable from "../scroll_view/ui.scrollable";
+import removeEvent from "../../core/remove_event";
+import messageLocalization from "../../localization/message";
+import browser from "../../core/utils/browser";
 
 var ROWS_VIEW_CLASS = "rowsview",
     CONTENT_CLASS = "content",
@@ -33,6 +28,7 @@ var ROWS_VIEW_CLASS = "rowsview",
     ROW_ALTERNATION_CLASS = "dx-row-alt",
     LAST_ROW_BORDER = "dx-last-row-border",
     EMPTY_CLASS = "dx-empty",
+    ROW_INSERTED_ANIMATION_CLASS = "row-inserted-animation",
 
     LOADPANEL_HIDE_TIMEOUT = 200;
 
@@ -49,7 +45,7 @@ module.exports = {
             * @type_function_param1_field6 key:any
             * @type_function_param1_field7 value:any
             * @type_function_param1_field8 text:string
-            * @type_function_param1_field9 displayValue:string
+            * @type_function_param1_field9 displayValue:any
             * @type_function_param1_field10 columnIndex:number
             * @type_function_param1_field11 rowIndex:number
             * @type_function_param1_field12 column:dxDataGridColumn
@@ -68,7 +64,7 @@ module.exports = {
             * @type_function_param1_field6 key:any
             * @type_function_param1_field7 value:any
             * @type_function_param1_field8 text:string
-            * @type_function_param1_field9 displayValue:string
+            * @type_function_param1_field9 displayValue:any
             * @type_function_param1_field10 columnIndex:number
             * @type_function_param1_field11 rowIndex:number
             * @type_function_param1_field12 column:dxTreeListColumn
@@ -162,6 +158,18 @@ module.exports = {
                 * @default true
                 */
                 showPane: true
+
+                /**
+                * @name GridBaseOptions.loadPanel.shading
+                * @type boolean
+                * @default false
+                */
+
+                /**
+                * @name GridBaseOptions.loadPanel.shadingColor
+                * @type string
+                * @default ''
+                */
             },
             /**
             * @name dxDataGridOptions.onRowClick
@@ -211,7 +219,7 @@ module.exports = {
             * @type_function_param1_field6 data:object
             * @type_function_param1_field7 key:any
             * @type_function_param1_field8 value:any
-            * @type_function_param1_field9 displayValue:string
+            * @type_function_param1_field9 displayValue:any
             * @type_function_param1_field10 text:string
             * @type_function_param1_field11 columnIndex:number
             * @type_function_param1_field12 column:object
@@ -231,7 +239,7 @@ module.exports = {
             * @type_function_param1_field6 data:object
             * @type_function_param1_field7 key:any
             * @type_function_param1_field8 value:any
-            * @type_function_param1_field9 displayValue:string
+            * @type_function_param1_field9 displayValue:any
             * @type_function_param1_field10 text:string
             * @type_function_param1_field11 columnIndex:number
             * @type_function_param1_field12 column:object
@@ -292,7 +300,7 @@ module.exports = {
              * @type_function_param1_field4 data:object
              * @type_function_param1_field5 key:any
              * @type_function_param1_field6 value:any
-             * @type_function_param1_field7 displayValue:string
+             * @type_function_param1_field7 displayValue:any
              * @type_function_param1_field8 text:string
              * @type_function_param1_field9 columnIndex:number
              * @type_function_param1_field10 column:dxDataGridColumn
@@ -302,6 +310,8 @@ module.exports = {
              * @type_function_param1_field14 isSelected:boolean
              * @type_function_param1_field15 isExpanded:boolean
              * @type_function_param1_field16 cellElement:dxElement
+             * @type_function_param1_field17 watch:function
+             * @type_function_param1_field18 oldValue:any
              * @extends Action
              * @action
              */
@@ -312,7 +322,7 @@ module.exports = {
              * @type_function_param1_field4 data:object
              * @type_function_param1_field5 key:any
              * @type_function_param1_field6 value:any
-             * @type_function_param1_field7 displayValue:string
+             * @type_function_param1_field7 displayValue:any
              * @type_function_param1_field8 text:string
              * @type_function_param1_field9 columnIndex:number
              * @type_function_param1_field10 column:dxTreeListColumn
@@ -322,6 +332,8 @@ module.exports = {
              * @type_function_param1_field14 isSelected:boolean
              * @type_function_param1_field15 isExpanded:boolean
              * @type_function_param1_field16 cellElement:dxElement
+             * @type_function_param1_field17 watch:function
+             * @type_function_param1_field18 oldValue:any
              * @extends Action
              * @action
              */
@@ -369,16 +381,23 @@ module.exports = {
     },
     views: {
         rowsView: columnsView.ColumnsView.inherit((function() {
-            var appendFreeSpaceRowTemplate = {
-                render: function(options) {
-                    var $tbody = options.container.find("tbody");
+            var defaultCellTemplate = function($container, options) {
+                var isDataTextEmpty = isEmpty(options.text) && options.rowType === "data",
+                    text = options.text,
+                    container = $container.get(0);
 
-                    if($tbody.length) {
-                        $tbody.last().append(options.content);
-                    } else {
-                        options.container.append(options.content);
-                    }
+                if(isDataTextEmpty) {
+                    setEmptyText($container);
+                } else if(options.column.encodeHtml) {
+                    container.textContent = text;
+                } else {
+                    container.innerHTML = text;
                 }
+            };
+
+            var getScrollableBottomPadding = function(that) {
+                var scrollable = that.getScrollable();
+                return scrollable ? Math.ceil(parseFloat(scrollable.$content().css("paddingBottom"))) : 0;
             };
 
             return {
@@ -389,17 +408,7 @@ module.exports = {
                                 container.html("&nbsp;");
                             };
                         default:
-                            return function($container, options) {
-                                var isDataTextEmpty = stringUtils.isEmpty(options.text) && options.rowType === "data",
-                                    text = isDataTextEmpty ? "&nbsp;" : options.text,
-                                    container = $container.get(0);
-
-                                if(column.encodeHtml && !isDataTextEmpty) {
-                                    container.textContent = text;
-                                } else {
-                                    container.innerHTML = text;
-                                }
-                            };
+                            return defaultCellTemplate;
                     }
                 },
 
@@ -413,7 +422,7 @@ module.exports = {
                             container = $container.get(0);
 
                         if(options.summaryItems && options.summaryItems.length) {
-                            text += " " + gridCoreUtils.getGroupRowSummaryText(options.summaryItems, summaryTexts);
+                            text += " " + getGroupRowSummaryText(options.summaryItems, summaryTexts);
                         }
 
                         if(data) {
@@ -463,7 +472,6 @@ module.exports = {
                         isDataRow = row.rowType === "data";
 
                         isDataRow && $row.addClass(DATA_ROW_CLASS);
-                        isDataRow && row.dataIndex % 2 === 1 && this.option("rowAlternationEnabled") && $row.addClass(ROW_ALTERNATION_CLASS);
                         isDataRow && this.option("showRowLines") && $row.addClass(ROW_LINES_CLASS);
 
                         this.option("showColumnLines") && $row.addClass(COLUMN_LINES_CLASS);
@@ -478,10 +486,28 @@ module.exports = {
                             this.setAria("role", "row", $row);
                             this.setAria("expanded", isDefined(isRowExpanded) && isRowExpanded.toString(), $row);
                         }
-                        this._setAriaRowIndex(row, $row);
                     }
 
                     return $row;
+                },
+
+                _rowPrepared: function($row, row) {
+                    if(row.rowType === "data") {
+                        if(this.option("rowAlternationEnabled")) {
+                            var getRowAlt = () => {
+                                return row.dataIndex % 2 === 1;
+                            };
+                            getRowAlt() && $row.addClass(ROW_ALTERNATION_CLASS);
+                            row.watch && row.watch(getRowAlt, value => {
+                                $row.toggleClass(ROW_ALTERNATION_CLASS, value);
+                            });
+                        }
+
+                        this._setAriaRowIndex(row, $row);
+                        row.watch && row.watch(() => row.rowIndex, () => this._setAriaRowIndex(row, $row));
+                    }
+
+                    this.callBase.apply(this, arguments);
                 },
 
                 _setAriaRowIndex: function(row, $row) {
@@ -505,17 +531,17 @@ module.exports = {
                     if(!arg.data || arg.rowType !== "data" || arg.inserted || !this.option("twoWayBindingEnabled") || !watch) return;
 
                     var dispose = watch(
-                        function() {
+                        () => {
                             return dataController.generateDataValues(arg.data, arg.columns);
                         },
-                        function() {
-                            dataController.repaintRows([arg.rowIndex]);
+                        () => {
+                            dataController.repaintRows([arg.rowIndex], this.option("repaintChangesOnly"));
                         },
                         {
                             deep: true,
                             skipImmediate: true
                         }
-                     );
+                    );
 
                     eventsEngine.on(arg.rowElement, removeEvent, dispose);
                 },
@@ -569,14 +595,12 @@ module.exports = {
                     that._scrollableContainer = that._scrollable && that._scrollable._$container;
                 },
 
-                _renderLoadPanel: gridCoreUtils.renderLoadPanel,
+                _renderLoadPanel: renderLoadPanel,
 
                 _renderContent: function(contentElement, tableElement) {
                     contentElement.replaceWith($("<div>")
                         .addClass(this.addWidgetPrefix(CONTENT_CLASS))
                         .append(tableElement));
-
-                    this.setAria("role", "presentation", contentElement);
 
                     return this._findContentElement();
                 },
@@ -586,13 +610,15 @@ module.exports = {
                         tableElement = that._getTableElement(),
                         contentElement = that._findContentElement(),
                         changeType = change && change.changeType,
-                        executors = [];
+                        executors = [],
+                        highlightChanges = this.option("highlightChanges"),
+                        rowInsertedClass = this.addWidgetPrefix(ROW_INSERTED_ANIMATION_CLASS);
 
                     switch(changeType) {
                         case "update":
                             each(change.rowIndices, function(index, rowIndex) {
                                 var $newRowElement = that._getRowElements(newTableElement).eq(index),
-                                    changeType = change.changeTypes[index],
+                                    changeType = change.changeTypes && change.changeTypes[index],
                                     item = change.items && change.items[index];
 
                                 executors.push(function() {
@@ -602,8 +628,11 @@ module.exports = {
                                     switch(changeType) {
                                         case "update":
                                             if(item) {
+                                                var columnIndices = change.columnIndices && change.columnIndices[index];
                                                 if(isDefined(item.visible) && item.visible !== $rowElement.is(":visible")) {
                                                     $rowElement.toggle(item.visible);
+                                                } else if(columnIndices) {
+                                                    that._updateCells($rowElement, $newRowElement, columnIndices);
                                                 } else {
                                                     $rowElement.replaceWith($newRowElement);
                                                 }
@@ -616,6 +645,9 @@ module.exports = {
                                                 $newRowElement.insertBefore($rowElement);
                                             } else {
                                                 $newRowElement.insertAfter($rowsElement.last());
+                                            }
+                                            if(highlightChanges && change.isLiveUpdate) {
+                                                $newRowElement.addClass(rowInsertedClass);
                                             }
                                             break;
                                         case "remove":
@@ -638,25 +670,46 @@ module.exports = {
                     }
                 },
 
-                _createEmptyRow: function() {
+                _createEmptyRow: function(className, isFixed, height) {
                     var that = this,
                         i,
+                        $cell,
                         $row = that._createRow(),
-                        columns = this.getColumns();
+                        columns = isFixed ? this.getFixedColumns() : this.getColumns();
 
-                    $row.toggleClass(COLUMN_LINES_CLASS, that.option("showColumnLines"));
+                    $row
+                        .addClass(className)
+                        .toggleClass(COLUMN_LINES_CLASS, that.option("showColumnLines"));
 
                     for(i = 0; i < columns.length; i++) {
-                        $row.append(that._createCell({ column: columns[i], rowType: "freeSpace", columnIndex: i, columns: columns }));
+                        $cell = that._createCell({ column: columns[i], rowType: "freeSpace", columnIndex: i, columns: columns });
+                        isNumeric(height) && $cell.css("height", height);
+
+                        $row.append($cell);
                     }
+
+                    that.setAria("role", "presentation", $row);
 
                     return $row;
                 },
 
-                _renderFreeSpaceRow: function(tableElement, options) {
-                    var freeSpaceRowElement = this._createEmptyRow().addClass(FREE_SPACE_CLASS);
+                _appendEmptyRow: function($table, $emptyRow, location) {
+                    var $tBodies = this._getBodies($table),
+                        $container = $tBodies.length && !$emptyRow.is("tbody") ? $tBodies : $table;
 
-                    this._appendRow(tableElement, freeSpaceRowElement, appendFreeSpaceRowTemplate);
+                    if(location === "top") {
+                        $container.first().prepend($emptyRow);
+                    } else {
+                        $container.last().append($emptyRow);
+                    }
+                },
+
+                _renderFreeSpaceRow: function($tableElement) {
+                    var $freeSpaceRowElement = this._createEmptyRow(FREE_SPACE_CLASS);
+
+                    $freeSpaceRowElement = this._wrapRowIfNeed($tableElement, $freeSpaceRowElement);
+
+                    this._appendEmptyRow($tableElement, $freeSpaceRowElement);
                 },
 
                 _checkRowKeys: function(options) {
@@ -666,7 +719,7 @@ module.exports = {
 
                     keyExpr && rows.some(function(row) {
                         if(row.rowType === "data" && row.key === undefined) {
-                            that._dataController.dataErrorOccurred.fire(errors.Error("E1046", keyExpr));
+                            that._dataController.fireError("E1046", keyExpr);
                             return true;
                         }
                     });
@@ -733,8 +786,19 @@ module.exports = {
                         } }, e, item));
                 },
 
+                _getColumnsCountBeforeGroups: function(columns) {
+                    for(var i = 0; i < columns.length; i++) {
+                        if(columns[i].type === "groupExpand") {
+                            return i;
+                        }
+                    }
+
+                    return 0;
+                },
+
                 _getGroupCellOptions: function(options) {
-                    var columnIndex = (options.row.groupIndex || 0) + options.columnsCountBeforeGroups;
+                    var columnsCountBeforeGroups = this._getColumnsCountBeforeGroups(options.columns),
+                        columnIndex = (options.row.groupIndex || 0) + columnsCountBeforeGroups;
 
                     return {
                         columnIndex: columnIndex,
@@ -790,6 +854,7 @@ module.exports = {
                         {
                             command: null,
                             cssClass: null,
+                            width: null,
                             showWhenGrouped: false,
                             alignment: groupColumnAlignment
                         }
@@ -810,21 +875,10 @@ module.exports = {
 
                 _renderRows: function($table, options) {
                     var that = this,
-                        i,
-                        columns = options.columns,
-                        columnsCountBeforeGroups = 0,
                         scrollingMode = that.option("scrolling.mode");
 
-                    for(i = 0; i < columns.length; i++) {
-                        if(columns[i].command === "expand") {
-                            columnsCountBeforeGroups = i;
-                            break;
-                        }
-                    }
-
                     that.callBase($table, extend({
-                        scrollingMode: scrollingMode,
-                        columnsCountBeforeGroups: columnsCountBeforeGroups
+                        scrollingMode: scrollingMode
                     }, options));
 
                     that._checkRowKeys(options.change);
@@ -852,7 +906,7 @@ module.exports = {
                         $table = that.callBase(options),
                         resizeCompletedHandler = function() {
                             var scrollableInstance = that.getScrollable();
-                            if(scrollableInstance && that.element().closest(window.document).length) {
+                            if(scrollableInstance && that.element().closest(getWindow().document).length) {
                                 that.resizeCompleted.remove(resizeCompletedHandler);
                                 scrollableInstance._visibilityChanged(true);
                             }
@@ -909,19 +963,20 @@ module.exports = {
                         data = row.data,
                         summaryCells = row && row.summaryCells,
                         value = options.value,
-                        displayValue = gridCoreUtils.getDisplayValue(column, value, data, row.rowType),
+                        displayValue = getDisplayValue(column, value, data, row.rowType),
                         groupingTextsOptions,
                         scrollingMode;
 
                     parameters = this.callBase(options);
                     parameters.value = value;
+                    parameters.oldValue = options.oldValue;
                     parameters.displayValue = displayValue;
                     parameters.row = row;
                     parameters.key = row.key;
                     parameters.data = data;
                     parameters.rowType = row.rowType;
                     parameters.values = row.values;
-                    parameters.text = !column.command ? gridCoreUtils.formatValue(displayValue, column) : "";
+                    parameters.text = !column.command ? formatValue(displayValue, column) : "";
                     parameters.rowIndex = row.rowIndex;
                     parameters.summaryItems = summaryCells && summaryCells[options.columnIndex];
                     parameters.resized = column.resizedCallbacks;
@@ -947,9 +1002,9 @@ module.exports = {
                     each($rows, function(rowIndex, row) {
                         if(!$(row).hasClass(GROUP_ROW_CLASS)) {
                             for(var i = 0; i < visibleColumns.length; i++) {
-                                if(typeUtils.isNumeric(columnID) && columnsController.isParentBandColumn(visibleColumns[i].index, columnID) || visibleColumns[i].index === columnIndex) {
+                                if(isNumeric(columnID) && columnsController.isParentBandColumn(visibleColumns[i].index, columnID) || visibleColumns[i].index === columnIndex) {
                                     $rows.eq(rowIndex).children().eq(i).css({ opacity: value });
-                                    if(!typeUtils.isNumeric(columnID)) {
+                                    if(!isNumeric(columnID)) {
                                         break;
                                     }
                                 }
@@ -959,10 +1014,10 @@ module.exports = {
                 },
 
                 _getDevicePixelRatio: function() {
-                    return window.devicePixelRatio;
+                    return getWindow().devicePixelRatio;
                 },
 
-                renderNoDataText: gridCoreUtils.renderNoDataText,
+                renderNoDataText: renderNoDataText,
 
                 getCellOptions: function(rowIndex, columnIdentifier) {
                     var rowOptions = this._dataController.items()[rowIndex],
@@ -970,7 +1025,7 @@ module.exports = {
                         column;
 
                     if(rowOptions) {
-                        if(typeUtils.isString(columnIdentifier)) {
+                        if(isString(columnIdentifier)) {
                             column = this._columnsController.columnOption(columnIdentifier);
                         } else {
                             column = this._columnsController.getVisibleColumns()[columnIdentifier];
@@ -1032,9 +1087,10 @@ module.exports = {
                                 that._updateLastRowBorder(isFreeSpaceRowVisible);
                             } else {
                                 freeSpaceRowElements.hide();
-                                commonUtils.deferUpdate(function() {
-                                    var scrollbarWidth = that.getScrollbarWidth(true),
-                                        elementHeightWithoutScrollbar = that.element().height() - scrollbarWidth,
+                                deferUpdate(function() {
+                                    var scrollablePadding = getScrollableBottomPadding(that), // T697699
+                                        scrollbarWidth = that.getScrollbarWidth(true),
+                                        elementHeightWithoutScrollbar = that.element().height() - scrollbarWidth - scrollablePadding,
                                         contentHeight = contentElement.outerHeight(),
                                         showFreeSpaceRow = (elementHeightWithoutScrollbar - contentHeight) > 0,
                                         rowsHeight = that._getRowsHeight(contentElement.children().first()),
@@ -1044,13 +1100,13 @@ module.exports = {
                                         resultHeight = elementHeightWithoutScrollbar - rowsHeight - borderTopWidth - heightCorrection;
 
                                     if(showFreeSpaceRow) {
-                                        commonUtils.deferRender(function() {
+                                        deferRender(function() {
                                             freeSpaceRowElements.css("height", resultHeight);
                                             isFreeSpaceRowVisible = true;
                                             freeSpaceRowElements.show();
                                         });
                                     }
-                                    commonUtils.deferRender(function() {
+                                    deferRender(function() {
                                         that._updateLastRowBorder(isFreeSpaceRowVisible);
                                     });
                                 });
@@ -1137,6 +1193,7 @@ module.exports = {
                             scrollbarWidth = scrollableContainer.clientWidth ? scrollableContainer.offsetWidth - scrollableContainer.clientWidth : 0;
                         } else {
                             scrollbarWidth = scrollableContainer.clientHeight ? scrollableContainer.offsetHeight - scrollableContainer.clientHeight : 0;
+                            scrollbarWidth += getScrollableBottomPadding(this); // T703649
                         }
                     }
                     return scrollbarWidth > 0 ? scrollbarWidth : 0;
@@ -1191,11 +1248,11 @@ module.exports = {
 
                     that._fireColumnResizedCallbacks();
                     that._updateRowHeight();
-                    commonUtils.deferRender(function() {
+                    deferRender(function() {
                         that._renderScrollable();
                         that.renderNoDataText();
                         that.updateFreeSpaceRowHeight();
-                        commonUtils.deferUpdate(function() {
+                        deferUpdate(function() {
                             that._updateScrollable();
                         });
                     });
@@ -1214,14 +1271,14 @@ module.exports = {
                     var that = this,
                         $element = this.element();
 
-                    if(isDefined(height)) {
-                        that._hasHeight = hasHeight === undefined ? height !== "auto" : hasHeight;
-
-                        if($element) {
-                            styleUtils.setHeight($element, height);
-                        }
-                    } else {
+                    if(arguments.length === 0) {
                         return $element ? $element.outerHeight(true) : 0;
+                    }
+
+                    that._hasHeight = hasHeight === undefined ? height !== "auto" : hasHeight;
+
+                    if(isDefined(height) && $element) {
+                        styleUtils.setHeight($element, height);
                     }
                 },
 
@@ -1234,7 +1291,7 @@ module.exports = {
                         $element = that.element(),
                         visibilityOptions;
 
-                    if(!windowUtils.hasWindow()) {
+                    if(!hasWindow()) {
                         return;
                     }
 
@@ -1285,7 +1342,8 @@ module.exports = {
                         rowElements,
                         rowElement,
                         scrollPosition = that._scrollTop,
-                        contentElementOffsetTop = that._findContentElement().offset().top,
+                        $contentElement = that._findContentElement(),
+                        contentElementOffsetTop = $contentElement && $contentElement.offset().top,
                         items = that._dataController.items(),
                         tableElement = that._getTableElement();
 
@@ -1298,7 +1356,7 @@ module.exports = {
                             if(rowElement.length) {
                                 offsetTop = rowElement.offset().top - contentElementOffsetTop;
                                 if(offsetTop > scrollPosition) {
-                                    if(scrollPosition * 2 < offsetTop + prevOffsetTop && itemIndex) {
+                                    if(scrollPosition * 2 < Math.round(offsetTop + prevOffsetTop) && itemIndex) {
                                         itemIndex--;
                                     }
                                     break;

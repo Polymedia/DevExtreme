@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     window = require("../core/utils/window").getWindow(),
@@ -32,8 +30,7 @@ var LOOKUP_CLASS = "dx-lookup",
     LOOKUP_POPUP_SEARCH_CLASS = "dx-lookup-popup-search",
     LOOKUP_POPOVER_MODE = "dx-lookup-popover-mode",
     LOOKUP_EMPTY_CLASS = "dx-lookup-empty",
-    LOOKUP_POPUP_VALIDATION_MESSAGE = "dx-lookup-validation-message",
-    LOOKUP_POPUP_INVALID_CLASS = "dx-lookup-invalid";
+    LOOKUP_POPOVER_FLIP_VERTICAL_CLASS = "dx-popover-flipped-vertical";
 
 var POPUP_OPTION_MAP = {
     "popupWidth": "width",
@@ -331,6 +328,22 @@ var Lookup = DropDownList.inherit({
             */
             usePopover: false,
 
+            /**
+             * @name dxLookupOptions.dropDownButtonTemplate
+             * @inheritdoc
+             * @hidden
+             */
+
+            /**
+             * @name dxLookupOptions.openOnFieldClick
+             * @hidden
+             */
+
+            /**
+             * @name dxLookupOptions.showDropDownButton
+             * @inheritdoc
+             * @hidden
+             */
             showDropDownButton: false,
 
             /**
@@ -467,6 +480,8 @@ var Lookup = DropDownList.inherit({
     },
 
     _defaultOptionsRules: function() {
+        var themeName = themes.current();
+
         return this.callBase().concat([
             {
                 device: function() {
@@ -562,7 +577,7 @@ var Lookup = DropDownList.inherit({
             },
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5(themeName);
                 },
                 options: {
                     useInkRipple: true
@@ -570,7 +585,7 @@ var Lookup = DropDownList.inherit({
             },
             {
                 device: function() {
-                    return themes.isMaterial();
+                    return themes.isMaterial(themeName);
                 },
                 options: {
 
@@ -705,7 +720,7 @@ var Lookup = DropDownList.inherit({
     _toggleOpenState: function() {
         this.callBase();
 
-        if(this.option("_scrollToSelectedItemEnabled")) {
+        if(!this.option("fullScreen") && this.option("_scrollToSelectedItemEnabled")) {
             this._setPopupPosition();
         }
     },
@@ -755,18 +770,6 @@ var Lookup = DropDownList.inherit({
     },
 
     _popupShowingHandler: function() {
-        var validationError;
-
-        if(this._$popupValidationMessage) {
-            validationError = this.option("validationError");
-            if(validationError && validationError.message) {
-                this._$popupValidationMessage.text(validationError.message);
-                this._popup.$content().addClass(LOOKUP_POPUP_INVALID_CLASS);
-            } else {
-                this._popup.$content().removeClass(LOOKUP_POPUP_INVALID_CLASS);
-            }
-        }
-
         this.callBase.apply(this, arguments);
 
         if(this.option("cleanSearchOnOpening")) {
@@ -775,6 +778,10 @@ var Lookup = DropDownList.inherit({
                 this._searchCanceled();
             }
             this._list && this._list.option("focusedElement", null);
+        }
+
+        if(this.option("fullScreen") && this.option("_scrollToSelectedItemEnabled")) {
+            this._popup.option("position").of = $(window);
         }
     },
 
@@ -796,7 +803,8 @@ var Lookup = DropDownList.inherit({
 
     _setPopupPosition: function() {
         var selectedIndex = this._list.option("selectedIndex");
-        if(selectedIndex === -1) return;
+        var flipped = this._popup._$wrapper.hasClass(LOOKUP_POPOVER_FLIP_VERTICAL_CLASS);
+        if(selectedIndex === -1 || flipped) return;
 
         var selectedListItem = $(this._list.element()).find("." + LIST_ITEM_SELECTED_CLASS),
             differenceOfHeights = (selectedListItem.height() - $(this.element()).height()) / 2,
@@ -814,7 +822,6 @@ var Lookup = DropDownList.inherit({
         var position = translator.locate(popupContentParent);
 
         translator.move(popupContentParent, {
-            left: 0,
             top: position.top - popupOffsetY
         });
     },
@@ -984,9 +991,6 @@ var Lookup = DropDownList.inherit({
     },
 
     _renderPopupContent: function() {
-        if(this._popup.NAME === "dxPopup") {
-            this._$popupValidationMessage = $("<div>").addClass(LOOKUP_POPUP_VALIDATION_MESSAGE).appendTo(this._popup.$content());
-        }
         this.callBase();
         this._renderSearch();
 
@@ -1144,6 +1148,7 @@ var Lookup = DropDownList.inherit({
     },
 
     _listItemClickHandler: function(e) {
+        this._saveValueChangeEvent(e.event);
         this._selectListItem(e.itemData, e.event.currentTarget);
     },
 
@@ -1161,7 +1166,8 @@ var Lookup = DropDownList.inherit({
             : this._list.option("selectedItems[0]");
     },
 
-    _resetValue: function() {
+    _resetValue: function(e) {
+        this._saveValueChangeEvent(e.event);
         this.option("value", null);
         this.option("opened", false);
     },
@@ -1172,7 +1178,6 @@ var Lookup = DropDownList.inherit({
 
     _renderInputValue: function() {
         return this.callBase().always((function() {
-            this._renderField();
             this._refreshSelected();
             this._setSubmitValue();
         }).bind(this));
@@ -1196,6 +1201,7 @@ var Lookup = DropDownList.inherit({
     _clean: function() {
         this._$fieldWrapper.remove();
         this._$searchBox = null;
+        delete this._inkRipple;
         this.callBase();
     },
 

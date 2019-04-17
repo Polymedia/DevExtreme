@@ -1,5 +1,3 @@
-"use strict";
-
 require("viz/tree_map/tree_map");
 
 var $ = require("jquery"),
@@ -95,7 +93,7 @@ QUnit.test("'loadingIndicator' option", function(assert) {
     widget.option("loadingIndicator", { backgroundColor: "red" });
 
     assert.deepEqual(this.loadingIndicator.setOptions.lastCall.args[0].backgroundColor, "red", "options");
-    assert.strictEqual(this.loadingIndicator.stub("hide").lastCall, null, "not hidden");   // Why hidden?
+    assert.strictEqual(this.loadingIndicator.stub("hide").lastCall, null, "not hidden"); // Why hidden?
 });
 
 QUnit.test("Hidden when theme is changed", function(assert) {

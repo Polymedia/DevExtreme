@@ -1,10 +1,8 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    eventsEngine = require("../../events/core/events_engine"),
-    clickEvent = require("../../events/click"),
-    each = require("../../core/utils/iterator").each,
-    modules = require("./ui.grid_core.modules");
+import $ from "../../core/renderer";
+import eventsEngine from "../../events/core/events_engine";
+import clickEvent from "../../events/click";
+import { each } from "../../core/utils/iterator";
+import modules from "./ui.grid_core.modules";
 
 var ERROR_ROW_CLASS = "dx-error-row",
     ERROR_MESSAGE_CLASS = "dx-error-message",
@@ -19,11 +17,11 @@ var ErrorHandlingController = modules.ViewController.inherit({
         that._rowsView = that.getView("rowsView");
     },
 
-    _createErrorRow: function(message, $tableElements) {
+    _createErrorRow: function(error, $tableElements) {
         var that = this,
             $errorRow,
             $closeButton,
-            $errorMessage = $("<div>").addClass(ERROR_MESSAGE_CLASS).text(message);
+            $errorMessage = this._renderErrorMessage(error);
 
         if($tableElements) {
             $errorRow = $("<tr>").addClass(ERROR_ROW_CLASS);
@@ -56,7 +54,18 @@ var ErrorHandlingController = modules.ViewController.inherit({
         return $errorMessage;
     },
 
-    renderErrorRow: function(message, rowIndex, $popupContent) {
+    _renderErrorMessage: function(error) {
+        var message = error.url ? error.message.replace(error.url, "") : error.message || error,
+            $message = $("<div>").addClass(ERROR_MESSAGE_CLASS).text(message);
+
+        if(error.url) {
+            $("<a>").attr("href", error.url).text(error.url).appendTo($message);
+        }
+
+        return $message;
+    },
+
+    renderErrorRow: function(error, rowIndex, $popupContent) {
         var that = this,
             $row,
             $errorMessageElement,
@@ -67,16 +76,16 @@ var ErrorHandlingController = modules.ViewController.inherit({
 
         if($popupContent) {
             $popupContent.find("." + ERROR_MESSAGE_CLASS).remove();
-            $errorMessageElement = that._createErrorRow(message);
+            $errorMessageElement = that._createErrorRow(error);
             $popupContent.prepend($errorMessageElement);
             return $errorMessageElement;
         }
 
-        viewElement = rowIndex >= 0 ? that._rowsView : that._columnHeadersView,
+        viewElement = rowIndex >= 0 || !that._columnHeadersView.isVisible() ? that._rowsView : that._columnHeadersView,
         $tableElements = $popupContent || viewElement.getTableElements();
 
         each($tableElements, function(_, tableElement) {
-            $errorMessageElement = that._createErrorRow(message, $tableElements);
+            $errorMessageElement = that._createErrorRow(error, $tableElements);
             $firstErrorRow = $firstErrorRow || $errorMessageElement;
 
             if(rowIndex >= 0) {
@@ -84,18 +93,29 @@ var ErrorHandlingController = modules.ViewController.inherit({
                 that.removeErrorRow($row.next());
                 $errorMessageElement.insertAfter($row);
             } else {
-                rowElements = $(tableElement).children("tbody").children("tr");
-                that.removeErrorRow(rowElements.last());
-                $(tableElement).append($errorMessageElement);
+                var $tbody = $(tableElement).children("tbody");
+                rowElements = $tbody.children("tr");
+                if(that._columnHeadersView.isVisible()) {
+                    that.removeErrorRow(rowElements.last());
+                    $(tableElement).append($errorMessageElement);
+                } else {
+                    that.removeErrorRow(rowElements.first());
+                    $tbody.first().prepend($errorMessageElement);
+                }
             }
         });
         return $firstErrorRow;
     },
 
     removeErrorRow: function($row) {
-        var $columnHeaders = this._columnHeadersView && this._columnHeadersView.element();
-
-        $row = $row || $columnHeaders && $columnHeaders.find("." + ERROR_ROW_CLASS);
+        if(!$row) {
+            let $columnHeaders = this._columnHeadersView && this._columnHeadersView.element();
+            $row = $columnHeaders && $columnHeaders.find("." + ERROR_ROW_CLASS);
+            if(!$row || !$row.length) {
+                var $rowsViewElement = this._rowsView.element();
+                $row = $rowsViewElement && $rowsViewElement.find("." + ERROR_ROW_CLASS);
+            }
+        }
         $row && $row.hasClass(ERROR_ROW_CLASS) && $row.remove();
     },
 
@@ -136,10 +156,8 @@ module.exports = {
                     that.callBase();
 
                     that.dataErrorOccurred.add(function(error, $popupContent) {
-                        var message = error && error.message || error;
-
                         if(that.option("errorRowEnabled")) {
-                            errorHandlingController.renderErrorRow(message, undefined, $popupContent);
+                            errorHandlingController.renderErrorRow(error, undefined, $popupContent);
                         }
                     });
                     that.changed.add(function() {

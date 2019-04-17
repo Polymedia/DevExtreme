@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     devices = require("../core/devices"),
@@ -101,13 +99,17 @@ var CheckBox = Editor.inherit({
             },
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5();
                 },
                 options: {
                     useInkRipple: true
                 }
             }
         ]);
+    },
+
+    _canValueBeChangedByClick: function() {
+        return true;
     },
 
     _feedbackHideTimeout: CHECKBOX_FEEDBACK_HIDE_TIMEOUT,
@@ -258,6 +260,11 @@ var CheckBox = Editor.inherit({
             default:
                 this.callBase(args);
         }
+    },
+
+    _clean: function() {
+        delete this._inkRipple;
+        this.callBase();
     }
 });
 

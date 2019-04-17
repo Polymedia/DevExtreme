@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     eventsEngine = require("../events/core/events_engine"),
     registerComponent = require("../core/component_registrator"),
@@ -218,6 +216,13 @@ var Gallery = CollectionWidget.inherit({
             * @inheritdoc
             */
 
+            /**
+             * @name dxGalleryOptions.items
+             * @type Array<string, dxGalleryItem, object>
+             * @fires dxGalleryOptions.onOptionChanged
+             * @inheritdoc
+             */
+
             _itemAttributes: { role: "option" },
             loopItemFocus: false,
             selectOnFocus: true,
@@ -255,20 +260,20 @@ var Gallery = CollectionWidget.inherit({
     _initTemplates: function() {
         this.callBase();
         /**
-        * @name dxGalleryItemTemplate
-        * @inherits CollectionWidgetItemTemplate
+        * @name dxGalleryItem
+        * @inherits CollectionWidgetItem
         * @type object
         */
         /**
-        * @name dxGalleryItemTemplate.imageSrc
+        * @name dxGalleryItem.imageSrc
         * @type String
         */
         /**
-        * @name dxGalleryItemTemplate.imageAlt
+        * @name dxGalleryItem.imageAlt
         * @type String
         */
         /**
-        * @name dxGalleryItemTemplate.visible
+        * @name dxGalleryItem.visible
         * @hidden
         * @inheritdoc
         */
@@ -308,13 +313,14 @@ var Gallery = CollectionWidget.inherit({
     },
 
     _actualItemWidth: function() {
-        var itemPerPage = this.option("wrapAround") ? this._itemsPerPage() + 1 : this._itemsPerPage();
+        var isWrapAround = this.option("wrapAround");
 
         if(this.option("stretchImages")) {
+            var itemPerPage = isWrapAround ? this._itemsPerPage() + 1 : this._itemsPerPage();
             return 1 / itemPerPage;
         }
 
-        if(this.option("wrapAround")) {
+        if(isWrapAround) {
             return this._itemPercentWidth() * this._itemsPerPage() / (this._itemsPerPage() + 1);
         }
 
@@ -327,7 +333,7 @@ var Gallery = CollectionWidget.inherit({
             initialItemWidth = this.option("initialItemWidth");
 
         if(initialItemWidth && initialItemWidth <= elementWidth) {
-            percentWidth = this.option("initialItemWidth") / elementWidth;
+            percentWidth = initialItemWidth / elementWidth;
         } else {
             percentWidth = 1;
         }
@@ -493,20 +499,33 @@ var Gallery = CollectionWidget.inherit({
             lastItemDuplicateIndex = itemsCount + loopItemsCount - 1,
             offsetRatio = this.option("wrapAround") ? 0.5 : 0,
             freeSpace = this._itemFreeSpace(),
-            rtlEnabled = this.option("rtlEnabled");
+            isGapBetweenImages = !!freeSpace,
+            rtlEnabled = this.option("rtlEnabled"),
+            selectedIndex = this.option("selectedIndex"),
+            side = rtlEnabled ? "Right" : "Left";
 
         this._itemElements().each(function(index) {
-            var realIndex = index;
+            var realIndex = index,
+                isLoopItem = $(this).hasClass(GALLERY_LOOP_ITEM_CLASS);
 
             if(index > itemsCount + itemsPerPage - 1) {
                 realIndex = lastItemDuplicateIndex - realIndex - itemsPerPage;
             }
 
-            var itemPosition = itemWidth * (realIndex + offsetRatio) + freeSpace * (realIndex + 1 - offsetRatio);
-            $(this).css(rtlEnabled ? "right" : "left", itemPosition * 100 + "%");
+            if(!isLoopItem && realIndex !== 0) {
+                if(isGapBetweenImages) {
+                    $(this).css("margin" + side, freeSpace * 100 + "%");
+                }
+                return;
+            }
+
+            var itemPosition = itemWidth * (realIndex + offsetRatio) + freeSpace * (realIndex + 1 - offsetRatio),
+                property = isLoopItem ? side.toLowerCase() : "margin" + side;
+
+            $(this).css(property, itemPosition * 100 + "%");
         });
 
-        this._relocateItems(this.option("selectedIndex"), this.option("selectedIndex"), true);
+        this._relocateItems(selectedIndex, selectedIndex, true);
     },
 
     _itemFreeSpace: function() {
@@ -789,11 +808,11 @@ var Gallery = CollectionWidget.inherit({
     _loadNextPageIfNeeded: function(selectedIndex) {
         selectedIndex = selectedIndex === undefined ? this.option("selectedIndex") : selectedIndex;
         if(
-           this._dataSource &&
-           this._dataSource.paginate() &&
-           this._shouldLoadNextPage(selectedIndex) &&
-           !this._isDataSourceLoading() &&
-           !this._isLastPage()
+            this._dataSource &&
+            this._dataSource.paginate() &&
+            this._shouldLoadNextPage(selectedIndex) &&
+            !this._isDataSourceLoading() &&
+            !this._isLastPage()
         ) {
             this._loadNextPage().done((function() {
                 this._renderIndicator();

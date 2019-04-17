@@ -1,16 +1,30 @@
-"use strict";
-
-var getNumberFormatter = require("localization/ldml/number").getFormatter;
-var getNumberFormat = require("localization/ldml/number").getFormat;
-var getDateParser = require("localization/ldml/date.parser").getParser;
-var getDateFormatter = require("localization/ldml/date.formatter").getFormatter;
-var getDateFormat = require("localization/ldml/date.format").getFormat;
-var dateParts = require("localization/default_date_names");
-var numberLocalization = require("localization/number");
+var getNumberFormatter = require("localization/ldml/number").getFormatter,
+    getNumberFormat = require("localization/ldml/number").getFormat,
+    getDateParser = require("localization/ldml/date.parser").getParser,
+    getRegExpInfo = require("localization/ldml/date.parser").getRegExpInfo,
+    getDateFormatter = require("localization/ldml/date.formatter").getFormatter,
+    getDateFormat = require("localization/ldml/date.format").getFormat,
+    dateParts = require("localization/default_date_names"),
+    numberLocalization = require("localization/number"),
+    extend = require("core/utils/extend").extend;
 
 require("localization/currency");
 
 QUnit.module("date parser");
+
+QUnit.test("parse with escaped chars", function(assert) {
+    var date = new Date(2018, 10, 12, 14, 15, 16),
+        parser = getDateParser("EEEE, d. MMMM yyyy 'um' H:mm:ss", dateParts);
+
+    assert.deepEqual(parser("Monday, 12. November 2018 um 14:15:16"), date, "parse correct date string");
+});
+
+QUnit.test("parse with escaped pattern chars", function(assert) {
+    var date = new Date(2018, 0, 1, 0, 0, 0),
+        parser = getDateParser("'dd' yyyy", dateParts);
+
+    assert.deepEqual(parser("dd 2018"), date, "parse correct date string");
+});
 
 QUnit.test("parse dd/MM/yyyy format", function(assert) {
     var parser = getDateParser("dd/MM/yyyy"),
@@ -23,6 +37,25 @@ QUnit.test("parse dd/MM/yyyy format", function(assert) {
     assert.deepEqual(parser("09/22/2017"), null, "parse with switched month and day");
     // T574647
     assert.deepEqual(parser("31/12/2017"), new Date(2017, 11, 31), "parse date with last day of month");
+});
+
+QUnit.test("case insensitive date parsing for months", function(assert) {
+    var parser = getDateParser("MMM", dateParts);
+
+    assert.deepEqual(parser("nov").getMonth(), 10, "lower case");
+    assert.deepEqual(parser("Nov").getMonth(), 10, "capitalized");
+    assert.deepEqual(parser("nOv").getMonth(), 10, "mixed case");
+});
+
+QUnit.test("case insensitive date parsing for part of day", function(assert) {
+    var _dateParts = extend({}, dateParts, {
+            getPeriodNames: function() {
+                return ["am", "pm"];
+            }
+        }),
+        parser = getDateParser("aaaa", _dateParts);
+
+    assert.equal(parser("am").getHours(), 0);
 });
 
 QUnit.test("getFormat", function(assert) {
@@ -272,4 +305,13 @@ QUnit.test("getFormat for function number formats", function(assert) {
     checkFormat(function(value) {
         return value.toFixed(2);
     }, "#0.00");
+});
+
+QUnit.module("getRegExpInfo method");
+
+QUnit.test("getRegExpInfo should return correct pattern set when stub is in the end", function(assert) {
+    var regExpInfo = getRegExpInfo("EEE, MMMM, dd, HH:mm:ss '(stub)'", dateParts);
+    assert.deepEqual(regExpInfo.patterns, [
+        "EEE", "', '", "MMMM", "', '", "dd", "', '", "HH", "':'", "mm", "':'", "ss", "' (stub)'"
+    ]);
 });

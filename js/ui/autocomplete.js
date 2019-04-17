@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     noop = require("../core/utils/common").noop,
     registerComponent = require("../core/component_registrator"),
@@ -85,7 +83,13 @@ var Autocomplete = DropDownList.inherit({
             */
             noDataText: "",
 
+            /**
+             * @name dxAutocompleteOptions.showDropDownButton
+             * @inheritdoc
+             * @default false
+             */
             showDropDownButton: false,
+
             searchEnabled: true
 
             /**
@@ -117,7 +121,7 @@ var Autocomplete = DropDownList.inherit({
         return this.callBase().concat([
             {
                 device: function() {
-                    return /android5/.test(themes.current());
+                    return themes.isAndroid5();
                 },
                 options: {
                     popupPosition: {
@@ -230,6 +234,11 @@ var Autocomplete = DropDownList.inherit({
         return "input keyup";
     },
 
+    _valueChangeEventHandler: function(e) {
+        var value = this._input().val() || null;
+        return this.callBase(e, value);
+    },
+
     _optionChanged: function(args) {
         switch(args.name) {
             case "maxItemCount":
@@ -237,6 +246,7 @@ var Autocomplete = DropDownList.inherit({
                 break;
             case "valueExpr":
                 this._compileDisplayGetter();
+                this._setListOption("displayExpr", this._displayGetterExpr());
                 this.callBase(args);
                 break;
             default:

@@ -1,12 +1,12 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     commonModule = require("./common"),
     animationSettings = commonModule.utils.animationSettings,
     emptySliderMarkerText = commonModule.consts.emptySliderMarkerText,
     Slider = require("./slider"),
     _normalizeEnum = require("../core/utils").normalizeEnum,
-    isNumeric = require("../../core/utils/type").isNumeric,
+    typeUtils = require("../../core/utils/type"),
+    isNumeric = typeUtils.isNumeric,
+    vizUtils = require("../core/utils"),
     adjust = require("../../core/utils/math").adjust;
 
 function buildRectPoints(left, top, right, bottom) {
@@ -105,7 +105,6 @@ SlidersController.prototype = {
 
     update: function(verticalRange, behavior, isCompactMode, sliderHandleOptions, sliderMarkerOptions, shutterOptions, rangeBounds, fullTicks, selectedRangeColor) {
         var that = this,
-            callValueChanged = behavior.callValueChanged || behavior.callSelectedRangeChanged,
             screenRange = that._params.translator.getScreenRange();
 
         that._verticalRange = verticalRange;
@@ -127,7 +126,7 @@ SlidersController.prototype = {
         that._shutterOffset = sliderHandleOptions.width / 2;
         that._updateSelectedView(shutterOptions, selectedRangeColor);
 
-        that._isOnMoving = _normalizeEnum(callValueChanged) === "onmoving";
+        that._isOnMoving = _normalizeEnum(behavior.callValueChanged) === "onmoving";
 
         that._updateSelectedRange();
         // This is placing sliders and shutter into initial position. They all will be animated from that position when "setSelectedRange" is called.
@@ -153,7 +152,7 @@ SlidersController.prototype = {
         sliders[0].cancelAnimation();
         sliders[1].cancelAnimation();
         that._shutter.stopAnimation();
-        if(that._params.translator.isEmptyValueRange()) {
+        if(that._params.translator.getBusinessRange().isEmpty()) {
             sliders[0]._setText(emptySliderMarkerText);
             sliders[1]._setText(emptySliderMarkerText);
             sliders[0]._value = sliders[1]._value = undefined;
@@ -215,17 +214,34 @@ SlidersController.prototype = {
         return { startValue: this._sliders[0].getValue(), endValue: this._sliders[1].getValue() };
     },
 
-    setSelectedRange: function(arg) {
-        arg = arg || {};
-        var that = this,
-            translator = that._params.translator,
-            startValue = translator.isValid(arg.startValue) ? translator.getCorrectValue(arg.startValue, +1) : translator.getRange()[0],
-            endValue = translator.isValid(arg.endValue) ? translator.getCorrectValue(arg.endValue, -1) : translator.getRange()[1],
-            values;
+    setSelectedRange: function(visualRange) {
+        visualRange = visualRange || {};
+        const that = this;
+        const translator = that._params.translator;
+        const businessRange = translator.getBusinessRange();
+        const compare = businessRange.axisType === "discrete" ? function(a, b) {
+            return a < b;
+        } : function(a, b) {
+            return a <= b;
+        };
+
+        let { startValue, endValue } = vizUtils.adjustVisualRange({
+            dataType: businessRange.dataType,
+            axisType: businessRange.axisType,
+            base: businessRange.base
+        }, {
+            startValue: translator.isValid(visualRange.startValue) ? translator.getCorrectValue(visualRange.startValue, +1) : undefined,
+            endValue: translator.isValid(visualRange.endValue) ? translator.getCorrectValue(visualRange.endValue, -1) : undefined,
+            length: visualRange.length
+        }, {
+            min: businessRange.minVisible,
+            max: businessRange.maxVisible,
+            categories: businessRange.categories
+        });
 
         startValue = isNumeric(startValue) ? adjust(startValue) : startValue;
         endValue = isNumeric(endValue) ? adjust(endValue) : endValue;
-        values = translator.to(startValue, -1) < translator.to(endValue, +1) ? [startValue, endValue] : [endValue, startValue];
+        const values = compare(translator.to(startValue, -1), translator.to(endValue, +1)) ? [startValue, endValue] : [endValue, startValue];
         that._sliders[0].setDisplayValue(values[0]);
         that._sliders[1].setDisplayValue(values[1]);
         that._sliders[0]._position = translator.to(values[0], -1);
@@ -451,7 +467,7 @@ SlidersController.prototype = {
         }
         sliders[1 - index].setDisplayValue(selectClosestValue(newValue, that._values));
         sliders[index]._setValid(true);
-        sliders[index]._marker._update();   // This is to update "text" element
+        sliders[index]._marker._update(); // This is to update "text" element
         sliders[0]._position = sliders[1]._position = position;
     },
 

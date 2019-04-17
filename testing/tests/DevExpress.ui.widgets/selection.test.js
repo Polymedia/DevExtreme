@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     errors = require("ui/widget/ui.errors"),
     Selection = require("ui/selection/selection"),
@@ -841,6 +839,59 @@ QUnit.test("selection should works with complex key", function(assert) {
     assert.deepEqual(selectionChangedArgs[0].selectedItems, [{ data: { id: 2 }, text: "Item 2" }], "selectedItems is right");
 });
 
+// T696853
+QUnit.test("selection should works with complex key if key with another item order", function(assert) {
+    var selectionChangedArgs = [];
+    var dataSource = new DataSource({
+        pageSize: 2,
+        store: {
+            type: "array",
+            data: [
+                { data1: { id: 1 }, data2: { id: 1 }, text: "Item 1" },
+                { data1: { id: 2 }, data2: { id: 1 }, text: "Item 2" },
+                { data1: { id: 3 }, data2: { id: 1 }, text: "Item 3" }
+            ],
+            key: ["data1.id", "data2.id"]
+        }
+    });
+
+    var selection = new Selection({
+        onSelectionChanged: function(args) {
+            selectionChangedArgs.push(args);
+        },
+        key: function() {
+            var store = dataSource && dataSource.store();
+            return store && store.key();
+        },
+        keyOf: function(item) {
+            var store = dataSource.store();
+            return store && store.keyOf(item);
+        },
+        load: function(options) {
+            return dataSource && dataSource.store().load(options);
+        },
+        dataFields: function() {
+            return dataSource.select();
+        },
+        plainItems: function() {
+            return dataSource.items();
+        },
+        filter: function() {
+            return dataSource && dataSource.filter();
+        }
+    });
+
+    dataSource.load();
+
+    // act
+    selection.selectedItemKeys([{ data2: { id: 1 }, data1: { id: 2 } }]);
+
+    // assert
+    assert.equal(selectionChangedArgs.length, 1, "selectionChanged is called once");
+    assert.deepEqual(selectionChangedArgs[0].selectedItemKeys, [{ data1: { id: 2 }, data2: { id: 1 } }], "selectedItemsKeys is right");
+    assert.deepEqual(selectionChangedArgs[0].selectedItems, [{ data1: { id: 2 }, data2: { id: 1 }, text: "Item 2" }], "selectedItems is right");
+});
+
 QUnit.test("selection module should support object returned by load method", function(assert) {
     var selectionChangedHandler = sinon.spy();
 
@@ -1088,7 +1139,22 @@ QUnit.test("changeItemSelection with shift key should add several expressions wi
     selection.changeItemSelection(4, { shift: true });
 
     // assert
-    assert.deepEqual(selection.selectionFilter(), [["id", "=", 5], "or", ["id", "=", 4], "or", ["id", "=", 3], "or", ["id", "=", 2]], "selection filter");
+    assert.deepEqual(selection.selectionFilter(), [["id", "=", 2], "or", ["id", "=", 5], "or", ["id", "=", 4], "or", ["id", "=", 3]], "selection filter");
+});
+
+// T655219
+QUnit.test("changeItemSelection with shift key two times", function(assert) {
+    var selection = this.createDeferredSelection(this.data);
+
+    // act
+    selection.changeItemSelection(1);
+    selection.changeItemSelection(4, { shift: true });
+    selection.changeItemSelection(2, { shift: true });
+
+    // assert
+    assert.deepEqual(selection.selectionFilter(), [
+        [["id", "=", 2], "and", ["!", ["id", "=", 5]], "and", ["!", ["id", "=", 4]]],
+        "or", ["id", "=", 3]], "selection filter");
 });
 
 QUnit.test("selectAll when filter is empty", function(assert) {
@@ -1514,6 +1580,65 @@ QUnit.test("select 3 items, deselect 3 items", function(assert) {
     // assert
     assert.deepEqual(selectedKeys, [], "selected keys");
     assert.deepEqual(selection.selectionFilter(), [], "selectionFilter is []");
+});
+
+QUnit.test("select 2 items, deselect item", function(assert) {
+    var selectedKeys,
+        selection = this.createDeferredSelection(this.data);
+
+    selection.changeItemSelection(0, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(1, { control: true });
+
+    // act
+    selection.getSelectedItemKeys().done(function(keys) {
+        selectedKeys = keys;
+    });
+
+    // assert
+    assert.deepEqual(selectedKeys, [1], "selected keys");
+    assert.deepEqual(selection.selectionFilter(), [["id", "=", 1], "and", ["!", ["id", "=", 2]]], "selectionFilter");
+});
+
+QUnit.test("select 2 items, deselect and select 1 item", function(assert) {
+    var selectedKeys,
+        selection = this.createDeferredSelection(this.data);
+
+    selection.changeItemSelection(0, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(1, { control: true });
+
+    // act
+    selection.getSelectedItemKeys().done(function(keys) {
+        selectedKeys = keys;
+    });
+
+    // assert
+    assert.deepEqual(selectedKeys, [1, 2], "selected keys");
+    assert.deepEqual(selection.selectionFilter(), [["id", "=", 1], "or", ["id", "=", 2]], "selectionFilter");
+});
+
+QUnit.test("select 3 items, deselect 2 items, select 1 item, deselect 2 items", function(assert) {
+    var selectedKeys,
+        selection = this.createDeferredSelection(this.data);
+
+    selection.changeItemSelection(0, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(2, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(2, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(1, { control: true });
+    selection.changeItemSelection(0, { control: true });
+
+    // act
+    selection.getSelectedItemKeys().done(function(keys) {
+        selectedKeys = keys;
+    });
+
+    // assert
+    assert.deepEqual(selectedKeys, [], "selected keys");
 });
 
 QUnit.test("selectedItemKeys", function(assert) {

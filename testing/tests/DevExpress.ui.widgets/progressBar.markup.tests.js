@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 require("ui/progress_bar");
@@ -128,6 +126,17 @@ QUnit.test("render indeterminate state with default option segments count", func
 
     assert.equal(renderedIndeterminateSegmentsCount, defaultSegmentCount, "dxProgressBar have been created with correct segment count");
 });
+
+QUnit.test("render progressbar with max value on init", function(assert) {
+    this.$element.dxProgressBar({
+        value: 100,
+        max: 100
+    });
+
+    assert.ok(true, "progress bar has been rendered");
+});
+
+
 QUnit.module("aria accessibility");
 
 QUnit.test("aria role", function(assert) {

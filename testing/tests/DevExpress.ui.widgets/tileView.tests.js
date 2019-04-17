@@ -1,13 +1,11 @@
-"use strict";
+import $ from "jquery";
+import globalConfig from "core/config";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import { DataSource } from "data/data_source/data_source";
+import { isRenderer } from "core/utils/type";
 
-var $ = require("jquery"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    isRenderer = require("core/utils/type").isRenderer,
-    globalConfig = require("core/config");
-
-require("ui/tile_view");
-require("common.css!");
+import "ui/tile_view";
+import "common.css!";
 
 QUnit.testStart(function() {
     var markup =
@@ -143,6 +141,17 @@ QUnit.module("rendering", {
     afterEach: function() {
         this.element.remove();
     }
+});
+
+QUnit.test("Item collection changing should repaint widget (T686243)", function(assert) {
+    const tileView = this.element.dxTileView({
+        items: prepareItems(items, configs.horizontal)
+    }).dxTileView("instance");
+    const getFirstItemElementHeight = () => tileView.$element().find(TILEVIEW_ITEM_SELECTOR).eq(0).height();
+
+    assert.strictEqual(getFirstItemElementHeight(), DEFAULT_ITEMSIZE);
+    tileView.option("items[0].heightRatio", 2);
+    assert.strictEqual(getFirstItemElementHeight(), DEFAULT_ITEMSIZE * 2 + DEFAULT_ITEMMARGIN);
 });
 
 QUnit.test("template should be rendered correctly", function(assert) {

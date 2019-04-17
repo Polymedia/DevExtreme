@@ -1,10 +1,9 @@
-"use strict";
-
 var noop = require("../../core/utils/common").noop,
     typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
     each = require("../../core/utils/iterator").each,
     adjust = require("../../core/utils/math").adjust,
+    dateToMilliseconds = require("../../core/utils/date").dateToMilliseconds,
     isDefined = typeUtils.isDefined,
     isNumber = typeUtils.isNumeric,
     isExponential = typeUtils.isExponential,
@@ -205,10 +204,10 @@ function rotateBBox(bBox, center, angle) {
         centerY = bBox.y + h2,
         w2_ = abs(w2 * cos) + abs(h2 * sin),
         h2_ = abs(w2 * sin) + abs(h2 * cos),
-    // Note that the following slightly differs from theoretical formula:
-    // x' = x * cos - y * sin, y' = x * sin + y * cos
-    // That is because in svg y goes down (not up) - so sign of sin is reverted
-    // x' = x * cos + y * sin, y' = -x * sin + y * cos
+        // Note that the following slightly differs from theoretical formula:
+        // x' = x * cos - y * sin, y' = x * sin + y * cos
+        // That is because in svg y goes down (not up) - so sign of sin is reverted
+        // x' = x * cos + y * sin, y' = -x * sin + y * cos
         centerX_ = center[0] + (centerX - center[0]) * cos + (centerY - center[1]) * sin,
         centerY_ = center[1] - (centerX - center[0]) * sin + (centerY - center[1]) * cos;
     return normalizeBBox({
@@ -295,7 +294,7 @@ extend(exports, {
             if(nameField in data) {
                 series = generatedSeries[data[nameField]];
                 if(!series) {
-                    series = generatedSeries[data[nameField]] = { name: data[nameField] };
+                    series = generatedSeries[data[nameField]] = { name: data[nameField], nameFieldValue: data[nameField] };
                     seriesOrder.push(series.name);
                 }
             }
@@ -403,6 +402,113 @@ extend(exports, {
     }
 });
 
+function getVizRangeObject(value) {
+    if(Array.isArray(value)) {
+        return { startValue: value[0], endValue: value[1] };
+    } else {
+        return value || {};
+    }
+}
+
+function convertVisualRangeObject(visualRange, convertToVisualRange) {
+    if(convertToVisualRange) {
+        return visualRange;
+    }
+    return [visualRange.startValue, visualRange.endValue];
+}
+
+function getAddFunction(range, correctZeroLevel) {
+    // T170398
+    if(range.dataType === "datetime") {
+        return function(rangeValue, marginValue, sign = 1) {
+            return new Date(rangeValue.getTime() + sign * marginValue);
+        };
+    }
+
+    if(range.axisType === "logarithmic") {
+        return function(rangeValue, marginValue, sign = 1) {
+            var log = getLog(rangeValue, range.base) + sign * marginValue;
+            return raiseTo(log, range.base);
+        };
+    }
+
+    return function(rangeValue, marginValue, sign = 1) {
+        var newValue = rangeValue + sign * marginValue;
+        return correctZeroLevel && newValue * rangeValue <= 0 ? 0 : newValue;
+    };
+}
+
+function adjustVisualRange(options, visualRange, wholeRange, dataRange) {
+    const minDefined = typeUtils.isDefined(visualRange.startValue);
+    const maxDefined = typeUtils.isDefined(visualRange.endValue);
+    const nonDiscrete = options.axisType !== "discrete";
+
+    dataRange = dataRange || wholeRange;
+
+    const add = getAddFunction(options, false);
+
+    let min = minDefined ? visualRange.startValue : dataRange.min;
+    let max = maxDefined ? visualRange.endValue : dataRange.max;
+    let rangeLength = visualRange.length;
+    const categories = dataRange.categories;
+
+    if(nonDiscrete && !typeUtils.isDefined(min) && !typeUtils.isDefined(max)) {
+        return {
+            startValue: min,
+            endValue: max
+        };
+    }
+
+    if(isDefined(rangeLength)) {
+        if(nonDiscrete) {
+            if(options.dataType === "datetime" && !isNumber(rangeLength)) {
+                rangeLength = dateToMilliseconds(rangeLength);
+            }
+
+            if(maxDefined && !minDefined || !maxDefined && !minDefined) {
+                isDefined(wholeRange.max) && (max = max > wholeRange.max ? wholeRange.max : max);
+                min = add(max, rangeLength, -1);
+            } else if(minDefined && !maxDefined) {
+                isDefined(wholeRange.min) && (min = min < wholeRange.min ? wholeRange.min : min);
+                max = add(min, rangeLength);
+            }
+        } else {
+            rangeLength = parseInt(rangeLength);
+            if(!isNaN(rangeLength) && isFinite(rangeLength)) {
+                rangeLength--;
+                if(!maxDefined && !minDefined) {
+                    max = categories[categories.length - 1];
+                    min = categories[categories.length - 1 - rangeLength];
+                } else if(minDefined && !maxDefined) {
+                    const categoriesInfo = exports.getCategoriesInfo(categories, min, undefined);
+                    max = categoriesInfo.categories[rangeLength];
+                } else if(!minDefined && maxDefined) {
+                    const categoriesInfo = exports.getCategoriesInfo(categories, undefined, max);
+                    min = categoriesInfo.categories[categoriesInfo.categories.length - 1 - rangeLength];
+                }
+            }
+        }
+    }
+
+    if(nonDiscrete) {
+        if(isDefined(wholeRange.max) && max > wholeRange.max) {
+            max = wholeRange.max;
+        }
+        if(isDefined(wholeRange.min) && min < wholeRange.min) {
+            min = wholeRange.min;
+        }
+    }
+
+    return {
+        startValue: min,
+        endValue: max
+    };
+}
+
+exports.getVizRangeObject = getVizRangeObject;
+exports.convertVisualRangeObject = convertVisualRangeObject;
+exports.adjustVisualRange = adjustVisualRange;
+exports.getAddFunction = getAddFunction;
 exports.getLog = getLog;
 exports.getAdjustedLog10 = getAdjustedLog10;
 exports.raiseTo = raiseTo;

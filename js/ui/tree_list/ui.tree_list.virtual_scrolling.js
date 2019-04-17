@@ -1,12 +1,11 @@
-"use strict";
-
-var gridCore = require("./ui.tree_list.core"),
-    dataSourceAdapter = require("./ui.tree_list.data_source_adapter"),
-    virtualScrollingModule = require("../grid_core/ui.grid_core.virtual_scrolling"),
-    extend = require("../../core/utils/extend").extend;
+import gridCore from './ui.tree_list.core';
+import dataSourceAdapter from './ui.tree_list.data_source_adapter';
+import virtualScrollingModule from '../grid_core/ui.grid_core.virtual_scrolling';
+import { extend } from '../../core/utils/extend';
 
 var oldDefaultOptions = virtualScrollingModule.defaultOptions,
-    originalDataControllerExtender = virtualScrollingModule.extenders.controllers.data;
+    originalDataControllerExtender = virtualScrollingModule.extenders.controllers.data,
+    originalDataSourceAdapterExtender = virtualScrollingModule.extenders.dataSourceAdapter;
 
 virtualScrollingModule.extenders.controllers.data = extend({}, originalDataControllerExtender, {
     _loadOnOptionChange: function() {
@@ -14,6 +13,16 @@ virtualScrollingModule.extenders.controllers.data = extend({}, originalDataContr
 
         virtualScrollController && virtualScrollController.reset();
         this.callBase();
+    }
+});
+
+virtualScrollingModule.extenders.dataSourceAdapter = extend({}, originalDataSourceAdapterExtender, {
+    changeRowExpand: function() {
+        return this.callBase.apply(this, arguments).done(() => {
+            var viewportItemIndex = this.getViewportItemIndex();
+
+            viewportItemIndex >= 0 && this.setViewportItemIndex(viewportItemIndex);
+        });
     }
 });
 

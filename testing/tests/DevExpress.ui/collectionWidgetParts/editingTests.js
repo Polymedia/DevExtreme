@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     CollectionWidget = require("ui/collection/ui.collection_widget.edit"),
     DataSource = require("data/data_source/data_source").DataSource,
@@ -746,9 +744,9 @@ var runTests = function() {
 
     QUnit.test("using keyExpr as primitive", function(assert) {
         var items = [
-            { key: "key1", text: "Item 1" },
-            { key: "key2", text: "Item 2" },
-            { key: "key3", text: "Item 3" }
+                { key: "key1", text: "Item 1" },
+                { key: "key2", text: "Item 2" },
+                { key: "key3", text: "Item 3" }
             ],
             instance = new TestComponent(this.$element, {
                 items: items,
@@ -838,6 +836,31 @@ var runTests = function() {
 
         instance.unselectItem(0);
         instance.selectItem(0);
+    });
+
+    QUnit.test("added and removed selection should be correct, if items are mapped", function(assert) {
+        var items = [{ id: 1, name: "alex" }, { id: 2, name: "john" }, { id: 3, name: "bob" }, { id: 4, name: "amanda" }];
+
+        var ds = new DataSource({
+            store: items,
+            pageSize: 2,
+            paginate: true
+        });
+
+        var $element = $("#cmp"),
+            instance = new TestComponent($element, {
+                dataSource: ds,
+                selectedItems: items.slice(),
+                selectionMode: "multiple"
+            });
+
+        ds._mapFunc = function(item) {
+            return $.extend(item, { map: item.id + item.name });
+        };
+
+        instance.unselectItem(0);
+        instance.selectItem(0);
+        assert.equal(instance.option("selectedItems")[0].map, "1alex", "selectedItems is correct");
     });
 
     QUnit.test("dynamically loaded items should be selected", function(assert) {

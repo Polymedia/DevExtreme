@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../core/renderer"),
     window = require("../core/utils/window").getWindow(),
     noop = require("../core/utils/common").noop,
@@ -155,6 +153,13 @@ var ActionSheet = CollectionWidget.inherit({
             */
 
             /**
+             * @name dxActionSheetOptions.items
+             * @type Array<string, dxActionSheetItem, object>
+             * @fires dxActionSheetOptions.onOptionChanged
+             * @inheritdoc
+             */
+
+            /**
              * @name dxActionSheetOptions.focusStateEnabled
              * @type boolean
              * @default false
@@ -182,35 +187,38 @@ var ActionSheet = CollectionWidget.inherit({
     _initTemplates: function() {
         this.callBase();
         /**
-        * @name dxActionSheetItemTemplate
-        * @inherits CollectionWidgetItemTemplate
+        * @name dxActionSheetItem
+        * @inherits CollectionWidgetItem
         * @type object
         */
         /**
-        * @name dxActionSheetItemTemplate.type
+        * @name dxActionSheetItem.type
         * @type Enums.ButtonType
         * @default 'normal'
         */
         /**
-        * @name dxActionSheetItemTemplate.onClick
+        * @name dxActionSheetItem.onClick
         * @type function(e)|string
-        * @extends Action
+        * @default null
         * @type_function_param1 e:object
+        * @type_function_param1_field1 component:dxActionSheet
+        * @type_function_param1_field2 element:dxElement
+        * @type_function_param1_field3 model:object
         * @type_function_param1_field4 jQueryEvent:jQuery.Event:deprecated(event)
         * @type_function_param1_field5 event:event
         */
         /**
-        * @name dxActionSheetItemTemplate.icon
+        * @name dxActionSheetItem.icon
         * @type String
         */
         /**
-        * @name dxActionSheetItemTemplate.visible
+        * @name dxActionSheetItem.visible
         * @type boolean
         * @default true
         * @hidden
         */
         /**
-        * @name dxActionSheetItemTemplate.html
+        * @name dxActionSheetItem.html
         * @type String
         * @hidden
         */

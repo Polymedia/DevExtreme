@@ -1,4 +1,3 @@
-"use strict";
 import $ from "jquery";
 import vizMocks from "../../helpers/vizMocks.js";
 import pointModule from "viz/series/points/base_point";
@@ -152,6 +151,19 @@ QUnit.test("getCrosshairData. Rotated", function(assert) {
     assert.deepEqual(point.getCrosshairData(), { x: point.vx, y: point.vy, xValue: point.value, yValue: point.argument, axis: "valueAxisName" });
 });
 
+QUnit.test("getCrosshairData if value was changed directly (T698924)", function(assert) {
+    this.setContinuousTranslators();
+    this.series.axis = "valueAxisName";
+    var point = createPoint(this.series, { argument: 1, value: 3 }, this.opt);
+    point.value = 5;
+    point.translate();
+
+    assert.equal(point.vx, point.x, "crosshair x Coord");
+    assert.equal(point.vy, point.y, "crosshair y Coord");
+
+    assert.deepEqual(point.getCrosshairData(), { x: point.vx, y: point.vy, xValue: point.argument, yValue: 3, axis: "valueAxisName" });
+});
+
 QUnit.test("Category", function(assert) {
     this.setHorizontalCategoryTranslators();
     var point = createPoint(this.series, { argument: "cat2", value: 4 }, this.opt);
@@ -240,77 +252,31 @@ QUnit.module("Correct value", {
     }
 });
 
-QUnit.test("Can increment", function(assert) {
+QUnit.test("Point has value - do correction", function(assert) {
     var point = createPoint(this.series, this.data, this.options);
 
     point.correctValue(14);
 
     assert.equal(point.value, 24);
+    assert.equal(point.properValue, 24);
     assert.equal(point.minValue, 14);
 
     assert.equal(point.argument, 1);
     assert.equal(point.initialValue, 10);
 });
 
-QUnit.test("Can decrement", function(assert) {
-    var point = createPoint(this.series, this.data, this.options);
-
-    point.correctValue(-4);
-
-    assert.equal(point.value, 6);
-    assert.equal(point.minValue, -4);
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, 10);
-});
-
-QUnit.test("Can increment. Negative point value", function(assert) {
-    var point = createPoint(this.series, { argument: 1, value: -10 }, this.options);
-
-    point.correctValue(14);
-
-    assert.equal(point.value, 4);
-    assert.equal(point.minValue, 14);
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, -10);
-});
-
-QUnit.test("Can decrement. Negative point value", function(assert) {
-    var point = createPoint(this.series, { argument: 1, value: -10 }, this.options);
-
-    point.correctValue(-4);
-
-    assert.equal(point.value, -14);
-    assert.equal(point.minValue, -4);
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, -10);
-});
-
-QUnit.test("Can correct if has no value", function(assert) {
+QUnit.test("Point has no value - do not correct", function(assert) {
     this.data.value = null;
     var point = createPoint(this.series, this.data, this.options);
 
     point.correctValue(-4);
 
     assert.equal(point.value, null);
+    assert.equal(point.properValue, null);
     assert.equal(point.minValue, 'canvas_position_default');
 
     assert.equal(point.argument, 1);
     assert.equal(point.initialValue, null);
-});
-
-QUnit.test("Process numeric minValue", function(assert) {
-    var point = createPoint(this.series, this.data, this.options);
-
-    point.correctValue(12);
-
-    assert.equal(point.value, 22);
-    assert.equal(point.minValue, 12);
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, 10);
 });
 
 QUnit.test("Reset correction", function(assert) {
@@ -320,18 +286,36 @@ QUnit.test("Reset correction", function(assert) {
     point.resetCorrection();
     // assert
     assert.equal(point.value, 10);
+    assert.equal(point.properValue, 10);
     assert.equal(point.minValue, "canvas_position_default");
 
     assert.equal(point.argument, 1);
     assert.equal(point.initialValue, 10);
 });
 
-QUnit.test("setPercentValue", function(assert) {
+QUnit.test("setPercentValue, point with no value - calculate percent only", function(assert) {
+    this.data.value = null;
+    var point = createPoint(this.series, this.data, this.options);
+
+    point.setPercentValue(40, 30);
+
+    assert.equal(point.value, null);
+    assert.equal(point.properValue, null);
+    assert.equal(point.minValue, "canvas_position_default");
+
+    assert.equal(point.argument, 1);
+    assert.equal(point.initialValue, null);
+    assert.equal(point._label._data.percent, 0);
+    assert.equal(point._label._data.total, 30);
+});
+
+QUnit.test("setPercentValue, point with value - calculate percent only", function(assert) {
     var point = createPoint(this.series, this.data, this.options);
 
     point.setPercentValue(40, 30);
 
     assert.equal(point.value, 10);
+    assert.equal(point.properValue, 10);
     assert.equal(point.minValue, "canvas_position_default");
 
     assert.equal(point.argument, 1);
@@ -340,48 +324,20 @@ QUnit.test("setPercentValue", function(assert) {
     assert.equal(point._label._data.total, 30);
 });
 
-QUnit.test("setPercentValue. Point with negative value", function(assert) {
-    this.data.value = -10;
-    var point = createPoint(this.series, this.data, this.options);
-
-    point.setPercentValue(40, 30);
-
-    assert.equal(point.value, -10);
-    assert.equal(point.minValue, "canvas_position_default");
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, -10);
-    assert.equal(point._label._data.percent, -0.25);
-    assert.equal(point._label._data.total, 30);
-});
-
-QUnit.test("setPercentValue after correctValue", function(assert) {
+QUnit.test("setPercentValue, point with value, after correction - calculate percent only", function(assert) {
     var point = createPoint(this.series, this.data, this.options);
 
     point.correctValue(10);
     point.setPercentValue(50, 30);
 
     assert.equal(point.value, 20);
+    assert.equal(point.properValue, 20);
     assert.equal(point.minValue, 10);
 
     assert.equal(point.argument, 1);
     assert.equal(point.initialValue, 10);
     assert.equal(point._label._data.percent, 0.2);
     assert.equal(point._label._data.total, 30);
-});
-
-QUnit.test("setPercentValue after correctValue. Point with negative value", function(assert) {
-    this.data.value = -10;
-    var point = createPoint(this.series, this.data, this.options);
-
-    point.correctValue(-10);
-    point.setPercentValue(50);
-
-    assert.equal(point.value, -20);
-    assert.equal(point.minValue, -10);
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, -10);
 });
 
 QUnit.test("setPercentValue when series is fullStacked and has value", function(assert) {
@@ -391,6 +347,7 @@ QUnit.test("setPercentValue when series is fullStacked and has value", function(
     point.setPercentValue(40, 30);
 
     assert.equal(point.value, 0.25);
+    assert.equal(point.properValue, 0.25);
     assert.equal(point.minValue, "canvas_position_default");
 
     assert.equal(point.argument, 1);
@@ -408,6 +365,7 @@ QUnit.test("setPercentValue when series is fullStacked with left hole", function
     point.setPercentValue(40, 30, 20, 20);
 
     assert.equal(point.value, 0.5);
+    assert.equal(point.properValue, 0.5);
     assert.equal(point.minValue, 0.25);
 
     assert.strictEqual(point.leftHole, 0.75);
@@ -426,6 +384,7 @@ QUnit.test("setPercentValue when series is fullStacked with right hole", functio
     point.setPercentValue(40, 30, 20, 20);
 
     assert.equal(point.value, 0.5);
+    assert.equal(point.properValue, 0.5);
     assert.equal(point.minValue, 0.25);
 
     assert.strictEqual(point.leftHole, undefined);
@@ -445,6 +404,7 @@ QUnit.test("setPercentValue when series is fullStacked with right&left holes", f
     point.setPercentValue(40, 30, 20, 20);
 
     assert.equal(point.value, 0.5);
+    assert.equal(point.properValue, 0.5);
     assert.equal(point.minValue, 0.25);
 
     assert.strictEqual(point.leftHole, 0.5);
@@ -454,28 +414,13 @@ QUnit.test("setPercentValue when series is fullStacked with right&left holes", f
     assert.strictEqual(point.minRightHole, 0.25);
 });
 
-QUnit.test("setPercentValue when series is fullStacked and has no value", function(assert) {
-    this.series.isFullStackedSeries = function() { return true; };
-    this.data.value = null;
-    var point = createPoint(this.series, this.data, this.options);
-
-    point.setPercentValue(40, 30);
-
-    assert.equal(point.value, null);
-    assert.equal(point.minValue, "canvas_position_default");
-
-    assert.equal(point.argument, 1);
-    assert.equal(point.initialValue, null);
-    assert.equal(point._label._data.percent, 0);
-    assert.equal(point._label._data.total, 30);
-});
-
 QUnit.test("Reset value to zero", function(assert) {
     var point = createPoint(this.series, this.data, this.options);
 
     point.resetValue();
 
     assert.equal(point.value, 0);
+    assert.equal(point.properValue, 0);
     assert.equal(point.minValue, 0);
 
     assert.equal(point.argument, 1);
@@ -498,6 +443,7 @@ QUnit.test("Do not reset NULL value", function(assert) {
     point.resetValue();
 
     assert.equal(point.value, null);
+    assert.equal(point.properValue, null);
     assert.equal(point.minValue, 'canvas_position_default');
 
     assert.equal(point.argument, 1);
@@ -1578,6 +1524,45 @@ QUnit.test("Draw only highError for stdDeviation type of errorBar", function(ass
     assert.deepEqual(this.renderer.path.lastCall.args[0], [[7, 25, 15, 25], [11, 25, 11, 24.5]]);
 });
 
+QUnit.test("Draw error bar with relative edge length", function(assert) {
+    this.options.symbol = "circle";
+    this.options.errorBars = {
+        lineWidth: 3,
+        edgeLength: 0.5,
+        type: "stdDeviation",
+        color: "red",
+        displayMode: "high"
+    };
+    this.options.styles = { normal: { r: 6, "stroke-width": 4 }, hover: { r: 6, "stroke-width": 10 } };
+    var point = createPoint(this.series, { argument: 1, value: 1, lowError: 3, highError: 4 }, this.options);
+
+    point.translate();
+    point.draw(this.renderer, this.groups);
+
+    assert.strictEqual(this.renderer.stub("path").callCount, 1);
+    assert.deepEqual(this.renderer.path.lastCall.args[0], [[7, 25, 15, 25], [11, 25, 11, 24.5]]);
+});
+
+QUnit.test("Draw error bar with relative edge length. Invisible point", function(assert) {
+    this.options.symbol = "circle";
+    this.options.visible = false;
+    this.options.errorBars = {
+        lineWidth: 3,
+        edgeLength: 0.5,
+        type: "stdDeviation",
+        color: "red",
+        displayMode: "high"
+    };
+    this.options.styles = { normal: { r: 6, "stroke-width": 4 }, hover: { r: 6, "stroke-width": 10 } };
+    var point = createPoint(this.series, { argument: 1, value: 1, lowError: 3, highError: 4 }, this.options);
+
+    point.translate();
+    point.draw(this.renderer, this.groups);
+
+    assert.strictEqual(this.renderer.stub("path").callCount, 1);
+    assert.deepEqual(this.renderer.path.lastCall.args[0], [[11, 25, 11, 25], [11, 25, 11, 24.5]]);
+});
+
 QUnit.test("Draw point when errorBar has no coords", function(assert) {
     this.options.symbol = "circle";
     this.options.errorBars = {
@@ -2211,7 +2196,8 @@ QUnit.test("Apply style for visible point (in visible area)", function(assert) {
     point.draw(this.renderer, this.groups);
     point.graphic.stub("attr").reset();
 
-    point.applyStyle("normal");
+    point.fullState = 0;
+    point.applyView();
 
     assert.ok(point.graphic);
 
@@ -2227,7 +2213,8 @@ QUnit.test("Apply style for invisible point (out of visible area)", function(ass
     point.draw(this.renderer, this.groups);
     point.graphic.stub("attr").reset();
 
-    point.applyStyle("normal");
+    point.fullState = 0;
+    point.applyView();
 
     assert.ok(point.graphic);
 
@@ -2243,7 +2230,8 @@ QUnit.test("Apply style for visible image point (in visible area)", function(ass
     point.draw(this.renderer, this.groups);
     point.graphic.stub("attr").reset();
 
-    point.applyStyle("normal");
+    point.fullState = 0;
+    point.applyView();
 
     assert.ok(point.graphic);
 
@@ -2260,7 +2248,8 @@ QUnit.test("Apply style for invisible image point (out of visible area)", functi
     point.draw(this.renderer, this.groups);
     point.graphic.stub("attr").reset();
 
-    point.applyStyle("normal");
+    point.fullState = 0;
+    point.applyView();
 
     assert.ok(point.graphic);
 
@@ -2268,10 +2257,11 @@ QUnit.test("Apply style for invisible image point (out of visible area)", functi
 });
 
 QUnit.test("keep style after redraw", function(assert) {
-    createPoint(this.series, this.data, this.options)
-        .draw(this.renderer, this.groups)
-        .applyStyle("selection")
-        .draw(this.renderer, this.groups);
+    var point = createPoint(this.series, this.data, this.options);
+    point.draw(this.renderer, this.groups);
+    point.fullState = 2;
+    point.applyView();
+    point.draw(this.renderer, this.groups);
 
     assert.deepEqual(
         this.renderer.circle.getCall(0).returnValue.attr.lastCall.args[0].r,
@@ -3321,7 +3311,8 @@ QUnit.test("get point radius. hover style", function(assert) {
     var point = createPoint(this.series, { argument: 1, value: 1 }, this.options);
     point.draw(this.renderer, this.groups);
 
-    point.applyStyle("hover");
+    point.fullState = 1;
+    point.applyView();
 
     assert.equal(point.getPointRadius(), 11);
 });
@@ -3415,4 +3406,11 @@ QUnit.test("coordsIn", function(assert) {
     assert.ok(point.coordsIn(11, 10), "top inside");
     assert.ok(point.coordsIn(11, 3), "top side");
     assert.ok(!point.coordsIn(11, 1), "top side out");
+});
+
+QUnit.test("getMarkerVisibility", function(assert) {
+    this.options.visible = "visible_value";
+    let point = createPoint(this.series, { argument: 1, value: 1 }, this.options);
+
+    assert.strictEqual(point.getMarkerVisibility(), "visible_value");
 });

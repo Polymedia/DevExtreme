@@ -1,5 +1,3 @@
-"use strict";
-
 var typeUtils = require("../../core/utils/type"),
 
     STRING = "string",
@@ -74,13 +72,12 @@ function parseCategories(categories, parser) {
 }
 
 function parseAxisCategories(groupsData, parsers) {
-    var argumentCategories = groupsData.argumentOptions && groupsData.argumentOptions.categories,
-        valueParser = parsers[1];
+    var argumentCategories = groupsData.argumentOptions && groupsData.argumentOptions.categories;
 
-    groupsData.groups.forEach(function(valueGroup) {
+    groupsData.groups.forEach(function(valueGroup, i) {
         var categories = valueGroup.valueOptions && valueGroup.valueOptions.categories;
         if(categories) {
-            valueGroup.valueOptions.categories = parseCategories(categories, valueParser);
+            valueGroup.valueOptions.categories = parseCategories(categories, parsers[i + 1]);
         }
     });
 
@@ -120,7 +117,7 @@ function correctAxisType(type, axisType, hasCategories, incidentOccurred) {
     return axisType === LOGARITHMIC ? LOGARITHMIC : (hasCategories || axisType === DISCRETE || type === STRING ? DISCRETE : (axisType === SEMIDISCRETE ? SEMIDISCRETE : CONTINUOUS));
 }
 
-// Do we really need this one and "skipFields" if all it is only for logarithmic case?
+// Do we really need this one if all it is only for logarithmic case?
 function validUnit(unit, field, incidentOccurred) {
     if(unit) {
         incidentOccurred(!_isNumber(unit) && !_isDate(unit) && !_isString(unit) ? "E2003" : "E2004", [field]);
@@ -128,7 +125,7 @@ function validUnit(unit, field, incidentOccurred) {
 }
 
 // TODO: Too much complication because of logarithmic only
-function createParserUnit(type, axisType, ignoreEmptyPoints, skipFields, incidentOccurred) {
+function createParserUnit(type, axisType, ignoreEmptyPoints, incidentOccurred) {
     var parser = type ? _getParser(type) : eigen,
         filter = axisType === LOGARITHMIC ? filterForLogAxis : eigen,
         filterInfinity = axisType !== DISCRETE ? function(x) { return isFinite(x) || x === undefined ? x : null; } : eigen,
@@ -139,15 +136,14 @@ function createParserUnit(type, axisType, ignoreEmptyPoints, skipFields, inciden
             parseUnit = filterNulls(filterLogValues(filterInfinity(parser(unit))));
 
         if(parseUnit === undefined) {
-            skipFields[field] = (skipFields[field] || 0) + 1;
             validUnit(unit, field, incidentOccurred);
         }
         return parseUnit;
     };
 }
 
-function prepareParsers(groupsData, skipFields, incidentOccurred) {
-    var argumentParser = createParserUnit(groupsData.argumentType, groupsData.argumentAxisType, false, skipFields, incidentOccurred),
+function prepareParsers(groupsData, incidentOccurred) {
+    var argumentParser = createParserUnit(groupsData.argumentType, groupsData.argumentAxisType, false, incidentOccurred),
         sizeParser,
         valueParser,
         ignoreEmptyPoints,
@@ -155,15 +151,15 @@ function prepareParsers(groupsData, skipFields, incidentOccurred) {
         cache = {},
         list = [];
 
-    groupsData.groups.forEach(function(group) {
+    groupsData.groups.forEach(function(group, groupIndex) {
         group.series.forEach(function(series) {
             ignoreEmptyPoints = series.getOptions().ignoreEmptyPoints;
-            valueParser = createParserUnit(group.valueType, group.valueAxisType, ignoreEmptyPoints, skipFields, incidentOccurred);
-            sizeParser = createParserUnit(NUMERIC, CONTINUOUS, ignoreEmptyPoints, skipFields, incidentOccurred);
+            valueParser = createParserUnit(group.valueType, group.valueAxisType, ignoreEmptyPoints, incidentOccurred);
+            sizeParser = createParserUnit(NUMERIC, CONTINUOUS, ignoreEmptyPoints, incidentOccurred);
 
             cache[series.getArgumentField()] = argumentParser;
             series.getValueFields().forEach(function(field) {
-                !categoryParsers[1] && (categoryParsers[1] = valueParser);
+                categoryParsers[groupIndex + 1] = valueParser;
                 cache[field] = valueParser;
             });
 
@@ -472,7 +468,7 @@ function verifyData(source, incidentOccurred) {
             item = source[i];
             if(_isObject(item)) {
                 data[k++] = item;
-            } else if(item) {  // TODO: And what about `null`, `undefined` and `0`?
+            } else if(item) { // TODO: And what about `null`, `undefined` and `0`?
                 hasError = true;
             }
         }
@@ -484,9 +480,7 @@ function verifyData(source, incidentOccurred) {
 }
 
 function validateData(data, groupsData, incidentOccurred, options) {
-    var skipFields = {},
-        dataByArgumentFields,
-        field;
+    var dataByArgumentFields;
 
     data = verifyData(data, incidentOccurred);
 
@@ -499,17 +493,12 @@ function validateData(data, groupsData, incidentOccurred, options) {
     checkAxisType(groupsData, incidentOccurred);
 
     if(options.convertToAxisDataType) {
-        data = parse(data, prepareParsers(groupsData, skipFields, incidentOccurred));
+        data = parse(data, prepareParsers(groupsData, incidentOccurred));
     }
     groupPieData(data, groupsData);
 
     dataByArgumentFields = sortData(data, groupsData, options, getUniqueArgumentFields(groupsData));
 
-    for(field in skipFields) {
-        if(skipFields[field] === data.length) {
-            incidentOccurred("W2002", [field]);
-        }
-    }
     return dataByArgumentFields;
 }
 

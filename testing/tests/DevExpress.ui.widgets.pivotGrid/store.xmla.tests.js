@@ -1,5 +1,3 @@
-"use strict";
-
 define(function(require) {
     if('callPhantom' in window) return;
 
@@ -7,6 +5,10 @@ define(function(require) {
         QUnit.skip("[non-intranet environment]");
         return;
     }
+
+    var browser = require("core/utils/browser");
+
+    if(browser.msie && parseInt(browser.version) >= 17) return;
 
     var $ = require("jquery"),
         DATA_SOURCE_URL = "http://teamdashboard.corp.devexpress.com/MSOLAP2008/msmdpump.dll",
@@ -818,6 +820,42 @@ define(function(require) {
             assert.deepEqual(data.columns, CATEGORIES_DATA_WITH_COMPONENTS);
         }).fail(getFailCallBack(assert))
             .always(done);
+    });
+
+    QUnit.test("T677334. Correct parse result with empty member value", function(assert) {
+        var send = pivotGridUtils.sendRequest;
+        sinon.stub(pivotGridUtils, "sendRequest", function() {
+            var deferred = $.Deferred();
+            send.apply(this, arguments)
+                .then(function() {
+                    arguments[0] = arguments[0].replace(/<MEMBER_VALUE xsi:type="xsd:short">2001<\/MEMBER_VALUE>/g, "<MEMBER_VALUE/>");
+                    deferred.resolve.apply(deferred, arguments);
+                })
+                .fail(deferred.reject);
+
+            return deferred.promise();
+        });
+
+        var done = assert.async();
+
+        this.store
+            .load({
+                columns: [],
+                rows: [{ dataField: "[Ship Date].[Calendar Year]", filterValues: [CALENDAR_YEAR_DATA[0].key] }, { dataField: "[Ship Date].[Month Of Year]" }],
+                values: [{ dataField: "[Measures].[Customer Count]" }],
+                headerName: "columns",
+                rowExpandedPaths: [[CALENDAR_YEAR_DATA[0].key]]
+            })
+            .done(function(data) {
+                assert.strictEqual(data.rows.length, 1);
+                assert.strictEqual(data.rows[0].value, "");
+                assert.strictEqual(getValue(data, data.rows[0], data.columns[0]), 962);
+            })
+            .fail(getFailCallBack(assert))
+            .always(function() {
+                pivotGridUtils.sendRequest.restore();
+                done();
+            });
     });
 
     QUnit.module("Hierarchies", testEnvironment);
@@ -4278,6 +4316,22 @@ define(function(require) {
         var query = this.getQuery();
 
         assert.ok(query.indexOf("{[Ship Date].[Calendar Bla Bla].&[2002]}") >= 0, "Descendants argument has full key");
+    });
+
+    QUnit.test("T675232. Build a correct filter query when a member has empty key", function(assert) {
+        this.store.load({
+            columns: [{
+                dataField: "[Product].[Category]",
+                filterValues: ["[Product].[Category]&"],
+                filterType: "include"
+            }],
+            rows: [],
+            values: []
+        });
+
+        var filterExpr = this.getQuery().match(/\(select(.+?)on 0/gi);
+
+        assert.deepEqual(filterExpr, ["(SELECT {[Product].[Category].[Product].[Category]&}on 0"]);
     });
 
     QUnit.module("getDrillDownItems", stubsEnvironment);

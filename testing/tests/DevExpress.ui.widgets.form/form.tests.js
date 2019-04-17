@@ -1,22 +1,20 @@
-"use strict";
+import $ from "jquery";
+import resizeCallbacks from "core/utils/resize_callbacks";
+import responsiveBoxScreenMock from "../../helpers/responsiveBoxScreenMock.js";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import typeUtils from "core/utils/type";
+import browser from "core/utils/browser";
+import domUtils from "core/utils/dom";
+import { __internals as internals } from "ui/form/ui.form";
+import themes from "ui/themes";
+import device from "core/devices";
 
-var $ = require("jquery"),
-    resizeCallbacks = require("core/utils/resize_callbacks"),
-    responsiveBoxScreenMock = require("../../helpers/responsiveBoxScreenMock.js"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    typeUtils = require("core/utils/type"),
-    browser = require("core/utils/browser"),
-    domUtils = require("core/utils/dom"),
-    internals = require("ui/form/ui.form").__internals,
-    themes = require("ui/themes");
+import "ui/text_area";
 
-require("ui/text_area");
+import "common.css!";
+import "generic_light.css!";
 
-require("common.css!");
-require("generic_light.css!");
-
-var INVALID_CLASS = "dx-invalid",
-    VALIDATION_SUMMARY_ITEM_CLASS = "dx-validationsummary-item";
+var INVALID_CLASS = "dx-invalid";
 
 QUnit.testStart(function() {
     var markup =
@@ -171,6 +169,30 @@ QUnit.test("Change editor value after formOption is changed and items is defined
     }, "FormData is up to date");
 });
 
+QUnit.test("Reset editor value after formData changing only if dataField is defined", function(assert) {
+    // arrange
+    var $testContainer = $("#form"),
+        form;
+
+    form = $testContainer.dxForm({
+        formData: { pirateName: "Blackbeard", type: "captain", isSought: "Test", gender: "Male" },
+        items: [{ dataField: "gender" }, { dataField: "pirateName" }, { dataField: "type" }, { name: "isSought", editorType: "dxTextBox" }]
+    }).dxForm("instance");
+
+    // act
+    form.getEditor("isSought").option("value", "Changed");
+    form.getEditor("gender").option("value", "Female");
+
+    form.option("formData", {
+        pirateName: "John Morgan",
+        type: "captain"
+    });
+
+    // assert
+    assert.equal(form.getEditor("isSought").option("value"), "Changed", "'isSought' editor wasn't reseted");
+    assert.equal(form.getEditor("gender").option("value"), "", "'gender' editor was reseted");
+});
+
 QUnit.test("Invalid field name when item is defined not as string and not as object", function(assert) {
     // arrange, act
     var form = $("#form").dxForm({
@@ -207,7 +229,7 @@ QUnit.test("dxshown event fire when visible option changed to true", function(as
 });
 
 QUnit.test("Reset editor's value when the formData option is empty object", function(assert) {
-        // arrange
+    // arrange
     var values = [],
         form = $("#form").dxForm({
             formData: {
@@ -223,10 +245,10 @@ QUnit.test("Reset editor's value when the formData option is empty object", func
             }
         }).dxForm("instance");
 
-        // act
+    // act
     form.option("formData", {});
 
-        // assert
+    // assert
     assert.equal(form.getEditor("name").option("value"), "", "editor for the name dataField");
     assert.equal(form.getEditor("room").option("value"), null, "editor for the room dataField");
 
@@ -235,7 +257,7 @@ QUnit.test("Reset editor's value when the formData option is empty object", func
 });
 
 QUnit.test("Reset editor's value when the formData option is null", function(assert) {
-        // arrange
+    // arrange
     var form = $("#form").dxForm({
         formData: {
             name: "User",
@@ -244,16 +266,16 @@ QUnit.test("Reset editor's value when the formData option is null", function(ass
         items: ["name", "room"]
     }).dxForm("instance");
 
-        // act
+    // act
     form.option("formData", null);
 
-        // assert
+    // assert
     assert.equal(form.getEditor("name").option("value"), "", "editor for the name dataField");
     assert.equal(form.getEditor("room").option("value"), null, "editor for the room dataField");
 });
 
 QUnit.test("Reset editor's value when the formData option is undefined", function(assert) {
-        // arrange
+    // arrange
     var form = $("#form").dxForm({
         formData: {
             name: "User",
@@ -262,16 +284,16 @@ QUnit.test("Reset editor's value when the formData option is undefined", functio
         items: ["name", "room"]
     }).dxForm("instance");
 
-        // act
+    // act
     form.option("formData", undefined);
 
-        // assert
+    // assert
     assert.equal(form.getEditor("name").option("value"), "", "editor for the name dataField");
     assert.equal(form.getEditor("room").option("value"), null, "editor for the room dataField");
 });
 
 QUnit.test("Reset editor's value with validation", function(assert) {
-        // arrange
+    // arrange
     var form = $("#form").dxForm({
         formData: {
             name: "User",
@@ -280,10 +302,10 @@ QUnit.test("Reset editor's value with validation", function(assert) {
         items: ["name", { dataField: "lastName", isRequired: true }]
     }).dxForm("instance");
 
-        // act
+    // act
     form.option("formData", undefined);
 
-        // assert
+    // assert
     assert.equal(form.getEditor("name").option("value"), "", "editor for the name dataField");
     assert.equal(form.getEditor("lastName").option("value"), "", "editor for the lastName dataField");
 
@@ -395,6 +417,29 @@ QUnit.test("The formData with composite object is updated correctly when formDat
     var formData = form.option("formData");
     assert.deepEqual(formData, { Employee: { City: "New York" } }, "formData is updated");
     assert.equal($testContainer.find(".dx-field-item").length, 1, "form item is rendered");
+});
+
+QUnit.test("From renders the right types of editors by default", function(assert) {
+    // arrange
+    var $testContainer = $("#form").dxForm({
+        formData: { id: 1, name: "Name" }
+    });
+
+    // assert
+    assert.ok($testContainer.find(".dx-field-item .dx-numberbox").hasClass("dx-editor-outlined"), "right class rendered");
+    assert.ok($testContainer.find(".dx-field-item .dx-textbox").hasClass("dx-editor-outlined"), "right class rendered");
+});
+
+QUnit.test("From renders the right types of editors according to stylingMode option", function(assert) {
+    // arrange
+    var $testContainer = $("#form").dxForm({
+        formData: { id: 1, name: "Name" },
+        stylingMode: "underlined"
+    });
+
+    // assert
+    assert.ok($testContainer.find(".dx-field-item .dx-numberbox").hasClass("dx-editor-underlined"), "right class rendered");
+    assert.ok($testContainer.find(".dx-field-item .dx-textbox").hasClass("dx-editor-underlined"), "right class rendered");
 });
 
 
@@ -1271,6 +1316,42 @@ QUnit.test("Align labels when layout is changed when small window size by defaul
     assert.equal($("." + internals.HIDDEN_LABEL_CLASS).length, 0, "hidden labels count");
 });
 
+QUnit.test("required mark aligned", (assert) => {
+    let $testContainer = $("#form").dxForm({
+        requiredMark: "!",
+        items: [{
+            dataField: "name",
+            isRequired: true
+        }]
+    });
+
+    let $labelsContent = $testContainer.find(`.${internals.FIELD_ITEM_LABEL_CONTENT_CLASS}`),
+        $requiredLabel = $labelsContent.find(`.${internals.FIELD_ITEM_LABEL_TEXT_CLASS}`),
+        $requiredMark = $labelsContent.find(`.${internals.FIELD_ITEM_REQUIRED_MARK_CLASS}`);
+
+    $labelsContent.width(200);
+
+    assert.roughEqual($labelsContent.offset().left + $requiredLabel.width(), $requiredMark.offset().left, 0.5, "position of requared mark is right");
+    assert.ok($requiredLabel.position().left < $requiredMark.position().left, "required mark should be after of the text");
+});
+
+QUnit.test("optional mark aligned", (assert) => {
+    let $testContainer = $("#form").dxForm({
+        optionalMark: "optMark",
+        showOptionalMark: true,
+        items: ["position"]
+    });
+
+    let $labelsContent = $testContainer.find(`.${internals.FIELD_ITEM_LABEL_CONTENT_CLASS}`),
+        $optionalLabel = $labelsContent.find(`.${internals.FIELD_ITEM_LABEL_TEXT_CLASS}`),
+        $optionalMark = $labelsContent.find(`.${internals.FIELD_ITEM_OPTIONAL_MARK_CLASS}`);
+
+    $labelsContent.width(200);
+
+    assert.roughEqual($labelsContent.offset().left + $optionalLabel.width(), $optionalMark.offset().left, 0.5, "position of optional mark is right");
+    assert.ok($optionalLabel.position().left < $optionalMark.position().left, "optional mark should be after of the text");
+});
+
 
 QUnit.module("Public API", {
     beforeEach: function() {
@@ -1340,6 +1421,74 @@ QUnit.test("UpdateData, update with object", function(assert) {
     assert.equal(form.getEditor("test2").option("value"), "qwerty", "editor's value of 'test2' data field");
     assert.equal(form.getEditor("test3.SuperMan").option("value"), "KAndrew", "editor's value of 'test3.SuperMan' data field");
     assert.ok(!form.getEditor("test3.Specialization.good").option("value"), "editor's value of 'test3.Specialization.good' data field");
+});
+
+QUnit.test("Get button instance", function(assert) {
+    var form = $("#form").dxForm({
+        items: [{
+            itemType: "button",
+            name: "button1",
+            buttonOptions: { text: "button1" }
+        }, {
+            itemType: "group",
+            items: [{
+                itemType: "button",
+                name: "button2",
+                buttonOptions: { text: "button2" }
+            }]
+        }, {
+            itemType: "button",
+            buttonOptions: { text: "button3" }
+        }]
+    }).dxForm("instance");
+
+    var formInvalidateSpy = sinon.spy(form, "_invalidate");
+
+    assert.strictEqual(form.getButton("button1").option("text"), "button1");
+    assert.strictEqual(form.getButton("button2").option("text"), "button2");
+    assert.strictEqual(form.getButton("button3"), undefined);
+
+    form.option("items[1].items[0].buttonOptions.text", "changed_button_text");
+
+    assert.strictEqual(form.getButton("button2").option("text"), "changed_button_text");
+    assert.strictEqual(formInvalidateSpy.callCount, 0, "Invalidate does not called");
+});
+
+QUnit.testInActiveWindow("Change 'Button.icon'", function(assert) {
+    ["option", "itemOption", "editor.option"].forEach(function(setOptionWay) {
+        var form = $("#form").dxForm({
+            items: [{
+                itemType: "button",
+                name: "button1",
+                buttonOptions: { icon: "icon1" }
+            }]
+        }).dxForm("instance");
+
+        if(device.real().deviceType === "desktop") {
+            $("#form").find(".dx-button").focus();
+            assert.ok($("#form").find(".dx-button").is(":focus"), "initial focus");
+        }
+
+        switch(setOptionWay) {
+            case "option":
+                form.option("items[0].buttonOptions.icon", "icon2");
+                break;
+            case "itemOption": {
+                const buttonOptions = form.itemOption("button1").buttonOptions;
+                buttonOptions.icon = "icon2";
+                form.itemOption("button1", "buttonOptions", buttonOptions);
+                break;
+            }
+            case "editor.option":
+                form.getButton("button1").option("icon", "icon2");
+                break;
+        }
+
+        assert.strictEqual(form.getButton("button1").option("icon"), "icon2");
+        if(device.real().deviceType === "desktop") {
+            assert.ok($("#form").find(".dx-button").is(":focus") === (setOptionWay !== "itemOption"), "final focus");
+        }
+    });
 });
 
 QUnit.test("Get editor instance", function(assert) {
@@ -1420,9 +1569,9 @@ QUnit.test("UpdateDimensions", function(assert) {
     assert.ok(isSizeUpdated);
 });
 
-function triggerKeyUp($element, keyCode) {
+function triggerKeyUp($element, key) {
     var e = $.Event("keyup");
-    e.which = keyCode;
+    e.key = key;
     $($element.find("input").first()).trigger(e);
 }
 
@@ -1444,7 +1593,7 @@ QUnit.test("Check component instance onEditorEnterKey", function(assert) {
 
     // act
     editor = form.getEditor("work");
-    triggerKeyUp(editor.$element(), 13);
+    triggerKeyUp(editor.$element(), "Enter");
 
     // assert
     assert.notEqual(testArgs.component, undefined, "component");
@@ -1479,8 +1628,8 @@ QUnit.test("Use 'itemOption' do not change the order of an items", function(asse
             formData: { ID: 1, FistName: "Alex", LastName: "Johnson", Address: "Alabama" },
             items: [
                 "ID",
-            { dataField: "FirstName" },
-            { dataField: "LastName" },
+                { dataField: "FirstName" },
+                { dataField: "LastName" },
                 "Address"
             ]
         }),
@@ -1798,207 +1947,35 @@ QUnit.test("'itemOption' should get item by composite path use the name option",
     assert.deepEqual(item.dataField, "LastName", "data field of item");
 });
 
-function getID(form, dataField) {
-    return "dx_" + form.option("formID") + "_" + dataField;
-}
-
-QUnit.test("Validate via validation rules", function(assert) {
+QUnit.test("'itemOption' should get a group item by the name option", function(assert) {
     // arrange
-    var form = $("#form").dxForm({
+    var $testContainer = $("#form").dxForm({
         formData: {
-            name: "",
-            lastName: "Kyle",
-            firstName: ""
+            LastName: "Last Name"
         },
-        customizeItem: function(item) {
-            if(item.dataField !== "lastName") {
-                item.validationRules = [{ type: "required" }];
-            }
-        }
-    }).dxForm("instance");
+        items: [{
+            itemType: "group",
+            name: "testGroup",
+            items: [{
+                name: "simpleItem",
+                dataField: "LastName"
+            }]
+        }]
+    });
 
     // act
-    form.validate();
+    var item = $testContainer.dxForm("instance").itemOption("testGroup");
 
     // assert
-    var invalidSelector = "." + INVALID_CLASS;
-    assert.equal(form.$element().find(invalidSelector).length, 2, "invalid editors count");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "name") + "]").length, 1, "invalid name editor");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "firstName") + "]").length, 1, "invalid firstName editor");
+    assert.ok(!!item, "get a group item");
+    assert.equal(item.itemType, "group", "It's a group item");
+    assert.deepEqual(item.items, [{
+        name: "simpleItem",
+        dataField: "LastName"
+    }], "has correct items");
 });
 
-QUnit.test("Validate with a custom validation group", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        validationGroup: "Custom validation group",
-        formData: {
-            name: "",
-            lastName: "Kyle",
-            firstName: ""
-        },
-        customizeItem: function(item) {
-            if(item.dataField !== "lastName") {
-                item.validationRules = [{ type: "required" }];
-            }
-        }
-    }).dxForm("instance");
-
-    // act
-    form.validate();
-
-    // assert
-    var invalidSelector = "." + INVALID_CLASS;
-    assert.equal(form.$element().find(invalidSelector).length, 2, "invalid editors count");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "name") + "]").length, 1, "invalid name editor");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "firstName") + "]").length, 1, "invalid firstName editor");
-});
-
-QUnit.test("Reset validation summary items when using a custom validation group", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        validationGroup: "Custom validation group",
-        showValidationSummary: true,
-        formData: {
-            name: "",
-            lastName: "John",
-            firstName: ""
-        },
-        customizeItem: function(item) {
-            if(item.dataField !== "lastName") {
-                item.validationRules = [{ type: "required" }];
-            }
-        }
-    }).dxForm("instance");
-
-    // act
-    form.validate();
-    form.resetValues();
-
-    // assert
-    var $invalidElements = form.$element().find("." + INVALID_CLASS),
-        $validationSummaryItems = form.$element().find("." + VALIDATION_SUMMARY_ITEM_CLASS);
-
-    assert.equal($invalidElements.length, 0, "There is no invalid elements");
-    assert.equal($validationSummaryItems.length, 0, "There is no validation summary items");
-});
-
-QUnit.test("Validate form when several forms are rendered", function(assert) {
-    // arrange
-    var form1 = $("#form").dxForm({
-            formData: {
-                name: "",
-                lastName: "Kyle",
-                firstName: ""
-            },
-            customizeItem: function(item) {
-                if(item.dataField !== "lastName") {
-                    item.validationRules = [{ type: "required" }];
-                }
-            }
-        }).dxForm("instance"),
-        form2 = $("#form2").dxForm({
-            formData: {
-                name2: "",
-                lastName2: "Man",
-                firstName2: ""
-            },
-            customizeItem: function(item) {
-                if(item.dataField !== "lastName") {
-                    item.validationRules = [{ type: "required" }];
-                }
-            }
-        }).dxForm("instance");
-
-    // act
-    form1.validate();
-
-    // assert
-    var invalidSelector = "." + INVALID_CLASS;
-    assert.equal(form1.$element().find(invalidSelector).length, 2, "invalid editors count");
-    assert.equal(form1.$element().find(invalidSelector + " [id=" + getID(form1, "name") + "]").length, 1, "invalid name editor");
-    assert.equal(form1.$element().find(invalidSelector + " [id=" + getID(form1, "firstName") + "]").length, 1, "invalid firstName editor");
-
-    assert.equal(form2.$element().find(invalidSelector).length, 0, "invalid editors count");
-    assert.equal(form2.$element().find(invalidSelector + " [id=" + getID(form2, "name2") + "]").length, 0, "invalid name editor");
-    assert.equal(form2.$element().find(invalidSelector + " [id=" + getID(form2, "firstName2") + "]").length, 0, "invalid firstName editor");
-});
-
-QUnit.test("Validate via 'isRequired' item option", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        formData: {
-            name: "",
-            lastName: "Kyle",
-            firstName: ""
-        },
-        customizeItem: function(item) {
-            if(item.dataField !== "lastName") {
-                item.isRequired = true;
-            }
-            if(item.dataField === "name") {
-                item.label = { text: "Middle name" };
-            }
-        }
-    }).dxForm("instance");
-
-    // act
-    form.validate();
-
-    // assert
-    var invalidSelector = "." + INVALID_CLASS;
-    assert.equal(form.$element().find(invalidSelector).length, 2, "invalid editors count");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "name") + "]").length, 1, "invalid name editor");
-    assert.equal(form.$element().find(invalidSelector + "-message").first().text(), "Middle name is required", "Message contains the custom label name of validated field by default");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "firstName") + "]").length, 1, "invalid firstName editor");
-    assert.equal(form.$element().find(".dx-invalid-message").last().text(), "First Name is required", "Message contains the name of validated field by default if label isn't defined");
-});
-
-QUnit.test("Validate via validationRules when rules and 'isRequired' item option are both defined", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        formData: {
-            name: "",
-            lastName: "Kyle",
-            firstName: ""
-        },
-        customizeItem: function(item) {
-            item.isRequired = true;
-            item.validationRules = [{ type: 'stringLength', max: 3 }];
-        }
-    }).dxForm("instance");
-
-    // act
-    form.validate();
-
-    // assert
-    var invalidSelector = "." + INVALID_CLASS;
-    assert.equal(form.$element().find(invalidSelector).length, 1, "invalid editors count");
-    assert.equal(form.$element().find(invalidSelector + " [id=" + getID(form, "lastName") + "]").length, 1, "invalid lastName editor");
-});
-
-QUnit.test("Reset validation summary when values are reset in form", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        formData: {
-            name: "",
-            lastName: "",
-            firstName: ""
-        },
-        showValidationSummary: true,
-        customizeItem: function(item) {
-            item.isRequired = true;
-        }
-    }).dxForm("instance");
-
-    // act
-    form.validate();
-    form.resetValues();
-
-    // assert
-    assert.equal($("." + VALIDATION_SUMMARY_ITEM_CLASS).length, 0, "validation summary items");
-});
-
-QUnit.test("Changing an editor options of an any item does not invalidate whole form (T311892)", function(assert) {
+QUnit.test("Changing an editor/button options of an any item does not invalidate whole form (T311892, T681241)", function(assert) {
     // arrange
     var form = $("#form").dxForm({
             formData: {
@@ -2007,22 +1984,29 @@ QUnit.test("Changing an editor options of an any item does not invalidate whole 
             },
             items: [
                 { dataField: "firstName", editorType: "dxTextBox", editorOption: { width: 100, height: 20 } },
-                { dataField: "lastName", editorType: "dxTextBox", editorOption: { width: 100, height: 20 } }
+                { dataField: "lastName", editorType: "dxTextBox", editorOption: { width: 100, height: 20 } },
+                { itemType: "button", buttonOptions: { width: 100, height: 20 } }
             ]
         }).dxForm("instance"),
         formInvalidateSpy = sinon.spy(form, "_invalidate");
 
     // act
     form.option("items[1].editorOptions", { width: 80, height: 40 });
+    form.option("items[2].buttonOptions", { width: 10, height: 20 });
 
     // assert
-    var secondEditor = $("#form .dx-textbox").last().dxTextBox("instance");
+    var editor = $("#form .dx-textbox").last().dxTextBox("instance"),
+        button = $("#form .dx-button").last().dxButton("instance");
 
     assert.deepEqual(form.option("items[1].editorOptions"), { width: 80, height: 40 }, "correct editor options");
+    assert.deepEqual(form.option("items[2].buttonOptions"), { width: 10, height: 20 }, "correct button options");
+
     assert.equal(formInvalidateSpy.callCount, 0, "Invalidate does not called");
 
-    assert.equal(secondEditor.option("width"), 80, "Correct width");
-    assert.equal(secondEditor.option("height"), 40, "Correct height");
+    assert.equal(editor.option("width"), 80, "Correct editor width");
+    assert.equal(editor.option("height"), 40, "Correct editor height");
+    assert.equal(button.option("width"), 10, "Correct button width");
+    assert.equal(button.option("height"), 20, "Correct button height");
 });
 
 QUnit.test("Changing editorOptions of subitem change editor options (T316522)", function(assert) {
@@ -2037,8 +2021,8 @@ QUnit.test("Changing editorOptions of subitem change editor options (T316522)", 
                 itemType: "group", items: [
                     {
                         itemType: "group", items: [
-                                { dataField: "firstName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } },
-                                { dataField: "lastName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } }
+                            { dataField: "firstName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } },
+                            { dataField: "lastName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } }
                         ]
                     }
                 ]
@@ -2064,8 +2048,8 @@ QUnit.test("editorOptions correctly updates in case when only item name is defin
                 itemType: "group", items: [
                     {
                         itemType: "group", items: [
-                                { name: "firstName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } },
-                                { name: "lastName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } }
+                            { name: "firstName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } },
+                            { name: "lastName", editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } }
                         ]
                     }
                 ]
@@ -2086,34 +2070,8 @@ QUnit.test("editorOptions correctly updates in case when only item name is defin
     assert.equal(secondEditor.option("height"), 40, "Correct height");
 });
 
-QUnit.test("widget invalidates in case we cannot change an editor options", function(assert) {
-    // arrange
-    var form = $("#form").dxForm({
-        items: [
-            {
-                itemType: "group", items: [
-                    {
-                        itemType: "group", items: [
-                                { editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } },
-                                { editorType: "dxTextBox", editorOptions: { width: 100, height: 20 } }
-                        ]
-                    }
-                ]
-            }
-        ]
-    }).dxForm("instance");
-
-    var invalidateSpy = sinon.spy(form, "_invalidate");
-
-    // act
-    form.option("items[0].items[0].items[1].editorOptions", { width: 80, height: 40 });
-
-    // assert
-    assert.equal(invalidateSpy.callCount, 1, "dxForm invalidated");
-});
-
 QUnit.test("Reset editor's value", function(assert) {
-        // arrange
+    // arrange
     var form = $("#form").dxForm({
         formData: {
             name: "User",
@@ -2124,20 +2082,20 @@ QUnit.test("Reset editor's value", function(assert) {
         items: ["name", "lastName", "room", "isDeveloper"]
     }).dxForm("instance");
 
-        // act
+    // act
     form.resetValues();
 
-        // assert
-    assert.equal(form.getEditor("name").option("value"), "", "editor for the name dataField");
-    assert.equal(form.getEditor("lastName").option("value"), "", "editor for the lastName dataField");
-    assert.equal(form.getEditor("room").option("value"), null, "editor for the room dataField");
-    assert.equal(form.getEditor("isDeveloper").option("value"), undefined, "editor for the isDeveloper dataField");
+    // assert
+    assert.strictEqual(form.getEditor("name").option("value"), "", "editor for the name dataField");
+    assert.strictEqual(form.getEditor("lastName").option("value"), "", "editor for the lastName dataField");
+    assert.strictEqual(form.getEditor("room").option("value"), null, "editor for the room dataField");
+    assert.strictEqual(form.getEditor("isDeveloper").option("value"), false, "editor for the isDeveloper dataField");
 });
 
 QUnit.module("Adaptivity");
 
 QUnit.test("One column screen should be customizable with screenByWidth option on init", function(assert) {
-        // arrange
+    // arrange
     var $form = $("#form");
 
     $form.dxForm({
@@ -2152,13 +2110,13 @@ QUnit.test("One column screen should be customizable with screenByWidth option o
         items: ["name", "lastName", "room", "isDeveloper"]
     });
 
-        // assert
+    // assert
     assert.equal($form.find(".dx-layout-manager-one-col").length, 1, "single column screen was changed");
     assert.equal($form.find(".dx-single-column-item-content").length, 4, "There are 4 items in the column");
 });
 
 QUnit.test("One column screen should be customizable with screenByWidth option on option change", function(assert) {
-        // arrange
+    // arrange
     var $form = $("#form"),
         form = $form.dxForm({
             formData: {
@@ -2521,4 +2479,75 @@ QUnit.test("Form redraw layout when colCount is 'auto' and an calculated colCoun
 
     // assert
     assert.equal(refreshSpy.callCount, 1, "form has been redraw layout");
+});
+
+QUnit.module("Form when rtlEnabled is true");
+
+QUnit.test("required mark aligned when rtlEnabled option is set to true", (assert) => {
+    let $testContainer = $("#form").dxForm({
+        requiredMark: "!",
+        rtlEnabled: true,
+        items: [{
+            dataField: "name",
+            isRequired: true
+        }]
+    });
+
+    let $labelsContent = $testContainer.find(`.${internals.FIELD_ITEM_LABEL_CONTENT_CLASS}`),
+        $requiredLabel = $labelsContent.find(`.${internals.FIELD_ITEM_LABEL_TEXT_CLASS}`),
+        $requiredMark = $labelsContent.find(`.${internals.FIELD_ITEM_REQUIRED_MARK_CLASS}`);
+
+    $labelsContent.width(200);
+
+    assert.notEqual($labelsContent.offset().left, $requiredMark.offset().left, "position of requared mark is right");
+    assert.ok($requiredLabel.position().left > $requiredMark.position().left, "required mark should be before of the text");
+});
+
+QUnit.test("optional mark aligned when rtlEnabled option is set to true", (assert) => {
+    let $testContainer = $("#form").dxForm({
+        optionalMark: "optMark",
+        showOptionalMark: true,
+        rtlEnabled: true,
+        items: ["position"]
+    });
+
+    let $labelsContent = $testContainer.find(`.${internals.FIELD_ITEM_LABEL_CONTENT_CLASS}`),
+        $optionalLabel = $labelsContent.find(`.${internals.FIELD_ITEM_LABEL_TEXT_CLASS}`),
+        $optionalMark = $labelsContent.find(`.${internals.FIELD_ITEM_OPTIONAL_MARK_CLASS}`);
+
+    $labelsContent.width(200);
+
+    assert.notEqual($labelsContent.offset().left, $optionalMark.offset().left, "position of optional mark is right");
+    assert.ok($optionalLabel.position().left > $optionalMark.position().left, "optional mark should be before of the text");
+});
+
+QUnit.module("Events");
+
+QUnit.test("Should not skip `optionChanged` event handler that has been added on the `onInitialized` event handler", function(assert) {
+    var eventCalls = [];
+
+    var form = $("#form").dxForm({
+        formData: { firstName: "John" },
+        onOptionChanged: function() {
+            eventCalls.push("onOptionChanged");
+        },
+        onContentReady: function(e) {
+            e.component.on("optionChanged", function() {
+                eventCalls.push("optionChanged from `onContentReady`");
+            });
+        },
+        onInitialized: function(e) {
+            e.component.on('optionChanged', function() {
+                eventCalls.push("optionChanged from `onInitialized`");
+            });
+        }
+    }).dxForm("instance");
+
+    form.option("formData", { lastName: "John" });
+
+    assert.deepEqual(eventCalls, [
+        "optionChanged from `onInitialized`",
+        "optionChanged from `onContentReady`",
+        "onOptionChanged"
+    ]);
 });

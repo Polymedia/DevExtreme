@@ -1,6 +1,4 @@
-/* jshint node: true */
-
-"use strict";
+/* eslint-env node */
 
 module.exports = {
     output: {
@@ -18,6 +16,9 @@ module.exports = {
         'globalize/number': 'window.Globalize',
         'globalize/currency': 'window.Globalize',
         'globalize/date': 'window.Globalize',
-        'globalize/message': 'window.Globalize'
+        'globalize/message': 'window.Globalize',
+        'quill': 'window.Quill',
+        'turndown': 'window.TurndownService',
+        'showdown': 'window.showdown'
     }
 };

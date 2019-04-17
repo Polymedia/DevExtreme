@@ -1,21 +1,22 @@
-"use strict";
+import $ from "jquery";
+import { noop } from "core/utils/common";
+import devices from "core/devices";
+import Template from "ui/widget/template";
+import Guid from "core/guid";
+import { DataSource } from "data/data_source/data_source";
+import ArrayStore from "data/array_store";
+import CustomStore from "data/custom_store";
+import keyboardMock from "../../helpers/keyboardMock.js";
+import browser from "core/utils/browser";
+import fx from "animation/fx";
+import { isRenderer } from "core/utils/type";
+import config from "core/config";
+import ajaxMock from "../../helpers/ajaxMock.js";
 
-var $ = require("jquery"),
-    noop = require("core/utils/common").noop,
-    devices = require("core/devices"),
-    Template = require("ui/widget/jquery.template"),
-    Guid = require("core/guid"),
-    DataSource = require("data/data_source/data_source").DataSource,
-    ArrayStore = require("data/array_store"),
-    CustomStore = require("data/custom_store"),
-    keyboardMock = require("../../helpers/keyboardMock.js"),
-    browser = require("core/utils/browser"),
-    fx = require("animation/fx"),
-    isRenderer = require("core/utils/type").isRenderer,
-    config = require("core/config"),
-    ajaxMock = require("../../helpers/ajaxMock.js");
+import "ui/drop_down_editor/ui.drop_down_list";
 
-require("ui/drop_down_editor/ui.drop_down_list");
+import "common.css!";
+import "generic_light.css!";
 
 QUnit.testStart(function() {
     var markup =
@@ -594,6 +595,26 @@ QUnit.test("dropDownList should search for a pasted value", function(assert) {
     assert.equal(searchSpy.callCount, 1, "widget searched for a suitable values");
 });
 
+QUnit.test("dropDownList should search in grouped DataSource", function(assert) {
+    var $element = $("#dropDownList").dxDropDownList({
+            grouped: true,
+            searchEnabled: true,
+            valueExpr: "name",
+            displayExpr: "name",
+            searchExpr: "name",
+            dataSource: [{ key: "a", items: [{ name: "1" }] }, { key: "b", items: [{ name: "2" }] }]
+        }),
+        instance = $element.dxDropDownList("instance"),
+        $input = $element.find("input"),
+        kb = keyboardMock($input),
+        expectedValue = { key: "b", items: [{ name: "2", key: "b" }] };
+
+    kb.type("2");
+    this.clock.tick(500);
+
+    assert.deepEqual(instance.option("items")[0], expectedValue, "widget searched for a suitable values");
+});
+
 QUnit.test("valueExpr should not be passed to the list if it is 'this'", function(assert) {
     // note: selection can not work with this and function as keyExpr.
     // Allowing of this breaks the case when store key is specified and deferred datasource is used
@@ -601,23 +622,6 @@ QUnit.test("valueExpr should not be passed to the list if it is 'this'", functio
         dataSource: [{ id: 1, text: "Item 1" }],
         displayExpr: 'text',
         valueExpr: 'this',
-        opened: true
-    });
-
-    var list = $(".dx-list").dxList("instance");
-
-    assert.equal(list.option("keyExpr"), null, "keyExpr is correct");
-});
-
-QUnit.test("valueExpr should not be passed to the list if it is the function", function(assert) {
-    // note: selection can not work with this and function as keyExpr.
-    // Allowing of this breaks the case when store key is specified and deferred datasource is used
-    $("#dropDownList").dxDropDownList({
-        dataSource: [{ id: 1, text: "Item 1" }],
-        displayExpr: 'text',
-        valueExpr: function(item) {
-            return item && item.id;
-        },
         opened: true
     });
 
@@ -643,9 +647,6 @@ QUnit.test("valueExpr should be passed to the list's keyExpr option", function(a
 
     dropDownList.option("valueExpr", "text");
     assert.equal(list.option("keyExpr"), "text", "keyExpr should be passed on optionChanged");
-
-    dropDownList.option("valueExpr", function() {});
-    assert.equal(list.option("keyExpr"), null, "keyExpr should be cleared when valueExpr was changed to function");
 });
 
 QUnit.test("value option should be case-sensitive", function(assert) {
@@ -961,9 +962,6 @@ QUnit.test("skip gesture event class attach only when popup is opened", function
 });
 
 QUnit.test("After load new page scrollTop should not be changed", function(assert) {
-    require("common.css!");
-    require("generic_light.css!");
-
     this.clock.restore();
 
     var data = [],
@@ -1009,9 +1007,6 @@ QUnit.testInActiveWindow("After search and load new page scrollTop should not be
         assert.ok(true, "test does not actual for IE");
         return;
     }
-
-    require("common.css!");
-    require("generic_light.css!");
 
     this.clock.restore();
 
@@ -1072,6 +1067,20 @@ QUnit.test("popup should be configured with templatesRenderAsynchronously=false 
     var popup = $(".dx-dropdowneditor-overlay.dx-popup").dxPopup("instance");
 
     assert.strictEqual(popup.option("templatesRenderAsynchronously"), false, "templatesRenderAsynchronously should have false value");
+});
+
+QUnit.test("popup should be configured with autoResizeEnabled=false (to prevent issues with pushBackValue and scrolling in IOS)", (assert) => {
+    const data = ["item-1"];
+
+    $("#dropDownList").dxDropDownList({
+        dataSource: new DataSource(data),
+        value: data[0],
+        opened: true
+    });
+
+    const popup = $(".dx-dropdowneditor-overlay.dx-popup").dxPopup("instance");
+
+    assert.strictEqual(popup.option("autoResizeEnabled"), false, "autoResizeEnabled should have false value");
 });
 
 

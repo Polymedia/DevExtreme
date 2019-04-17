@@ -1,5 +1,3 @@
-"use strict";
-
 require("ui/action_sheet");
 
 var $ = require("jquery"),
@@ -13,6 +11,7 @@ var $ = require("jquery"),
     config = require("core/config"),
     pointerMock = require("../../../helpers/pointerMock.js"),
     contextMenuEvent = require("events/contextmenu"),
+    keyboardMock = require("../../../helpers/keyboardMock.js"),
     decoratorRegistry = require("ui/list/ui.list.edit.decorator_registry"),
     SwitchableEditDecorator = require("ui/list/ui.list.edit.decorator.switchable"),
     SwitchableButtonEditDecorator = require("ui/list/ui.list.edit.decorator.switchable.button"),
@@ -24,6 +23,7 @@ require("ui/list");
 require("common.css!");
 
 var LIST_ITEM_CLASS = "dx-list-item",
+    LIST_ITEM_ICON_CONTAINER_CLASS = "dx-list-item-icon-container",
     LIST_ITEM_CONTENT_CLASS = "dx-list-item-content",
     LIST_ITEM_BEFORE_BAG_CLASS = "dx-list-item-before-bag";
 
@@ -521,6 +521,17 @@ QUnit.test("list item markup", function(assert) {
     assert.equal(deleteButtonContent().length, 0, "button is not generated");
 });
 
+QUnit.test("icon should not be rendered when custom item template is used", function(assert) {
+    var $list = $($("#templated-list").dxList({
+        items: [{ icon: "box", text: "Item 1" }],
+        itemTemplate: function(data) {
+            return $("<div>").text("$: " + data.text);
+        }
+    }));
+
+    assert.equal($list.find("." + LIST_ITEM_ICON_CONTAINER_CLASS).length, 0, "item content has not been rendered");
+});
+
 QUnit.test("swipe should prepare item for delete", function(assert) {
     var $list = $($("#templated-list").dxList({
         items: ["0"],
@@ -805,6 +816,33 @@ QUnit.test("button should have no inkRipple after fast swipe for Material theme"
     clock.restore();
     themes.isMaterial = origIsMaterial;
     themes.current = origCurrent;
+});
+
+QUnit.test("inkRipple feedback should not be broken if swipe in opposite direction", function(assert) {
+    var $list = $($("#templated-list").dxList({
+        items: ["0"],
+        allowItemDeleting: true,
+        itemDeleteMode: "slideItem",
+        useInkRipple: true
+    }));
+
+    var $items = $list.find(toSelector(LIST_ITEM_CLASS)),
+        $item = $items.eq(0),
+        clock = sinon.useFakeTimers(),
+        pointer = pointerMock($item);
+
+    pointer.start().swipeStart().swipe(0.01);
+    clock.tick(50);
+    pointer.start("touch").up();
+    clock.tick(50);
+    pointer.start("touch").down();
+    clock.tick(100);
+    var inkRippleShowingWave = $item.find(toSelector(INKRIPPLE_WAVE_SHOWING_CLASS));
+
+    assert.ok(inkRippleShowingWave.length === 1, "inkripple feedback works right after swipe in opposite direction");
+
+    pointer.start("touch").up();
+    clock.restore();
 });
 
 QUnit.test("swipe should prepare item for delete in RTL mode", function(assert) {
@@ -1305,7 +1343,6 @@ QUnit.test("item should be deleted from menu", function(assert) {
 
     $deleteMenuItem.trigger("dxclick");
 });
-
 
 QUnit.module("context menu decorator", {
     beforeEach: function() {
@@ -2481,6 +2518,23 @@ QUnit.test("item click changes radio button state only to true in single selecti
     var radioButton = $item.children(toSelector(LIST_ITEM_BEFORE_BAG_CLASS)).children(toSelector(SELECT_RADIO_BUTTON_CLASS)).dxRadioButton("instance");
 
     assert.equal(radioButton.option("value"), true, "item selected");
+});
+
+QUnit.test("keyboard navigation should work with without selectAll checkbox", function(assert) {
+    var $list = $($("#templated-list").dxList({
+            focusStateEnabled: true,
+            items: ["0", "1"],
+            showSelectionControls: true,
+            selectionMode: 'single'
+        })),
+        instance = $list.dxList("instance"),
+        keyboard = keyboardMock($list);
+
+    keyboard
+        .press("down")
+        .press("enter");
+
+    assert.deepEqual(instance.option("selectedItems"), ["1"], "selection is correct");
 });
 
 

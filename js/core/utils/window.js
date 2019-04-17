@@ -1,5 +1,3 @@
-"use strict";
-
 /* global window */
 
 var domAdapter = require("../dom_adapter");
@@ -42,14 +40,6 @@ module.exports = {
         var windowWidth = domAdapter.getDocumentElement()["clientWidth"];
 
         return screenFactorFunc(windowWidth);
-    },
-
-    openWindow: function() {
-        if(this.hasProperty("open")) {
-            return windowObject.open();
-        }
-
-        return null;
     },
 
     getNavigator: function() {

@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     noop = require("core/utils/common").noop,
     ko = require("knockout"),
@@ -162,7 +160,7 @@ QUnit.test("Recreate navigation", function(assert) {
             },
             initOptions: {
                 navigation: [
-                { title: "c1", id: "c1" }
+                    { title: "c1", id: "c1" }
                 ]
             }
         }),

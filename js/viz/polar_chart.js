@@ -1,5 +1,3 @@
-"use strict";
-
 var _noop = require("../core/utils/common").noop,
     registerComponent = require("../core/component_registrator"),
     extend = require("../core/utils/extend").extend,
@@ -65,7 +63,7 @@ var dxPolarChart = AdvancedChart.inherit({
     _renderAxes: function(drawOptions) {
         var that = this,
             valueAxis = that._getValueAxis(),
-            argumentAxis = that._getArgumentAxis();
+            argumentAxis = that.getArgumentAxis();
 
         var canvas = that._calcCanvas(argumentAxis.measureLabels(extend({}, that._canvas), true));
 
@@ -78,9 +76,9 @@ var dxPolarChart = AdvancedChart.inherit({
         return this._valueAxes[0];
     },
 
-    _shrinkAxes: function(drawOptions, sizeShortage) {
+    _shrinkAxes: function(sizeShortage) {
         var valueAxis = this._getValueAxis(),
-            argumentAxis = this._getArgumentAxis();
+            argumentAxis = this.getArgumentAxis();
 
         if(sizeShortage && (sizeShortage.width || sizeShortage.height)) {
             argumentAxis.hideOuterElements();

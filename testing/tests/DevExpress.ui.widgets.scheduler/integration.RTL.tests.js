@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery");
 
 QUnit.testStart(function() {
@@ -13,8 +11,7 @@ require("common.css!");
 require("generic_light.css!");
 
 
-var $ = require("jquery"),
-    fx = require("animation/fx"),
+var fx = require("animation/fx"),
     Color = require("color"),
     DataSource = require("data/data_source/data_source").DataSource;
 

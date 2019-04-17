@@ -1,19 +1,17 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    domAdapter = require("../../core/dom_adapter"),
-    eventsEngine = require("../../events/core/events_engine"),
-    Callbacks = require("../../core/utils/callbacks"),
-    typeUtils = require("../../core/utils/type"),
-    each = require("../../core/utils/iterator").each,
-    extend = require("../../core/utils/extend").extend,
-    eventUtils = require("../../events/utils"),
-    pointerEvents = require("../../events/pointer"),
-    dragEvents = require("../../events/drag"),
-    addNamespace = eventUtils.addNamespace,
-    modules = require("./ui.grid_core.modules"),
-    gridCoreUtils = require("./ui.grid_core.utils"),
-    fx = require("../../animation/fx");
+import $ from "../../core/renderer";
+import domAdapter from "../../core/dom_adapter";
+import eventsEngine from "../../events/core/events_engine";
+import Callbacks from "../../core/utils/callbacks";
+import typeUtils from "../../core/utils/type";
+import { each } from "../../core/utils/iterator";
+import { extend } from "../../core/utils/extend";
+import { addNamespace, eventData as getEventData, isTouchEvent } from "../../events/utils";
+import pointerEvents from "../../events/pointer";
+import dragEvents from "../../events/drag";
+import modules from "./ui.grid_core.modules";
+import gridCoreUtils from "./ui.grid_core.utils";
+import fx from "../../animation/fx";
+import { getSwatchContainer } from "../widget/swatch_container";
 
 var COLUMNS_SEPARATOR_CLASS = "columns-separator",
     COLUMNS_SEPARATOR_TRANSPARENT = "columns-separator-transparent",
@@ -25,6 +23,7 @@ var COLUMNS_SEPARATOR_CLASS = "columns-separator",
     BLOCK_SEPARATOR_CLASS = "dx-block-separator",
     HEADER_ROW_CLASS = "dx-header-row",
     WIDGET_CLASS = "dx-widget",
+    DRAGGING_COMMAND_CELL_CLASS = "dx-drag-command-cell",
 
     MODULE_NAMESPACE = "dxDataGridResizingReordering",
 
@@ -228,6 +227,7 @@ var ColumnsSeparatorView = SeparatorView.inherit({
         if($element && (this._isShown || force)) {
             if(this._isTransparent) {
                 $element.addClass(columnsSeparatorTransparent);
+                $element.css("left", "");
                 $element.show();
             } else {
                 if($element.hasClass(columnsSeparatorTransparent)) {
@@ -421,7 +421,8 @@ var DraggingHeaderView = modules.View.inherit({
 
     dragHeader: function(options) {
         var that = this,
-            columnElement = options.columnElement;
+            columnElement = options.columnElement,
+            isCommandColumn = !!options.sourceColumn.type;
 
         that._isDragging = true;
         that._dragOptions = options;
@@ -443,14 +444,15 @@ var DraggingHeaderView = modules.View.inherit({
 
         that.element().css({
             textAlign: columnElement && columnElement.css("textAlign"),
-            height: columnElement && columnElement.height(),
-            width: columnElement && columnElement.width(),
+            height: columnElement && (isCommandColumn && columnElement.get(0).clientHeight || columnElement.height()),
+            width: columnElement && (isCommandColumn && columnElement.get(0).clientWidth || columnElement.width()),
             whiteSpace: columnElement && columnElement.css("whiteSpace")
         })
             .addClass(that.addWidgetPrefix(HEADERS_DRAG_ACTION_CLASS))
-            .text(options.sourceColumn.caption);
+            .toggleClass(DRAGGING_COMMAND_CELL_CLASS, isCommandColumn)
+            .text(isCommandColumn ? "" : options.sourceColumn.caption);
 
-        that.element().appendTo($("body"));
+        that.element().appendTo(getSwatchContainer(columnElement));
     },
 
     moveHeader: function(args) {
@@ -460,7 +462,7 @@ var DraggingHeaderView = modules.View.inherit({
             newTop,
             moveDeltaX,
             moveDeltaY,
-            eventData = eventUtils.eventData(e),
+            eventData = getEventData(e),
             isResizing = that._columnsResizerViewController ? that._columnsResizerViewController.isResizing() : false,
             dragOptions = that._dragOptions;
 
@@ -490,6 +492,7 @@ var DraggingHeaderView = modules.View.inherit({
             controller = that._controller,
             i,
             params = that._dropOptions,
+            dragOptions = that._dragOptions,
             centerPosition;
 
         if(targetDraggingPanel) {
@@ -497,16 +500,19 @@ var DraggingHeaderView = modules.View.inherit({
                 isVerticalOrientation = targetDraggingPanel.getName() === "columnChooser",
                 axisName = isVerticalOrientation ? "y" : "x",
                 targetLocation = targetDraggingPanel.getName(),
-                rowIndex = targetLocation === "headers" ? that._dragOptions.rowIndex : undefined,
-                sourceColumn = that._dragOptions.sourceColumn,
+                rowIndex = targetLocation === "headers" ? dragOptions.rowIndex : undefined,
+                sourceColumn = dragOptions.sourceColumn,
                 columnElements = targetDraggingPanel.getColumnElements(rowIndex, sourceColumn && sourceColumn.ownerBand) || [],
-                pointsByColumns = targetLocation === "columnChooser" ? [] : controller._generatePointsByColumns(extend({}, that._dragOptions, {
+                pointsByTarget = dragOptions.pointsByTarget = dragOptions.pointsByTarget || {},
+                pointsByColumns = targetLocation === "columnChooser" ? [] : pointsByTarget[targetLocation] || controller._generatePointsByColumns(extend({}, dragOptions, {
                     targetDraggingPanel: targetDraggingPanel,
                     columns: targetDraggingPanel.getColumns(rowIndex),
                     columnElements: columnElements,
                     isVerticalOrientation: isVerticalOrientation,
                     startColumnIndex: targetLocation === "headers" && $(columnElements[0]).index()
                 }));
+
+            pointsByTarget[targetLocation] = pointsByColumns;
 
             ///#DEBUG
             this._testPointsByColumns = pointsByColumns;
@@ -617,7 +623,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             deltaX = columnsSeparatorWidth / 2,
             parentOffset = that._$parentContainer.offset(),
             parentOffsetLeft = parentOffset.left,
-            eventData = eventUtils.eventData(e);
+            eventData = getEventData(e);
 
         if(that._isResizing && that._resizingInfo) {
             if(parentOffsetLeft <= eventData.x && (!isNextColumnMode || eventData.x <= parentOffsetLeft + that._$parentContainer.width())) {
@@ -700,21 +706,21 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
         that._resizingInfo = {
             startPosX: posX,
             currentColumnIndex: currentColumnIndex,
-            currentColumnWidth: currentHeader && currentHeader.length > 0 ? currentHeader.outerWidth() : 0,
+            currentColumnWidth: currentHeader && currentHeader.length > 0 ? currentHeader[0].getBoundingClientRect().width : 0,
             nextColumnIndex: nextColumnIndex,
-            nextColumnWidth: nextHeader && nextHeader.length > 0 ? nextHeader.outerWidth() : 0
+            nextColumnWidth: nextHeader && nextHeader.length > 0 ? nextHeader[0].getBoundingClientRect().width : 0
         };
     },
 
     _startResizing: function(args) {
         var e = args.event,
             that = e.data,
-            eventData = eventUtils.eventData(e),
+            eventData = getEventData(e),
             editingController = that.getController("editing"),
             editingMode = that.option("editing.mode"),
             isCellEditing = editingController.isEditing() && (editingMode === "batch" || editingMode === "cell");
 
-        if(eventUtils.isTouchEvent(e)) {
+        if(isTouchEvent(e)) {
             if(that._isHeadersRowArea(eventData.y)) {
                 that._targetPoint = that._getTargetPoint(that.pointsByColumns(), eventData.x, COLUMNS_SEPARATOR_TOUCH_TRACKER_WIDTH);
                 if(that._targetPoint) {
@@ -783,6 +789,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
         var deltaX,
             needUpdate = false,
             nextCellWidth,
+            resizingInfo = this._resizingInfo,
             columnsController = this._columnsController,
             visibleColumns = columnsController.getVisibleColumns(),
             columnsSeparatorWidth = this._columnsSeparatorView.width(),
@@ -794,35 +801,59 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             nextColumn,
             cellWidth;
 
+        function isPercentWidth(width) {
+            return typeUtils.isString(width) && width.slice(-1) === "%";
+        }
+
         function setColumnWidth(column, columnWidth, contentWidth, adaptColumnWidthByRatio) {
             if(column) {
                 var oldColumnWidth = column.width;
                 if(oldColumnWidth) {
-                    adaptColumnWidthByRatio = typeUtils.isString(oldColumnWidth) && oldColumnWidth.slice(-1) === "%";
+                    adaptColumnWidthByRatio = isPercentWidth(oldColumnWidth);
                 }
 
                 if(adaptColumnWidthByRatio) {
                     column && columnsController.columnOption(column.index, "visibleWidth", columnWidth);
                     column && columnsController.columnOption(column.index, "width", (columnWidth / contentWidth * 100).toFixed(3) + "%");
                 } else {
-                    column && columnsController.columnOption(column.index, "visibleWidth", undefined);
+                    column && columnsController.columnOption(column.index, "visibleWidth", null);
                     column && columnsController.columnOption(column.index, "width", columnWidth);
                 }
             }
         }
 
-        deltaX = posX - this._resizingInfo.startPosX;
+        function correctContentWidth(contentWidth, visibleColumns) {
+            var allColumnsHaveWidth = visibleColumns.every(column => column.width),
+                totalPercent;
+
+            if(allColumnsHaveWidth) {
+                totalPercent = visibleColumns.reduce((sum, column) => {
+                    if(isPercentWidth(column.width)) {
+                        sum += parseFloat(column.width);
+                    }
+                    return sum;
+                }, 0);
+
+                if(totalPercent > 100) {
+                    contentWidth = contentWidth / totalPercent * 100;
+                }
+            }
+
+            return contentWidth;
+        }
+
+        deltaX = posX - resizingInfo.startPosX;
         if(isNextColumnMode && this.option("rtlEnabled")) {
             deltaX = -deltaX;
         }
-        cellWidth = this._resizingInfo.currentColumnWidth + deltaX;
-        column = visibleColumns[this._resizingInfo.currentColumnIndex];
+        cellWidth = resizingInfo.currentColumnWidth + deltaX;
+        column = visibleColumns[resizingInfo.currentColumnIndex];
         minWidth = column && column.minWidth || columnsSeparatorWidth;
         needUpdate = cellWidth >= minWidth;
 
         if(isNextColumnMode) {
-            nextCellWidth = this._resizingInfo.nextColumnWidth - deltaX;
-            nextColumn = visibleColumns[this._resizingInfo.nextColumnIndex];
+            nextCellWidth = resizingInfo.nextColumnWidth - deltaX;
+            nextColumn = visibleColumns[resizingInfo.nextColumnIndex];
             minWidth = nextColumn && nextColumn.minWidth || columnsSeparatorWidth;
             needUpdate = needUpdate && nextCellWidth >= minWidth;
         }
@@ -831,6 +862,9 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             columnsController.beginUpdate();
 
             cellWidth = Math.floor(cellWidth);
+
+            contentWidth = correctContentWidth(contentWidth, visibleColumns);
+
             setColumnWidth(column, cellWidth, contentWidth, adaptColumnWidthByRatio);
 
             if(isNextColumnMode) {
@@ -838,6 +872,14 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
                 setColumnWidth(nextColumn, nextCellWidth, contentWidth, adaptColumnWidthByRatio);
             } else {
                 var columnWidths = this._columnHeadersView.getColumnWidths();
+                columnWidths[resizingInfo.currentColumnIndex] = cellWidth;
+                var hasScroll = columnWidths.reduce((totalWidth, width) => totalWidth + width, 0) > this._rowsView.contentWidth();
+                if(!hasScroll) {
+                    var lastColumnIndex = gridCoreUtils.getLastResizableColumnIndex(visibleColumns);
+                    if(lastColumnIndex >= 0) {
+                        columnsController.columnOption(visibleColumns[lastColumnIndex].index, "visibleWidth", "auto");
+                    }
+                }
                 for(var i = 0; i < columnWidths.length; i++) {
                     if(visibleColumns[i] && visibleColumns[i] !== column && visibleColumns[i].width === undefined) {
                         columnsController.columnOption(visibleColumns[i].index, "width", columnWidths[i]);
@@ -972,6 +1014,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
 var TablePositionViewController = modules.ViewController.inherit({
     update: function(top) {
         var that = this,
+            params = {},
             $element = that._columnHeadersView.element(),
             offset = $element && $element.offset(),
             offsetTop = offset && offset.top || 0,
@@ -979,10 +1022,13 @@ var TablePositionViewController = modules.ViewController.inherit({
             columnsHeadersHeight = that._columnHeadersView ? that._columnHeadersView.getHeight() : 0,
             rowsHeight = that._rowsView ? that._rowsView.height() - that._rowsView.getScrollbarWidth(true) : 0;
 
-        that.positionChanged.fire({
-            height: columnsHeadersHeight + rowsHeight - diffOffsetTop,
-            top: $element && $element.length && $element[0].offsetTop + diffOffsetTop
-        });
+        params.height = columnsHeadersHeight + rowsHeight - diffOffsetTop;
+
+        if(top !== null && $element && $element.length) {
+            params.top = $element[0].offsetTop + diffOffsetTop;
+        }
+
+        that.positionChanged.fire(params);
     },
 
     init: function() {
@@ -996,7 +1042,7 @@ var TablePositionViewController = modules.ViewController.inherit({
 
         that._rowsView.resizeCompleted.add(function() {
             if(that.option("allowColumnResizing")) {
-                that.update();
+                that.update(null);
             }
         });
     },
@@ -1052,7 +1098,7 @@ var DraggingHeaderViewController = modules.ViewController.inherit({
                             $columnElement.addClass(that.addWidgetPrefix(HEADERS_DRAG_ACTION_CLASS));
                             eventsEngine.on($columnElement, addNamespace(dragEvents.start, MODULE_NAMESPACE), that.createAction(function(args) {
                                 var e = args.event,
-                                    eventData = eventUtils.eventData(e);
+                                    eventData = getEventData(e);
 
                                 draggingHeader.dragHeader({
                                     deltaX: eventData.x - $(e.currentTarget).offset().left,
@@ -1104,13 +1150,13 @@ var DraggingHeaderViewController = modules.ViewController.inherit({
         return targetLocation === "headers" ? this._columnsSeparatorView : this._blockSeparatorView;
     },
 
-    hideSeparators: function() {
+    hideSeparators: function(type) {
         var blockSeparator = this._blockSeparatorView,
             columnsSeparator = this._columnsSeparatorView;
 
         this._animationColumnIndex = null;
         blockSeparator && blockSeparator.hide();
-        columnsSeparator && columnsSeparator.hide();
+        type !== "block" && columnsSeparator && columnsSeparator.hide();
     },
 
     init: function() {
@@ -1188,7 +1234,7 @@ var DraggingHeaderViewController = modules.ViewController.inherit({
                 if(targetLocation === "group" || targetLocation === "columnChooser") {
                     showSeparator();
                 } else {
-                    that.hideSeparators();
+                    that.hideSeparators("block");
                     that.getController("tablePosition").update(parameters.posY);
                     separator.moveByX(parameters.posX - separator.width());
                     separator.show();

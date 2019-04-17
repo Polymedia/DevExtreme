@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     eventsEngine = require("../../events/core/events_engine"),
     ArrayStore = require("../../data/array_store"),
@@ -18,7 +16,6 @@ var $ = require("../../core/renderer"),
     pivotGridUtils = require("./ui.pivot_grid.utils"),
     Sortable = require("./ui.sortable"),
     Deferred = require("../../core/utils/deferred").Deferred,
-    inArray = inArray,
     each = iteratorUtils.each,
     IE_FIELD_WIDTH_CORRECTION = 1,
     DIV = "<div>";
@@ -70,6 +67,7 @@ function getMainGroupField(dataSource, sourceField) {
 }
 
 function getStringState(state) {
+    state = state || {};
     return JSON.stringify([state.fields, state.columnExpandedPaths, state.rowExpandedPaths]);
 }
 
@@ -118,11 +116,12 @@ var FieldChooserBase = Widget.inherit(columnStateMixin).inherit(sortingMixin).in
                 if(this._skipStateChange || !this._dataSource) {
                     break;
                 }
-                if(getStringState(this._dataSource.state()) === getStringState(args.value)) {
+
+                if(this.option("applyChangesMode") === "instantly" && getStringState(this._dataSource.state()) !== getStringState(args.value)) {
+                    this._dataSource.state(args.value);
+                } else {
                     this._clean(true);
                     this._renderComponent();
-                } else {
-                    this._dataSource.state(args.value);
                 }
                 break;
             case "headerFilter":
@@ -137,7 +136,7 @@ var FieldChooserBase = Widget.inherit(columnStateMixin).inherit(sortingMixin).in
     renderField: function(field, showColumnLines) {
         var that = this,
             $fieldContent = $(DIV).addClass("dx-area-field-content")
-                        .text(field.caption || field.dataField),
+                .text(field.caption || field.dataField),
             $fieldElement = $(DIV)
                 .addClass("dx-area-field")
                 .addClass("dx-area-box")
@@ -267,33 +266,38 @@ var FieldChooserBase = Widget.inherit(columnStateMixin).inherit(sortingMixin).in
         }, that._getSortableOptions()));
     },
 
-    _applyChanges(fields, props) {
-        const dataSource = this._dataSource;
-        if(this.option("applyChangesMode") === "instantly") {
-            fields.forEach(({ index })=>{
-                dataSource.field(index, props);
-            });
-            dataSource.load();
+    _processDemandState: function(func) {
+        var that = this,
+            isInstantlyMode = that.option("applyChangesMode") === "instantly",
+            dataSource = that._dataSource;
+
+        if(isInstantlyMode) {
+            func(dataSource, isInstantlyMode);
         } else {
-            fields.forEach(({ index })=>{
-                this._changeState(index, props);
-            });
+            var currentState = dataSource.state();
+
+            dataSource.state(that.option("state"), true);
+
+            func(dataSource, isInstantlyMode);
+
+            dataSource.state(currentState, true);
         }
     },
 
-    _changeState(fieldIndex, props) {
-        var that = this,
-            dataSource = that._dataSource,
-            startState = dataSource.state(),
-            state = that.option("state") || startState;
+    _applyChanges(fields, props) {
+        var that = this;
 
-        dataSource.state(state, true);
-        dataSource.field(fieldIndex, props);
+        that._processDemandState(function(dataSource, isInstantlyMode) {
+            fields.forEach(({ index }) => {
+                dataSource.field(index, props);
+            });
 
-        that.option("state", dataSource.state());
-        that._clean(true);
-        that._renderComponent();
-        dataSource.state(startState, true);
+            if(isInstantlyMode) {
+                dataSource.load();
+            } else {
+                that._changedHandler();
+            }
+        });
     },
 
     _adjustSortableOnChangedArgs: function(e) {

@@ -1,14 +1,10 @@
-"use strict";
-
 var $ = require("jquery"),
     dateUtils = require("core/utils/date"),
-    SchedulerRecurrenceEditor = require("ui/scheduler/ui.scheduler.recurrence_editor"),
+    RecurrenceEditor = require("ui/scheduler/ui.scheduler.recurrence_editor"),
     recurrenceUtils = require("ui/scheduler/utils.recurrence"),
     dateLocalization = require("localization/date");
 
-var SWITCH_EDITOR = "dx-recurrence-switch",
-    RECURRENCE_EDITOR_CONTAINER = "dx-recurrence-editor-container",
-    SWITCH_REPEAT_END_EDITOR = "dx-recurrence-switch-repeat-end",
+var SWITCH_REPEAT_END_EDITOR = "dx-recurrence-switch-repeat-end",
     FREQUENCY_EDITOR = "dx-recurrence-radiogroup-freq",
     REPEAT_END_EDITOR_CONTAINER = "dx-recurrence-repeat-end-container",
     REPEAT_TYPE_EDITOR = "dx-recurrence-radiogroup-repeat-type",
@@ -31,122 +27,40 @@ QUnit.testStart(function() {
 QUnit.module("Recurrence editor - rendering", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });
 
 QUnit.test("Recurrence editor should be initialized", function(assert) {
     this.createInstance();
-    assert.ok(this.instance instanceof SchedulerRecurrenceEditor, "dxSchedulerRecurrenceEditor was initialized");
+    assert.ok(this.instance instanceof RecurrenceEditor, "dxRecurrenceEditor was initialized");
 
     assert.ok(this.instance.$element().hasClass("dx-recurrence-editor"));
 });
 
-QUnit.test("Recurrence editor should contain switch to turn on/off task-repeating", function(assert) {
+QUnit.test("Recurrence editor should have correct default options", function(assert) {
     this.createInstance();
 
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance");
-
-    assert.equal($switchEditor.length, 1, "switch was rendered");
-    assert.equal(switchEditor.option("value"), false, "switch has right default value");
-});
-
-QUnit.test("Recurrence editor default value", function(assert) {
-    this.createInstance();
-
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance");
-
-    switchEditor.option("value", true);
-
-    assert.equal(this.instance.option("value"), "FREQ=DAILY", "recurrence editor has right default value after container rendering");
-
-    switchEditor.option("value", false);
-
-    assert.strictEqual(this.instance.option("value"), "", "recurrence editor has right default value after container hiding");
+    assert.equal(this.instance.option("value"), "FREQ=DAILY", "editor is visible");
+    assert.equal(this.instance.option("visible"), true, "editor is visible");
 });
 
 QUnit.test("Recurrence editor should correctly process null value and reset inner editors to default values", function(assert) {
     this.createInstance({ value: "FREQ=WEEKLY" });
 
     this.instance.option("value", null);
-
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance");
-
-    switchEditor.option("value", true);
+    this.instance.option("visible", true);
 
     var freqEditor = $("." + FREQUENCY_EDITOR).dxRadioGroup("instance");
 
     assert.equal(freqEditor.option("value"), "DAILY", "freq editor default value was set");
 });
 
-QUnit.test("Recurrence switch should be turn on if recurrence rule was set on init", function(assert) {
-    this.createInstance({ value: "FREQ=WEEKLY" });
-
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance");
-
-    assert.equal(switchEditor.option("value"), true, "switch has right value");
-});
-
-QUnit.test("Recurrence switch should be turn on if recurrence rule was set", function(assert) {
-    this.createInstance();
-
-    this.instance.option("value", "FREQ=WEEKLY");
-
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance");
-
-    assert.equal(switchEditor.option("value"), true, "switch has right value");
-
-    this.instance.option("value", "");
-
-    assert.equal(switchEditor.option("value"), false, "switch has right value");
-});
-
-QUnit.test("Recurrence editor container should be visible if recurrence rule was set", function(assert) {
-    this.createInstance({
-        value: "FREQ=WEEKLY"
-    });
-
-    var $container = this.instance.$element().find("." + RECURRENCE_EDITOR_CONTAINER);
-
-    assert.notEqual($container.css("display"), "none", "Container is visible");
-});
-
-QUnit.test("Recurrence editor container should be visible after turn on switch", function(assert) {
-    this.createInstance({});
-
-    var $switchEditor = $("." + SWITCH_EDITOR),
-        switchEditor = $switchEditor.dxSwitch("instance"),
-        $container = this.instance.$element().find("." + RECURRENCE_EDITOR_CONTAINER);
-
-    assert.equal($container.css("display"), "none", "container is not visible");
-
-    switchEditor.option("value", true);
-
-    assert.notEqual($container.css("display"), "none", "container is visible");
-});
-
-QUnit.test("Recurrence editor container should be visible after appropriate value changing", function(assert) {
-    this.createInstance({});
-
-    var $container = this.instance.$element().find("." + RECURRENCE_EDITOR_CONTAINER);
-
-    assert.equal($container.css("display"), "none", "container is not visible");
-
-    this.instance.option("value", "FREQ=WEEKLY");
-
-    assert.notEqual($container.css("display"), "none", "container is visible");
-});
-
 QUnit.module("Recurrence editor - freq editor", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });
@@ -173,8 +87,7 @@ QUnit.test("Recurrence editor should has right items", function(assert) {
 
 QUnit.test("Recurrence editor should correctly process values of the freq radioGroup, byday setting", function(assert) {
     this.createInstance({ startDate: new Date(2015, 7, 27) });
-
-    $("." + SWITCH_EDITOR).dxSwitch("instance").option("value", true);
+    this.instance.option("visible", true);
 
     var freqEditor = $("." + FREQUENCY_EDITOR).dxRadioGroup("instance");
 
@@ -233,7 +146,7 @@ QUnit.test("Recurrence editor should correctly process values to the freq radioG
 QUnit.module("Recurrence editor - interval editor", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });
@@ -289,7 +202,7 @@ QUnit.test("Recurrence repeat-interval editor should have correct aria-described
 QUnit.module("Recurrence editor - repeat-end editor", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });
@@ -359,8 +272,12 @@ QUnit.test("Recurrence repeat-end editor should be rendered with right inner edi
         $repeatUntilDate = $repeat.find("." + REPEAT_DATE_EDITOR);
 
     assert.equal($repeatType.length, 1, "repeatType editor was rendered");
+
     assert.equal($repeatCount.length, 1, "repeatCount editor was rendered");
+    assert.equal($repeatCount.parent().hasClass("dx-recurrence-repeat-end-wrapper"), 1, "repeatCount editor is wrapped correctly");
+
     assert.equal($repeatUntilDate.length, 1, "repeatUntilDate editor was rendered");
+    assert.equal($repeatUntilDate.parent().hasClass("dx-recurrence-repeat-end-wrapper"), 1, "repeatUntil editor is wrapped correctly");
 });
 
 QUnit.test("Recurrence editor parts should be disabled if needed", function(assert) {
@@ -466,7 +383,7 @@ QUnit.test("Recurrence editor should correctly process values from repeat-count 
     assert.equal(this.instance.option("value"), "FREQ=WEEKLY;COUNT=9", "Recurrence editor has right value");
 });
 
-QUnit.test("Recurrence until-date editor should process rules correctly", function(assert) {
+QUnit.test("Recurrence until-date editor should not process rules if it was set in recurrence string(T726894)", function(assert) {
     this.createInstance({ value: "FREQ=WEEKLY;UNTIL=20151007" });
 
     var $untilDate = this.instance.$element().find("." + REPEAT_DATE_EDITOR),
@@ -476,7 +393,7 @@ QUnit.test("Recurrence until-date editor should process rules correctly", functi
 
     this.instance.option("value", "FREQ=WEEKLY;UNTIL=20151107");
 
-    assert.equal(untilDate.option("value").toString(), new Date(2015, 10, 7, 23, 59, 59).toString(), "value of until-date editor is correct");
+    assert.equal(untilDate.option("value").toString(), recurrenceUtils.getDateByAsciiString("20151107"), "value of until-date editor is correct");
 });
 
 QUnit.test("Recurrence editor should correctly process values from until-date editor", function(assert) {
@@ -510,7 +427,7 @@ QUnit.test("Recurrence repeat-end editor should have correct aria-describedby at
 QUnit.module("Recurrence editor - repeat-on editor", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });
@@ -572,6 +489,20 @@ QUnit.test("Recurrence editor should process values from repeat-on-editor after 
     checkbox.option("value", false);
 
     assert.equal(this.instance.option("value"), "FREQ=WEEKLY;BYDAY=TU");
+});
+
+QUnit.test("Recurrence editor should be able to uncheck default day from byday rule, freq=weekly", function(assert) {
+    this.createInstance({ value: "FREQ=WEEKLY;BYDAY=TU", startDate: new Date(2018, 6, 24, 1) });
+    var $repeatOn = this.instance.$element().find("." + REPEAT_ON_EDITOR),
+        $repeatOnWeek = $repeatOn.find("." + REPEAT_ON_WEEK_EDITOR);
+
+    var $checkbox = $repeatOnWeek.find("." + "dx-checkbox").eq(2);
+
+    assert.ok($checkbox.dxCheckBox("instance").option("value"));
+
+    $($checkbox).trigger("dxclick");
+
+    assert.notOk($checkbox.dxCheckBox("instance").option("value"));
 });
 
 QUnit.test("'BYDAY' rule has a higher priority than 'startDate' rule, freq=weekly", function(assert) {
@@ -765,19 +696,19 @@ QUnit.test("Recurrence editor should process values from repeat-on-editor correc
         freqEditor = $("." + FREQUENCY_EDITOR).dxRadioGroup("instance");
 
     monthEditor.option("value", "10");
-    freqEditor.option("value", "daily");
+    freqEditor.option("value", "DAILY");
 
     assert.equal(this.instance.option("value"), "FREQ=DAILY", "recurrence editor value is correct");
 
-    freqEditor.option("value", "monthly");
+    freqEditor.option("value", "MONTHLY");
 
     var $dayOfMonth = this.instance.$element().find("." + DAY_OF_MONTH),
         dayEditor = $dayOfMonth.dxNumberBox("instance");
 
     dayEditor.option("value", 5);
-    freqEditor.option("value", "yearly");
+    freqEditor.option("value", "YEARLY");
 
-    assert.equal(this.instance.option("value"), "FREQ=YEARLY;BYMONTHDAY=10;BYMONTH=3", "recurrence editor value is correct");
+    assert.equal(this.instance.option("value"), "FREQ=YEARLY;BYMONTHDAY=5;BYMONTH=3", "recurrence editor value is correct");
 });
 
 QUnit.test("It should not be possible to set incorrect day of month", function(assert) {
@@ -808,7 +739,7 @@ QUnit.test("Parts of recurrence editor should have right readonly option", funct
 QUnit.module("Recurrence editor - firstDayOfWeek option", {
     beforeEach: function() {
         this.createInstance = function(options) {
-            this.instance = new SchedulerRecurrenceEditor($("#recurrence-editor"), options);
+            this.instance = new RecurrenceEditor($("#recurrence-editor"), options);
         };
     }
 });

@@ -10,6 +10,16 @@
  */
 
 /**
+ * @typedef {string} Enums.ButtonStylingMode
+ * @enum {'text'|'outlined'|'contained'}
+ */
+
+/**
+ * @typedef {string} Enums.EventKeyModifier
+ * @enum {'alt'|'ctrl'|'meta'|'shift'}
+ */
+
+/**
  * @typedef {number} Enums.FirstDayOfWeek
  * @enum {0|1|2|3|4|5|6}
  */
@@ -81,6 +91,16 @@
  */
 
 /**
+ * @typedef {string} Enums.OverlappingBehavior
+ * @enum {'rotate'|'stagger'|'none'|'hide'}
+ */
+
+/**
+ * @typedef {string} Enums.PolarChartOverlappingBehavior
+ * @enum {'none'|'hide'}
+ */
+
+/**
  * @typedef {string} Enums.Orientation
  * @enum {'horizontal'|'vertical'}
  */
@@ -106,6 +126,11 @@
  */
 
 /**
+ * @typedef {string} Enums.ResizeHandle
+ * @enum {'bottom'|'left'|'right'|'top'|'all'}
+ */
+
+/**
  * @typedef {string} Enums.BoxDirection
  * @enum {'col'|'row'}
  */
@@ -118,6 +143,11 @@
 /**
  * @typedef {string} Enums.BoxCrossAlign
  * @enum {'center'|'end'|'start'|'stretch'}
+ */
+
+/**
+ * @typedef {string} Enums.ButtonGroupSelectionMode
+ * @enum {'multiple'|'single'}
  */
 
 /**
@@ -166,6 +196,11 @@
  */
 
 /**
+ * @typedef {string} Enums.ChartZoomAndPanMode
+ * @enum {'both'|'none'|'pan'|'zoom'}
+ */
+
+/**
  * @typedef {string} Enums.ChartLegendHoverMode
  * @enum {'excludePoints'|'includePoints'|'none'}
  */
@@ -193,6 +228,16 @@
 /**
  * @typedef {string} Enums.VizTimeInterval
  * @enum {'day'|'hour'|'millisecond'|'minute'|'month'|'quarter'|'second'|'week'|'year'}
+ */
+
+/**
+ * @typedef {string} Enums.VisualRangeUpdateMode
+ * @enum {'auto'|'keep'|'reset'|'shift'}
+ */
+
+/**
+ * @typedef {string} Enums.ChartZoomPanActionType
+ * @enum {'zoom'|'pan'}
  */
 
 /**
@@ -296,6 +341,11 @@
  */
 
 /**
+ * @typedef {string} Enums.FilterBuilderGroupOperations
+ * @enum {'and'|'or'|'notAnd'|'notOr'}
+ */
+
+/**
  * @typedef {string} Enums.FilterOperations
  * @enum {'<'|'<='|'<>'|'='|'>'|'>='|'between'|'contains'|'endswith'|'notcontains'|'startswith'}
  */
@@ -313,6 +363,11 @@
 /**
  * @typedef {string} Enums.GridEditMode
  * @enum {'batch'|'cell'|'row'|'form'|'popup'}
+ */
+
+/**
+ * @typedef {string} Enums.GridEditRefreshMode
+ * @enum {'full'|'reshape'|'repaint'}
  */
 
 /**
@@ -416,6 +471,16 @@
  */
 
 /**
+ * @typedef {string} Enums.SankeyLabelOverlappingBehavior
+ * @enum {'ellipsis'|'hide'|'none'}
+ */
+
+/**
+ * @typedef {string} Enums.SankeyColorMode
+ * @enum {'none'|'source'|'target'|'gradient'}
+ */
+
+/**
  * @typedef {string} Enums.ListSelectionMode
  * @enum {'all'|'multiple'|'none'|'single'}
  */
@@ -437,7 +502,7 @@
 
 /**
  * @typedef {string} Enums.CollectionSearchMode
- * @enum {'contains'|'startswith'}
+ * @enum {'contains'|'startswith'|'equals'}
  */
 
 /**
@@ -497,7 +562,7 @@
 
 /**
  * @typedef {string} Enums.ToolbarItemWidget
- * @enum {'dxAutocomplete'|'dxButton'|'dxCheckBox'|'dxDateBox'|'dxMenu'|'dxSelectBox'|'dxTabs'|'dxTextBox'}
+ * @enum {'dxAutocomplete'|'dxButton'|'dxCheckBox'|'dxDateBox'|'dxMenu'|'dxSelectBox'|'dxTabs'|'dxTextBox'|'dxButtonGroup'}
  */
 
 /**
@@ -556,6 +621,21 @@
  */
 
 /**
+ * @typedef {string} Enums.DrawerOpenedStateMode
+ * @enum {'overlap'|'shrink'|'push'}
+ */
+
+/**
+ * @typedef {string} Enums.DrawerPosition
+ * @enum {'left'|'right'|'top'|'bottom'|'before'|'after'}
+ */
+
+/**
+ * @typedef {string} Enums.DrawerRevealMode
+ * @enum {'slide'|'expand'}
+ */
+
+/**
  * @typedef {string} Enums.TextBoxMode
  * @enum {'email'|'password'|'search'|'tel'|'text'|'url'}
  */
@@ -595,12 +675,12 @@
  * @enum {'standard'|'virtual'}
  */
 
- /**
+/**
  * @typedef {string} Enums.GridRowRenderingMode
  * @enum {'standard'|'virtual'}
  */
 
- /**
+/**
  * @typedef {string} Enums.GridColumnRenderingMode
  * @enum {'standard'|'virtual'}
  */
@@ -633,6 +713,11 @@
 /**
  * @typedef {string} Enums.TreeViewCheckBoxMode
  * @enum {'none'|'normal'|'selectAll'}
+ */
+
+/**
+ * @typedef {string} Enums.TreeViewExpandEvent
+ * @enum {'dblclick'|'click'}
  */
 
 /**
@@ -775,7 +860,7 @@
  * @enum {'fit'|'flip'|'flipfit'|'none'}
  */
 
- /**
+/**
  * @typedef {string} Enums.ChartSeriesAggregationMethod
  * @enum {'avg'|'count'|'max'|'min'|'ohlc'|'range'|'sum'|'custom'}
  */
@@ -785,27 +870,82 @@
  * @enum {'avg'|'count'|'max'|'min'|'sum'|'custom'}
  */
 
- /**
+/**
  * @typedef {string} Enums.ChartFinancialSeriesAggregationMethod
  * @enum {'ohlc'|'custom'}
  */
 
- /**
+/**
  * @typedef {string} Enums.ChartRangeSeriesAggregationMethod
  * @enum {'range'|'custom'}
  */
 
- /**
+/**
  * @typedef {string} Enums.ChartBubbleSeriesAggregationMethod
  * @enum {'avg'|'custom'}
  */
 
- /**
+/**
  * @typedef {string} Enums.DataSourceStoreType
  * @enum {'array'|'local'|'odata'}
  */
 
- /**
+/**
  * @typedef {string} Enums.PivotGridStoreType
  * @enum {'array'|'local'|'odata'|'xmla'}
+ */
+
+/**
+ * @typedef {string} Enums.ExportFormat
+ * @enum {'GIF'|'JPEG'|'PDF'|'PNG'|'SVG'}
+ */
+
+/**
+ * @typedef {string} Enums.ExcelFontUnderlineType
+ * @enum {'double'|'doubleAccounting'|'none'|'single'|'singleAccounting'}
+ */
+
+/**
+ * @typedef {string} Enums.ExcelCellHorizontalAlignment
+ * @enum {'center'|'centerContinuous'|'distributed'|'fill'|'general'|'justify'|'left'|'right'}
+ */
+
+/**
+ * @typedef {string} Enums.ExcelCellVerticalAlignment
+ * @enum {'bottom'|'center'|'distributed'|'justify'|'top'}
+ */
+
+/**
+ * @typedef {string} Enums.ExcelCellPatternType
+ * @enum {'darkDown'|'darkGray'|'darkGrid'|'darkHorizontal'|'darkTrellis'|'darkUp'|'darkVertical'|'gray0625'|'gray125'|'lightDown'|'lightGray'|'lightGrid'|'lightHorizontal'|'lightTrellis'|'lightUp'|'lightVertical'|'mediumGray'|'none'|'solid'}
+ */
+
+/**
+ * @typedef {string} Enums.HtmlEditorValueType
+ * @enum {'html'|'markdown'}
+ */
+
+/**
+ * @typedef {string} Enums.EditorStylingMode
+ * @enum {'outlined'|'underlined'|'filled'}
+ */
+
+/**
+ * @typedef {string} Enums.GridCommandColumnType
+ * @enum {'adaptive'|'buttons'|'detailExpand'|'groupExpand'|'selection'}
+ */
+
+/**
+ * @typedef {string} Enums.TreeListCommandColumnType
+ * @enum {'adaptive'|'buttons'}
+ */
+
+/**
+ * @typedef {string} Enums.GridColumnButtonName
+ * @enum {'cancel'|'delete'|'edit'|'save'|'undelete'}
+ */
+
+/**
+ * @typedef {string} Enums.TreeListColumnButtonName
+ * @enum {'add'|'cancel'|'delete'|'edit'|'save'|'undelete'}
  */

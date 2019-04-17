@@ -1,17 +1,14 @@
-"use strict";
-
-var $ = require("../../core/renderer"),
-    domAdapter = require("../../core/dom_adapter"),
-    eventsEngine = require("../../events/core/events_engine"),
-    modules = require("./ui.grid_core.modules"),
-    clickEvent = require("../../events/click"),
-    pointerEvents = require("../../events/pointer"),
-    positionUtils = require("../../animation/position"),
-    eventUtils = require("../../events/utils"),
-    addNamespace = eventUtils.addNamespace,
-    browser = require("../../core/utils/browser"),
-    extend = require("../../core/utils/extend").extend,
-    EditorFactoryMixin = require("../shared/ui.editor_factory_mixin");
+import $ from "../../core/renderer";
+import domAdapter from "../../core/dom_adapter";
+import eventsEngine from "../../events/core/events_engine";
+import modules from "./ui.grid_core.modules";
+import clickEvent from "../../events/click";
+import pointerEvents from "../../events/pointer";
+import positionUtils from "../../animation/position";
+import { addNamespace, fireEvent, normalizeKeyName } from "../../events/utils";
+import browser from "../../core/utils/browser";
+import { extend } from "../../core/utils/extend";
+import EditorFactoryMixin from "../shared/ui.editor_factory_mixin";
 
 var EDITOR_INLINE_BLOCK = "dx-editor-inline-block",
     CELL_FOCUS_DISABLED_CLASS = "dx-cell-focus-disabled",
@@ -24,8 +21,7 @@ var EDITOR_INLINE_BLOCK = "dx-editor-inline-block",
     POINTER_EVENTS_TARGET_CLASS = "dx-pointer-events-target",
     POINTER_EVENTS_NONE_CLASS = "dx-pointer-events-none",
     FOCUSED_ELEMENT_SELECTOR = "td[tabindex]:focus, tr[tabindex]:focus, input:focus, textarea:focus, .dx-lookup-field:focus, .dx-checkbox:focus",
-    DX_HIDDEN = "dx-hidden",
-    TAB_KEY = 9;
+    DX_HIDDEN = "dx-hidden";
 
 var EditorFactory = modules.ViewController.inherit({
     _getFocusedElement: function($dataGridElement) {
@@ -103,48 +99,59 @@ var EditorFactory = modules.ViewController.inherit({
         if($element === undefined) {
             return that._$focusedElement;
         } else if($element) {
-            // TODO: this code should be before timeout else focus is not will move to adaptive form by shift + tab key
-            that._$focusedElement && that._$focusedElement.removeClass(FOCUSED_ELEMENT_CLASS);
+            // To prevent overlay flicking
+            if(!$element.is(that._$focusedElement)) {
+                // TODO: this code should be before timeout else focus is not will move to adaptive form by shift + tab key
+                that._$focusedElement && that._$focusedElement.removeClass(FOCUSED_ELEMENT_CLASS);
+            }
             that._$focusedElement = $element;
 
             clearTimeout(that._focusTimeoutID);
             that._focusTimeoutID = setTimeout(function() {
                 delete that._focusTimeoutID;
-                var $focusOverlay = that._$focusOverlay = that._$focusOverlay || $("<div>")
-                    .addClass(that.addWidgetPrefix(FOCUS_OVERLAY_CLASS) + " " + POINTER_EVENTS_TARGET_CLASS),
-                    focusOverlayPosition;
 
-                if(hideBorder) {
-                    that._$focusOverlay && that._$focusOverlay.addClass(DX_HIDDEN);
-                } else if($element.length) {
-                    // align "left bottom" for IE, align "right bottom" for Mozilla
-                    var align = browser.msie ? "left bottom" : browser.mozilla ? "right bottom" : "left top",
-                        $content = $element.closest("." + that.addWidgetPrefix(CONTENT_CLASS)),
-                        elemCoord = $element[0].getBoundingClientRect();
-
-                    $focusOverlay
-                        .removeClass(DX_HIDDEN)
-                        .appendTo($content)
-                        .outerWidth(elemCoord.right - elemCoord.left + 1)
-                        .outerHeight(elemCoord.bottom - elemCoord.top + 1);
-
-                    focusOverlayPosition = {
-                        precise: true,
-                        my: align,
-                        at: align,
-                        of: $element,
-                        boundary: $content.length && $content
-                    };
-
-                    that._updateFocusOverlaySize($focusOverlay, focusOverlayPosition);
-                    positionUtils.setup($focusOverlay, focusOverlayPosition);
-
-                    $focusOverlay.css("visibility", "visible"); // for ios
-                }
+                that.renderFocusOverlay($element, hideBorder);
 
                 $element.addClass(FOCUSED_ELEMENT_CLASS);
                 that.focused.fire($element);
             });
+        }
+    },
+
+    renderFocusOverlay: function($element, hideBorder) {
+        var that = this,
+            focusOverlayPosition;
+
+        if(!that._$focusOverlay) {
+            that._$focusOverlay = $("<div>").addClass(that.addWidgetPrefix(FOCUS_OVERLAY_CLASS) + " " + POINTER_EVENTS_TARGET_CLASS);
+        }
+
+        if(hideBorder) {
+            that._$focusOverlay.addClass(DX_HIDDEN);
+        } else if($element.length) {
+            // align "left bottom" for IE, align "right bottom" for Mozilla
+            var align = browser.msie ? "left bottom" : browser.mozilla ? "right bottom" : "left top",
+                $content = $element.closest("." + that.addWidgetPrefix(CONTENT_CLASS)),
+                elemCoord = $element[0].getBoundingClientRect();
+
+            that._$focusOverlay
+                .removeClass(DX_HIDDEN)
+                .appendTo($content)
+                .outerWidth(elemCoord.right - elemCoord.left + 1)
+                .outerHeight(elemCoord.bottom - elemCoord.top + 1);
+
+            focusOverlayPosition = {
+                precise: true,
+                my: align,
+                at: align,
+                of: $element,
+                boundary: $content.length && $content
+            };
+
+            that._updateFocusOverlaySize(that._$focusOverlay, focusOverlayPosition);
+            positionUtils.setup(that._$focusOverlay, focusOverlayPosition);
+
+            that._$focusOverlay.css("visibility", "visible"); // for ios
         }
     },
 
@@ -179,7 +186,7 @@ var EditorFactory = modules.ViewController.inherit({
         if($container) {
             // T179518
             eventsEngine.on($container, addNamespace("keydown", MODULE_NAMESPACE), function(e) {
-                if(e.which === TAB_KEY) {
+                if(normalizeKeyName(e) === "tab") {
                     that._updateFocusHandler(e);
                 }
             });
@@ -198,7 +205,7 @@ var EditorFactory = modules.ViewController.inherit({
 
         element = $target.get(0).ownerDocument.elementFromPoint(e.clientX, e.clientY);
 
-        eventUtils.fireEvent({
+        fireEvent({
             originalEvent: e,
             target: element
         });

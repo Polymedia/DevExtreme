@@ -1,10 +1,9 @@
-"use strict";
-
 var $ = require("../../core/renderer"),
     noop = require("../../core/utils/common").noop,
     isNumeric = require("../../core/utils/type").isNumeric,
     errors = require("../widget/ui.errors"),
     dateUtils = require("../../core/utils/date"),
+    typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
     registerComponent = require("../../core/component_registrator"),
     devices = require("../../core/devices"),
@@ -89,29 +88,53 @@ var getWeekCaption = function(date, shift, rejectWeekend) {
         lastWeekDate.setDate(lastWeekDate.getDate() + weekendDuration);
     }
 
-    var isDifferentMonthDates = firstWeekDate.getMonth() !== lastWeekDate.getMonth(),
-        useShortFormat = isDifferentMonthDates || this.option("_useShortDateFormat"),
-        firstWeekDateText = dateLocalization.format(firstWeekDate, isDifferentMonthDates ? getDateMonthFormat(useShortFormat) : "d"),
-        lastWeekDateText = dateLocalization.format(lastWeekDate, getCaptionFormat(useShortFormat));
+    return {
+        text: formatCaptionByMonths.call(this, lastWeekDate, firstWeekDate),
+        startDate: firstWeekDate,
+        endDate: lastWeekDate
+    };
+};
 
-    return firstWeekDateText + "-" + lastWeekDateText;
+var formatCaptionByMonths = function(lastDate, firstDate) {
+    var isDifferentMonthDates = firstDate.getMonth() !== lastDate.getMonth(),
+        isDifferentYears = firstDate.getFullYear() !== lastDate.getFullYear(),
+        useShortFormat = isDifferentMonthDates || this.option("_useShortDateFormat"),
+        lastDateText,
+        firstDateText;
+
+    if(isDifferentYears) {
+        firstDateText = dateLocalization.format(firstDate, getCaptionFormat(true));
+        lastDateText = dateLocalization.format(lastDate, getCaptionFormat(true));
+    } else {
+        firstDateText = dateLocalization.format(firstDate, isDifferentMonthDates ? getDateMonthFormat(useShortFormat) : "d");
+        lastDateText = dateLocalization.format(lastDate, getCaptionFormat(useShortFormat));
+    }
+
+    return firstDateText + "-" + lastDateText;
 };
 
 var getMonthCaption = function(date) {
-    if(this.option("intervalCount") > 1) {
-        var firstDate = new Date(date);
+    var firstDate = new Date(date),
+        lastDate = new Date(firstDate),
+        text;
 
-        var lastDate = new Date(firstDate);
+    if(this.option("intervalCount") > 1) {
         lastDate.setMonth(lastDate.getMonth() + this.option("intervalCount") - 1);
 
         var isSameYear = firstDate.getYear() === lastDate.getYear(),
             lastDateText = getMonthYearFormat(lastDate),
             firstDateText = isSameYear ? dateLocalization.getMonthNames("abbreviated")[firstDate.getMonth()] : getMonthYearFormat(firstDate);
 
-        return firstDateText + "-" + lastDateText;
+        text = firstDateText + "-" + lastDateText;
     } else {
-        return dateLocalization.format(date, "monthandyear");
+        text = dateLocalization.format(date, "monthandyear");
     }
+
+    return {
+        text: text,
+        startDate: firstDate,
+        endDate: lastDate
+    };
 };
 
 var dateGetter = function(date, offset) {
@@ -130,7 +153,12 @@ var getConfig = function(step) {
                 getDate: dateGetter,
                 getCaption: function(date) {
                     var format = getCaptionFormat(false, this.option("intervalCount"), this._getConfig().duration);
-                    return dateLocalization.format(date, format);
+
+                    return {
+                        text: dateLocalization.format(date, format),
+                        startDate: date,
+                        endDate: date
+                    };
                 }
             };
         case "week":
@@ -179,16 +207,23 @@ var getConfig = function(step) {
                 getter: "getDate",
                 getDate: dateGetter,
                 getCaption: function(date) {
-                    var format = getCaptionFormat(this.option("_useShortDateFormat"));
+                    var format = getCaptionFormat(this.option("_useShortDateFormat")),
+                        firstDate = new Date(date),
+                        lastDate = new Date(date),
+                        text;
 
                     if(agendaDuration > 1) {
-                        var lastDate = new Date(date);
-
                         lastDate.setDate(lastDate.getDate() + agendaDuration - 1);
-                        return dateLocalization.format(date, "d") + "-" + dateLocalization.format(lastDate, format);
+                        text = formatCaptionByMonths.call(this, lastDate, date);
                     } else {
-                        return dateLocalization.format(date, format);
+                        text = dateLocalization.format(date, format);
                     }
+
+                    return {
+                        text: text,
+                        startDate: firstDate,
+                        endDate: lastDate
+                    };
                 }
             };
     }
@@ -199,6 +234,7 @@ var SchedulerNavigator = Widget.inherit({
     _getDefaultOptions: function() {
         return extend(this.callBase(), {
             date: new Date(),
+            displayedDate: undefined,
             step: "day",
             intervalCount: 1,
             min: undefined,
@@ -226,6 +262,7 @@ var SchedulerNavigator = Widget.inherit({
             case "step":
             case "date":
             case "intervalCount":
+            case "displayedDate":
                 this._updateButtonsState();
                 this._renderCaption();
                 this._setCalendarOption("value", this.option("date"));
@@ -237,6 +274,9 @@ var SchedulerNavigator = Widget.inherit({
                 break;
             case "firstDayOfWeek":
                 this._setCalendarOption(args.name, args.value);
+                break;
+            case "customizeDateNavigatorText":
+                this._renderCaption();
                 break;
             case "tabIndex":
             case "focusStateEnabled":
@@ -390,8 +430,11 @@ var SchedulerNavigator = Widget.inherit({
     },
 
     _renderCaption: function() {
-        var date = this.option("date"),
-            caption = this._getConfig().getCaption.call(this, date);
+        var date = this.option("displayedDate") || this.option("date"),
+            captionConfig = this._getConfig().getCaption.call(this, date),
+            customizationFunction = this.option("customizeDateNavigatorText");
+
+        var caption = typeUtils.isFunction(customizationFunction) ? customizationFunction(captionConfig) : captionConfig.text;
 
         this._caption.option({
             text: caption,

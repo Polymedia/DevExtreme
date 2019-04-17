@@ -1,11 +1,10 @@
-"use strict";
-
 import $ from "jquery";
 import vizMocks from "../../helpers/vizMocks.js";
 import { noop } from "core/utils/common";
 import pointModule from "viz/series/points/base_point";
 import labelModule from "viz/series/points/label";
-import { Series } from "viz/series/base_series";
+import SeriesModule from "viz/series/base_series";
+const Series = SeriesModule.Series;
 import { insertMockFactory, MockAxis, MockTranslator, restoreMockFactory } from "../../helpers/chartMocks.js";
 
 var createSeries = function(options, renderSettings) {
@@ -149,6 +148,21 @@ var checkTwoGroups = function(assert, series) {
 
         assert.equal(this.createPoint.getCall(1).args[1].index, 1, "index");
         assert.equal(this.createPoint.getCall(1).args[1].argument, 3, "argument");
+    });
+
+    QUnit.test("IncidentOccurred. Data without value field", function(assert) {
+        const data = [{ arg: 1 }, { arg: 2 }];
+        const incidentOccurred = sinon.spy();
+        const options = { type: "scatter", argumentField: "arg", valueField: "val", label: { visible: false } };
+        const series = createSeries(options, {
+            incidentOccurred: incidentOccurred
+        });
+
+        series.updateData(data);
+        series.createPoints();
+
+        assert.strictEqual(incidentOccurred.callCount, 1);
+        assert.strictEqual(incidentOccurred.lastCall.args[0], "W2002");
     });
 
     QUnit.module("Series with valueErrorBar", {
@@ -1759,10 +1773,8 @@ var checkTwoGroups = function(assert, series) {
                 horizontalOffset: 5,
                 verticalOffset: 8,
                 radialOffset: 7,
-                format: "currency",
-                precision: 3,
-                argumentFormat: "percent",
-                argumentPrecision: 1,
+                format: { type: "currency", precision: 3 },
+                argumentFormat: { type: "percent", precision: 1 },
                 customizeText: function() {
                     return "Test format";
                 },
@@ -1803,10 +1815,8 @@ var checkTwoGroups = function(assert, series) {
         assert.ok(labels.format);
         var formatResult = labels.customizeText();
         assert.equal(formatResult, "Test format");
-        assert.equal(labels.format, "currency");
-        assert.equal(labels.precision, 3);
-        assert.equal(labels.argumentFormat, "percent");
-        assert.equal(labels.argumentPrecision, 1);
+        assert.deepEqual(labels.format, { type: "currency", precision: 3 });
+        assert.deepEqual(labels.argumentFormat, { type: "percent", precision: 1 });
         assert.equal(labels.position, "inside");
         assert.equal(labels.connector["stroke-width"], 5);
         assert.equal(labels.connector.stroke, "red");
@@ -1838,10 +1848,8 @@ var checkTwoGroups = function(assert, series) {
                 horizontalOffset: 5,
                 verticalOffset: 8,
                 radialOffset: 7,
-                format: "currency",
-                precision: 3,
-                argumentFormat: "percent",
-                argumentPrecision: 1,
+                format: { type: "currency", precision: 3 },
+                argumentFormat: { type: "percent", precision: 1 },
                 customizeText: function() {
                     return "Test format";
                 },
@@ -1882,10 +1890,8 @@ var checkTwoGroups = function(assert, series) {
         assert.ok(labels.format);
         var formatResult = labels.customizeText();
         assert.equal(formatResult, "Test format");
-        assert.equal(labels.format, "currency");
-        assert.equal(labels.precision, 3);
-        assert.equal(labels.argumentFormat, "percent");
-        assert.equal(labels.argumentPrecision, 1);
+        assert.deepEqual(labels.format, { type: "currency", precision: 3 });
+        assert.deepEqual(labels.argumentFormat, { type: "percent", precision: 1 });
         assert.equal(labels.position, "inside");
         assert.equal(labels.connector["stroke-width"], 5);
         assert.equal(labels.connector.stroke, "red");
@@ -2082,10 +2088,6 @@ var checkTwoGroups = function(assert, series) {
         assert.ok(labels.format);
         var formatResult = labels.customizeText();
         assert.equal(formatResult, "Test format");
-        assert.equal(labels.format, "currency");
-        assert.equal(labels.precision, 3);
-        assert.equal(labels.argumentFormat, "percent");
-        assert.equal(labels.argumentPrecision, 1);
         assert.equal(labels.position, "inside");
         assert.equal(labels.connector["stroke-width"], 5);
         assert.equal(labels.connector.stroke, "red");
@@ -2161,10 +2163,6 @@ var checkTwoGroups = function(assert, series) {
         assert.ok(labels.format);
         var formatResult = labels.customizeText();
         assert.equal(formatResult, "Test format");
-        assert.equal(labels.format, "currency");
-        assert.equal(labels.precision, 3);
-        assert.equal(labels.argumentFormat, "percent");
-        assert.equal(labels.argumentPrecision, 1);
         assert.equal(labels.position, "inside");
         assert.equal(labels.connector["stroke-width"], 5);
         assert.equal(labels.connector.stroke, "red");
@@ -2285,11 +2283,6 @@ var checkTwoGroups = function(assert, series) {
         assert.ok(labels.format);
         var formatResult = labels.customizeText();
         assert.equal(formatResult, "Label is customized");
-        assert.equal(labels.format, "currency");
-        assert.equal(labels.precision, 3);
-        assert.equal(labels.argumentFormat, "percent");
-        assert.equal(labels.argumentPrecision, 1);
-        assert.equal(labels.position, "outside");
     });
 
     QUnit.test("Customize label and point", function(assert) {

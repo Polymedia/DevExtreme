@@ -1,9 +1,8 @@
-"use strict";
-
 var typeUtils = require("../../core/utils/type"),
     extend = require("../../core/utils/extend").extend,
     _isDefined = typeUtils.isDefined,
     _isDate = typeUtils.isDate,
+    _isFunction = typeUtils.isFunction,
     unique = require("../core/utils").unique,
 
     minSelector = "min",
@@ -96,26 +95,8 @@ _Range.prototype = {
         return that;
     },
 
-    isDefined: function() {
-        return (_isDefined(this[minSelector]) && _isDefined(this[maxSelector]) || (this.categories && this.categories.length));
-    },
-
-    setStubData: function(dataType) {
-        var that = this,
-            year = new Date().getFullYear() - 1,
-            isDate = dataType === "datetime",
-            axisType = that[axisTypeSelector],
-            min = axisType === "logarithmic" ? 1 : 0;
-
-        if(axisType === "discrete") {
-            that.categories = isDate ? [new Date(year, 0, 1), new Date(year, 3, 1), new Date(year, 6, 1), new Date(year, 9, 1)] : ["0", "1", "2"];
-        } else {
-            that[minSelector] = isDate ? new Date(year, 0, 1) : min;
-            that[maxSelector] = isDate ? new Date(year, 11, 31) : 10;
-        }
-        that.stubData = true;
-
-        return that;
+    isEmpty: function() {
+        return (!_isDefined(this[minSelector]) || !_isDefined(this[maxSelector])) && (!this.categories || this.categories.length === 0);
     },
 
     correctValueZeroLevel: function() {
@@ -135,13 +116,22 @@ _Range.prototype = {
         return that;
     },
 
-    sortCategories: function(arr) {
-        var cat = this.categories,
-            callback = (this.dataType === "datetime") ? function(item) {
-                return cat.map(Number).indexOf(item.valueOf()) !== -1;
-            } : function(item) {
-                return cat.indexOf(item) !== -1;
-            };
-        arr && cat && (this.categories = arr.filter(callback));
+    sortCategories(sort) {
+        if(sort === false || !this.categories) {
+            return;
+        }
+
+        if(Array.isArray(sort)) {
+            this.categories = sort.slice(0).concat(this.categories.filter(item => item && sort.indexOf(item.valueOf()) === -1));
+        } else {
+            let notAFunction = !_isFunction(sort);
+
+            if(notAFunction && this.dataType !== "string") {
+                sort = (a, b) => a.valueOf() - b.valueOf();
+            } else if(notAFunction) {
+                sort = false;
+            }
+            sort && this.categories.sort(sort);
+        }
     }
 };

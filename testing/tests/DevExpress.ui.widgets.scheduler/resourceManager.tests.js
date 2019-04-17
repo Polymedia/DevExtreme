@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     dxSchedulerResourceManager = require("ui/scheduler/ui.scheduler.resource_manager"),
     DataSource = require("data/data_source/data_source").DataSource,
@@ -751,4 +749,30 @@ QUnit.test("Load should be called once for several resources", function(assert) 
     deferred.resolve([{ text: "o1", id: 1 }, { text: "o2", id: 2 }]);
 
     assert.equal(count, 1, "Resources are loaded only once");
+});
+
+QUnit.test("getResourcesData should be correct after reloading resources", function(assert) {
+    var roomData =
+        {
+            field: "roomId",
+            label: "Room",
+            allowMultiple: false,
+            valueExpr: "Id",
+            dataSource: [{
+                text: "Room1",
+                Id: 1,
+                color: "#cb6bb2"
+            }]
+        };
+    this.createInstance([roomData]);
+    var done = assert.async();
+
+    this.instance.loadResources(["roomId"]).done($.proxy(function(groups) {
+        assert.deepEqual(this.instance.getResourcesData(), groups, "getResourcesData works correctly");
+
+        this.instance.loadResources([]).done($.proxy(function(groups) {
+            assert.deepEqual(this.instance.getResourcesData(), [], "getResourcesData works correctly");
+            done();
+        }, this));
+    }, this));
 });

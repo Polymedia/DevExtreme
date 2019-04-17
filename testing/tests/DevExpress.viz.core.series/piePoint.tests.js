@@ -1,5 +1,3 @@
-"use strict";
-
 import * as vizMocks from "../../helpers/vizMocks.js";
 import { noop } from "core/utils/common";
 import pointModule from "viz/series/points/base_point";
@@ -467,6 +465,11 @@ QUnit.test("circle point", function(assert) {
 
 });
 
+QUnit.test("getMarkerVisibility", function(assert) {
+    let point = createPoint(this.series, { argument: 1, value: 1 }, this.options);
+
+    assert.strictEqual(point.getMarkerVisibility(), true);
+});
 
 QUnit.module("Draw Point", {
     beforeEach: function() {
@@ -485,7 +488,8 @@ QUnit.module("Draw Point", {
             },
             _options: {},
             getLabelVisibility: function() { return false; },
-            getValueAxis: function() { return { getTranslator: function() { return that.angleTranslator; } }; }
+            getValueAxis: function() { return { getTranslator: function() { return that.angleTranslator; } }; },
+            hidePointTooltip: noop
         };
         this.options = {
             widgetType: "pie",
@@ -797,7 +801,8 @@ QUnit.test("Apply style", function(assert) {
     point.translate();
     point.draw(this.renderer, this.groups);
 
-    point.applyStyle("selection");
+    point.fullState = 2;
+    point.applyView();
 
     assert.deepEqual(point.graphic.stub("attr").lastCall.args[0], { style: "selection" });
 });
@@ -809,7 +814,8 @@ QUnit.test("Apply style with legend callback", function(assert) {
     point.translate();
     point.draw(this.renderer, this.groups);
 
-    point.applyStyle("selection", callback);
+    point.fullState = 2;
+    point.applyView(callback);
 
     assert.deepEqual(point.graphic.stub("attr").lastCall.args[0], { style: "selection" });
     assert.strictEqual(callback.callCount, 1);
@@ -826,6 +832,26 @@ QUnit.test("Apply view with legend callback", function(assert) {
 
     assert.deepEqual(point.graphic.stub("attr").lastCall.args[0], { style: "selection" });
     assert.strictEqual(callback.callCount, 1);
+});
+
+QUnit.test("Point should preserve visibility state on data updating", function(assert) {
+    this.options.visibilityChanged = noop;
+    let point = createPoint(this.series, { argument: "a1", value: 1 }, this.options);
+
+    point.hide();
+    point.updateData({ argument: "a1", value: 10 });
+
+    assert.strictEqual(point.isVisible(), false);
+});
+
+QUnit.test("Point should reset hidden state if argument changed", function(assert) {
+    this.options.visibilityChanged = noop;
+    let point = createPoint(this.series, { argument: "a1", value: 1 }, this.options);
+
+    point.hide();
+    point.updateData({ argument: "a2", value: 10 });
+
+    assert.strictEqual(point.isVisible(), true);
 });
 
 QUnit.module("Tooltip", {
@@ -1390,6 +1416,7 @@ QUnit.test("hide point", function(assert) {
     point.hide();
     assert.ok(!point.isVisible());
     assert.ok(this.visibilityChanged.calledOnce);
+    assert.ok(!this.visibilityChanged.lastCall.args[0]);
     assert.ok(hideTooltipSpy.calledOnce);
     assert.ok(point.isInVisibleArea());
 });
@@ -1425,4 +1452,5 @@ QUnit.test("show after hide point", function(assert) {
     assert.ok(point.isVisible());
     assert.ok(point.isInVisibleArea());
     assert.ok(this.visibilityChanged.calledOnce);
+    assert.ok(!this.visibilityChanged.lastCall.args[0]);
 });

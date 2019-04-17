@@ -1,5 +1,3 @@
-"use strict";
-
 require("common.css!");
 require("generic_light.css!");
 require("ui/scheduler/ui.scheduler.subscribes");
@@ -11,6 +9,11 @@ var $ = require("jquery"),
     recurrenceUtils = require("ui/scheduler/utils.recurrence"),
     dateUtils = require("core/utils/date"),
     config = require("core/config");
+
+
+function getTimezoneDifference(date, timeZone) {
+    return date.getTimezoneOffset() * dateUtils.dateToMilliseconds("minute") + timeZone * dateUtils.dateToMilliseconds("hour");
+}
 
 QUnit.testStart(function() {
     $("#qunit-fixture").html('<div id="scheduler"></div>');
@@ -26,6 +29,56 @@ QUnit.module("Subscribes", {
     afterEach: function() {
         fx.off = false;
     }
+});
+
+QUnit.test("'fixWrongEndDate' should process endDate correctly", function(assert) {
+    this.createInstance({
+        currentView: "week"
+    });
+
+    var checkedDate = this.instance.fire("fixWrongEndDate",
+        {
+            startDate: new Date(2019, 4, 3, 12),
+            allDay: false
+        }, new Date(2019, 4, 3, 12), undefined);
+
+    assert.equal(checkedDate.getTime(), new Date(2019, 4, 3, 12, 30).getTime(), "checked date is ok when endDate is undefined");
+
+    checkedDate = this.instance.fire("fixWrongEndDate",
+        {
+            startDate: new Date(2019, 4, 3, 12),
+            allDay: false
+        }, new Date(2019, 4, 3, 12), new Date("string"));
+
+    assert.equal(checkedDate.getTime(), new Date(2019, 4, 3, 12, 30).getTime(), "checked date is ok when endDate is invalid");
+
+    checkedDate = this.instance.fire("fixWrongEndDate",
+        {
+            startDate: new Date(2019, 4, 3, 12),
+            allDay: true
+        }, new Date(2019, 4, 3, 12), undefined);
+
+    assert.equal(checkedDate.getHours(), 23, "checked date is ok when endDate is undefined, allDay appointment");
+    assert.equal(checkedDate.getMinutes(), 59, "checked date is ok when endDate is undefined, allDay appointment");
+});
+
+QUnit.test("'getTargetedAppointmentData' should return correct data for recurrence appointments (T660901)", function(assert) {
+    var appointmentData = {
+        startDate: new Date(2015, 1, 1, 5, 11),
+        endDate: new Date(2015, 1, 1, 6),
+        recurrenceRule: "FREQ=HOURLY;INTERVAL=2"
+    };
+    this.createInstance({
+        currentDate: new Date(2015, 1, 1),
+        currentView: "day",
+        dataSource: [appointmentData]
+    });
+
+    var $appointments = this.instance.$element().find(".dx-scheduler-appointment");
+    var targetedData = this.instance.fire("getTargetedAppointmentData", appointmentData, $appointments.eq(1), 1);
+
+    assert.equal(targetedData.startDate.getTime(), appointmentData.startDate.getTime() + 2 * 3600000, "Targeted startDate is OK");
+    assert.equal(targetedData.endDate.getTime(), appointmentData.endDate.getTime() + 2 * 3600000, "Targeted endDate is OK");
 });
 
 QUnit.test("'setCellDataCacheAlias' should call workSpace method with right arguments", function(assert) {
@@ -665,6 +718,27 @@ QUnit.test("UpdateAppointmentStartDate should return corrected startDate", funct
     });
 });
 
+QUnit.test("UpdateAppointmentStartDate should return corrected startDate when appointment is short", function(assert) {
+    this.createInstance();
+    this.instance.option({
+        currentView: "week",
+        currentDate: new Date(2016, 1, 1),
+        startDayHour: 9
+    });
+
+    var appointment = {
+        startDate: new Date(2016, 1, 2, 8, 30),
+        endDate: new Date(2016, 1, 2, 9, 1)
+    };
+
+    this.instance.fire("updateAppointmentStartDate", {
+        startDate: appointment.startDate,
+        callback: function(result) {
+            assert.deepEqual(result, new Date(2016, 1, 2, 9, 0), "Updated date is correct");
+        }
+    });
+});
+
 QUnit.test("appointmentTakesSeveralDays should return true, if startDate and endDate is different days", function(assert) {
     this.createInstance();
     this.instance.option({
@@ -790,7 +864,7 @@ QUnit.test("'convertDateByTimezone' should return date according to the custom t
     });
 
     var date = new Date(2015, 6, 3, 3),
-        timezoneDifference = date.getTimezoneOffset() * 60000 + timezoneValue * 3600000;
+        timezoneDifference = getTimezoneDifference(date, timezoneValue);
 
     var convertedDate = this.instance.fire("convertDateByTimezone", date);
 
@@ -798,7 +872,6 @@ QUnit.test("'convertDateByTimezone' should return date according to the custom t
 });
 
 QUnit.test("'convertDateByTimezone' should return date according to the custom timeZone as string", function(assert) {
-
     var timezone = { id: "Asia/Ashkhabad", value: 5 };
     this.createInstance();
 
@@ -807,7 +880,23 @@ QUnit.test("'convertDateByTimezone' should return date according to the custom t
     });
 
     var date = new Date(2015, 6, 3, 3),
-        timezoneDifference = date.getTimezoneOffset() * 60000 + timezone.value * 3600000;
+        timezoneDifference = getTimezoneDifference(date, timezone.value);
+
+    var convertedDate = this.instance.fire("convertDateByTimezone", date);
+
+    assert.deepEqual(convertedDate, new Date(date.getTime() + timezoneDifference), "'convertDateByTimezone' works fine");
+});
+
+QUnit.test("'convertDateByTimezone' should return date according to the custom timeZone with non-integer number", function(assert) {
+    var timezone = { id: "Australia/Broken_Hill", value: 9.5 };
+    this.createInstance();
+
+    this.instance.option({
+        timeZone: timezone.id
+    });
+
+    var date = new Date(2015, 6, 3, 3),
+        timezoneDifference = getTimezoneDifference(date, timezone.value);
 
     var convertedDate = this.instance.fire("convertDateByTimezone", date);
 
@@ -929,6 +1018,25 @@ QUnit.test("'getAppointmentDurationInMs' should return visible allDay appointmen
     });
 });
 
+QUnit.test("'getAppointmentDurationInMs' should return visible appointment duration if last cell has small duration (T664073)", function(assert) {
+    this.createInstance();
+
+    this.instance.option({
+        startDayHour: 8,
+        currentView: "timelineDay",
+        cellDuration: 61
+    });
+
+    this.instance.fire("getAppointmentDurationInMs", {
+        startDate: new Date(2015, 2, 2, 7),
+        endDate: new Date(2015, 2, 4, 21),
+        allDay: true,
+        callback: function(result) {
+            assert.equal(result / dateUtils.dateToMilliseconds("hour"), 48.8, "'getAppointmentDurationInMs' works fine");
+        }
+    });
+});
+
 QUnit.test("'getAppointmentColor' by certain group", function(assert) {
     var appointmentColor;
 
@@ -1018,6 +1126,69 @@ QUnit.test("'getAppointmentColor' with fieldExpr for complex resource", function
     });
 
     assert.strictEqual(appointmentColor, "red", "appointment color is OK");
+});
+
+QUnit.test("'getHeaderHeight' should return correct value", function(assert) {
+    this.createInstance({
+        views: ["day"],
+        currentView: "day",
+        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
+    });
+
+    var headerHeight = this.instance.fire("getHeaderHeight");
+
+    assert.equal(headerHeight, 56, "Header height is OK");
+});
+
+QUnit.test("'getMaxAppointmentsPerCell' should return correct value in accordance with scheduler configuration", function(assert) {
+    this.createInstance({
+        views: [{
+            name: "DAY",
+            type: "day",
+            maxAppointmentsPerCell: 5
+        }, {
+            name: "WEEK",
+            type: "week"
+        }],
+        currentView: "DAY",
+        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
+    });
+
+    var countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
+
+    assert.equal(countPerCell, 5, "overlappingMode is OK");
+
+    this.instance.option("currentView", "WEEK");
+
+    countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
+
+    assert.equal(countPerCell, "auto", "overlappingMode is OK");
+});
+
+QUnit.test("'getMaxAppointmentsPerCell' should return correct value in accordance with view configuration", function(assert) {
+    this.createInstance({
+        views: [{
+            name: "DAY",
+            type: "day",
+            maxAppointmentsPerCell: 5
+        }, {
+            name: "WEEK",
+            type: "week",
+            maxAppointmentsPerCell: "unlimited"
+        }],
+        currentView: "DAY",
+        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
+    });
+
+    var countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
+
+    assert.equal(countPerCell, 5, "overlappingMode is OK");
+
+    this.instance.option("currentView", "WEEK");
+
+    countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
+
+    assert.equal(countPerCell, "unlimited", "overlappingMode is OK");
 });
 
 QUnit.module("Agenda", {
@@ -1265,65 +1436,546 @@ QUnit.test("Agenda should work when current view is changed", function(assert) {
     assert.ok(true, "Agenda works");
 });
 
-QUnit.test("'getHeaderHeight' should return correct value", function(assert) {
-    this.createInstance({
-        views: ["day"],
-        currentView: "day",
-        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
-    });
-
-    var headerHeight = this.instance.fire("getHeaderHeight");
-
-    assert.equal(headerHeight, 56, "Header height is OK");
+QUnit.module("Grouping By Date", {
+    beforeEach: function() {
+        this.createInstance = function(options) {
+            this.instance = $("#scheduler").dxScheduler(options).dxScheduler("instance");
+        };
+        fx.off = true;
+    },
+    afterEach: function() {
+        fx.off = false;
+    }
 });
 
-QUnit.test("'getMaxAppointmentsPerCell' should return correct value in accordance with scheduler configuration", function(assert) {
+QUnit.test("'isGroupedByDate' should be true only for horizontal grouped workspace with groups", function(assert) {
     this.createInstance({
         views: [{
             name: "DAY",
             type: "day",
-            maxAppointmentsPerCell: 5
-        }, {
-            name: "WEEK",
-            type: "week"
-        }],
-        currentView: "DAY",
-        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
-    });
-
-    var countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
-
-    assert.equal(countPerCell, 5, "overlappingMode is OK");
-
-    this.instance.option("currentView", "WEEK");
-
-    countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
-
-    assert.equal(countPerCell, "auto", "overlappingMode is OK");
-});
-
-QUnit.test("'getMaxAppointmentsPerCell' should return correct value in accordance with view configuration", function(assert) {
-    this.createInstance({
-        views: [{
-            name: "DAY",
-            type: "day",
-            maxAppointmentsPerCell: 5
+            groupOrientation: "horizontal"
         }, {
             name: "WEEK",
             type: "week",
-            maxAppointmentsPerCell: "unlimited"
+            groupOrientation: "vertical"
         }],
         currentView: "DAY",
-        dataSource: [{ startDate: new Date(2016, 2, 1, 1), endDate: new Date(2016, 2, 1, 2) }]
+        dataSource: [],
+        groupByDate: true,
+        groups: ["priorityId"],
+        resources: [{
+            field: "typeId",
+            dataSource: [{ id: 1, color: "red" }]
+        },
+        {
+            field: "priorityId",
+            dataSource: [{ id: 1, color: "black" }]
+        }
+        ]
     });
 
-    var countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
-
-    assert.equal(countPerCell, 5, "overlappingMode is OK");
+    assert.equal(this.instance.fire("isGroupedByDate"), true, "Workspace is grouped by date");
 
     this.instance.option("currentView", "WEEK");
+    assert.equal(this.instance.fire("isGroupedByDate"), false, "Workspace isn't grouped by date");
 
-    countPerCell = this.instance.fire("getMaxAppointmentsPerCell");
+    this.instance.option("groups", []);
+    this.instance.option("currentView", "DAY");
+    assert.equal(this.instance.fire("isGroupedByDate"), false, "Workspace isn't grouped by date");
+});
 
-    assert.equal(countPerCell, "unlimited", "overlappingMode is OK");
+QUnit.test("'needCoordinates' should work correct when groupByDate = true, Day view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "day",
+        views: [{
+            type: "day",
+            name: "day",
+            intervalCount: 2
+        }],
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        startDayHour: 9,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 21, 9, 0),
+            priorityId: 2
+        },
+        startDate: new Date(2018, 4, 21, 9, 0),
+        callback: function(result) {
+            result = result[0];
+            assert.equal(result.cellIndex, 0, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.equal(result.top, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, 324, 1.1, "Coordinates are OK");
+        }
+    });
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 22, 9, 0),
+            priorityId: 1
+        },
+        startDate: new Date(2018, 4, 22, 9, 0),
+        callback: function(result) {
+            result = result[0];
+            assert.equal(result.cellIndex, 1, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.equal(result.top, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, 548, 1.1, "Coordinates are OK");
+        }
+    });
+});
+
+QUnit.test("'needCoordinates' should work correct for allDay appointment when groupByDate = true, Week view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "week",
+        views: [{
+            type: "week",
+            name: "week",
+            intervalCount: 2
+        }],
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        startDayHour: 9,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 21, 9, 0),
+            endDate: new Date(2018, 4, 23, 9, 0),
+            priorityId: 2,
+            allDay: true
+        },
+        startDate: new Date(2018, 4, 21, 9, 0),
+        callback: function(results) {
+            assert.equal(results.length, 2, "Result length is OK");
+
+            var result = results[0];
+            assert.equal(result.cellIndex, 1, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.equal(result.top, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, 196, 1.1, "Coordinates are OK");
+
+            result = results[1];
+            assert.equal(result.cellIndex, 2, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.equal(result.top, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, 260, 1.1, "Coordinates are OK");
+        }
+    });
+});
+
+QUnit.test("'needCoordinates' should work correct when groupByDate = true, Week view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "week",
+        views: ["week"],
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        startDayHour: 9,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 22, 10, 0),
+            priorityId: 2
+        },
+        startDate: new Date(2018, 4, 22, 10, 0),
+        callback: function(result) {
+            result = result[0];
+            assert.equal(result.cellIndex, 2, "Coordinates are OK");
+            assert.equal(result.rowIndex, 2, "Coordinates are OK");
+            assert.equal(result.top, 100, "Coordinates are OK");
+            assert.roughEqual(result.left, 420, 1.5, "Coordinates are OK");
+        }
+    });
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 25, 1, 0),
+            priorityId: 1
+        },
+        startDate: new Date(2018, 4, 25, 11, 0),
+        callback: function(result) {
+            result = result[0];
+            assert.equal(result.cellIndex, 5, "Coordinates are OK");
+            assert.equal(result.rowIndex, 4, "Coordinates are OK");
+            assert.equal(result.top, 200, "Coordinates are OK");
+            assert.roughEqual(result.left, 740, 1.5, "Coordinates are OK");
+        }
+    });
+});
+
+
+QUnit.test("'needCoordinates' should work correct when groupByDate = true, Month view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "month",
+        views: [{
+            type: "month",
+            name: "month",
+            groupOrientation: "horizontal"
+        }],
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    var $cell = this.instance.$element().find(".dx-scheduler-date-table-cell").eq(0).get(0),
+        cellWidth = $cell.getBoundingClientRect().width,
+        cellHeight = $cell.getBoundingClientRect().height;
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 22, 10, 0),
+            endDate: new Date(2018, 4, 24),
+            priorityId: 2
+        },
+        startDate: new Date(2018, 4, 22, 10, 0),
+        callback: function(results) {
+            assert.equal(results.length, 2, "Coordinates count is ok");
+
+            var result = results[0];
+            assert.equal(result.cellIndex, 2, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 5, 1.5, "Coordinates are OK");
+
+            result = results[1];
+            assert.equal(result.cellIndex, 3, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 7, 1.5, "Coordinates are OK");
+        }
+    });
+});
+
+QUnit.test("'needCoordinates' should work correct for recurrenceAppointment when groupByDate = true, Month view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "month",
+        views: [{
+            type: "month",
+            name: "month",
+            groupOrientation: "horizontal"
+        }],
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    var $cell = this.instance.$element().find(".dx-scheduler-date-table-cell").eq(0).get(0),
+        cellWidth = $cell.getBoundingClientRect().width,
+        cellHeight = $cell.getBoundingClientRect().height;
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 22, 10, 0),
+            endDate: new Date(2018, 4, 23, 12),
+            priorityId: 2,
+            recurrenceRule: "FREQ=DAILY;COUNT=3"
+        },
+        startDate: new Date(2018, 4, 22, 10, 0),
+        callback: function(results) {
+            assert.equal(results.length, 6, "Coordinates count is ok");
+
+            var result = results[0];
+            assert.equal(result.cellIndex, 2, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 5, 1.5, "Coordinates are OK");
+
+            result = results[1];
+            assert.equal(result.cellIndex, 3, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 7, 1.5, "Coordinates are OK");
+
+            result = results[2];
+            assert.equal(result.cellIndex, 3, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 7, 1.5, "Coordinates are OK");
+
+            result = results[3];
+            assert.equal(result.cellIndex, 4, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 9, 1.5, "Coordinates are OK");
+
+            result = results[4];
+            assert.equal(result.cellIndex, 4, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 9, 1.5, "Coordinates are OK");
+
+            result = results[5];
+            assert.equal(result.cellIndex, 5, "Coordinates are OK");
+            assert.equal(result.rowIndex, 3, "Coordinates are OK");
+            assert.equal(result.top, cellHeight * 3, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 11, 1.5, "Coordinates are OK");
+        }
+    });
+});
+
+QUnit.test("'needCoordinates' should work correct when groupByDate = true, Timeline view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "timelineWeek",
+        views: [{
+            type: "timelineWeek",
+            name: "timelineWeek",
+            groupOrientation: "horizontal"
+        }],
+        currentDate: new Date(2018, 4, 21),
+        cellDuration: 60,
+        groupByDate: true,
+        startDayHour: 10,
+        endDayHour: 12,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    var cellWidth = this.instance.$element().find(".dx-scheduler-date-table-cell").eq(0).get(0).getBoundingClientRect().width;
+
+    this.instance.fire("needCoordinates", {
+        appointmentData: {
+            startDate: new Date(2018, 4, 21, 10, 0),
+            endDate: new Date(2018, 4, 21, 12, 0),
+            priorityId: 2
+        },
+        startDate: new Date(2018, 4, 21, 10, 0),
+        callback: function(results) {
+            var result = results[0];
+            assert.equal(result.cellIndex, 2, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 5, 1.5, "Coordinates are OK");
+
+            result = results[1];
+            assert.equal(result.cellIndex, 3, "Coordinates are OK");
+            assert.equal(result.rowIndex, 0, "Coordinates are OK");
+            assert.roughEqual(result.left, cellWidth * 7, 1.5, "Coordinates are OK");
+        }
+    });
+});
+
+QUnit.test("'getResizableAppointmentArea' should return correct area when groupByDate = true, Month view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        },
+        {
+            text: "Middle Priority",
+            id: 3,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "month",
+        views: [{
+            type: "month",
+            name: "month",
+            groupOrientation: "horizontal"
+        }],
+        width: 800,
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    var $firstCell = this.instance.$element().find(".dx-scheduler-date-table-cell").first(),
+        $lastCell = this.instance.$element().find(".dx-scheduler-date-table-cell").last(),
+        firstCellPosition = $firstCell.offset(),
+        lastCellPosition = $lastCell.offset(),
+        cellWidth = $lastCell.get(0).getBoundingClientRect().width;
+
+    this.instance.fire("getResizableAppointmentArea", {
+        allDay: false,
+        coordinates: {
+            groupIndex: 1,
+            left: 550,
+            top: 0
+        },
+        callback: function(result) {
+            assert.roughEqual(result.left, firstCellPosition.left - cellWidth / 2, 3, "Area left is OK");
+            assert.roughEqual(result.right, lastCellPosition.left + 1.5 * cellWidth, 3, "Area right is OK");
+        }
+    });
+});
+
+QUnit.test("'getResizableStep' should return correct step, groupByDate = true, Month view", function(assert) {
+    var priorityData = [
+        {
+            text: "Low Priority",
+            id: 1,
+            color: "#1e90ff"
+        }, {
+            text: "High Priority",
+            id: 2,
+            color: "#ff9747"
+        },
+        {
+            text: "Middle Priority",
+            id: 3,
+            color: "#ff9747"
+        }
+    ];
+    this.createInstance({
+        currentView: "month",
+        dataSource: [{
+            startDate: new Date(2018, 4, 21, 9, 0),
+            endDate: new Date(2018, 4, 21, 9, 30),
+            priorityId: 1
+        }],
+        views: [{
+            type: "month",
+            name: "month",
+            groupOrientation: "horizontal"
+        }],
+        width: 800,
+        currentDate: new Date(2018, 4, 21, 9, 0),
+        groupByDate: true,
+        groups: ["priorityId"],
+        resources: [
+            {
+                fieldExpr: "priorityId",
+                allowMultiple: false,
+                dataSource: priorityData,
+                label: "Priority"
+            }
+        ],
+    });
+
+    var $cell = this.instance.$element().find(".dx-scheduler-date-table-cell").eq(0),
+        cellWidth = $cell.get(0).getBoundingClientRect().width;
+
+    assert.roughEqual(this.instance.fire("getResizableStep"), cellWidth * 3, 3, "Step is OK");
 });

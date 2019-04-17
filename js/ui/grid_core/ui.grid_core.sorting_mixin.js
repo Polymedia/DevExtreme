@@ -1,6 +1,4 @@
-"use strict";
-
-var isDefined = require("../../core/utils/type").isDefined;
+import { isDefined } from "../../core/utils/type";
 
 var SORT_CLASS = "dx-sort",
     SORT_NONE_CLASS = "dx-sort-none",
@@ -12,7 +10,6 @@ var SORT_CLASS = "dx-sort",
 module.exports = {
     _applyColumnState: function(options) {
         var that = this,
-            side,
             ariaSortState,
             $sortIndicator,
             sortingMode = that.option("sorting.mode"),
@@ -21,7 +18,6 @@ module.exports = {
             $indicatorsContainer = that._getIndicatorContainer(rootElement);
 
         if(options.name === "sort") {
-            side = that.option("rtlEnabled") ? "right" : "left";
             rootElement.find("." + SORT_CLASS).remove();
             !$indicatorsContainer.children().length && $indicatorsContainer.remove();
 

@@ -1,7 +1,3 @@
-// jshint node:true
-
-"use strict";
-
 var gulp = require('gulp');
 var footer = require('gulp-footer');
 var eol = require('gulp-eol');
@@ -10,7 +6,6 @@ var merge = require('merge-stream');
 var file = require('gulp-file');
 var path = require('path');
 var ts = require('gulp-typescript');
-var runSequence = require('run-sequence');
 var through = require('through2');
 var lazyPipe = require('lazypipe');
 
@@ -18,6 +13,7 @@ var context = require('./context.js');
 var headerPipes = require('./header-pipes.js');
 var compressionPipes = require('./compression-pipes.js');
 var version = require('../../package.json').version;
+var packagePath = context.RESULT_NPM_PATH + '/devextreme';
 
 var TRANSPILED_GLOBS = [
     context.TRANSPILED_PATH + '/**/*.js',
@@ -46,14 +42,16 @@ var DIST_GLOBS = [
     '!artifacts/js/globalize*',
     '!artifacts/js/jquery*',
     '!artifacts/js/jszip*',
-    '!artifacts/js/dx.exporter*',
     '!artifacts/js/dx.custom*',
+    '!artifacts/js/quill*',
+    '!artifacts/js/Quill*',
+    '!artifacts/js/turndown*',
+    '!artifacts/js/showdown*',
     '!artifacts/ts/jquery*',
     '!artifacts/ts/knockout*',
     '!artifacts/ts/globalize*',
     '!artifacts/ts/cldr*',
-    '!artifacts/css/dx*legacy*.css',
-    '!artifacts/css/dx*exporter*.css'
+    '!artifacts/css/dx*legacy*.css'
 ];
 
 var MODULES = require('./modules_metadata.json');
@@ -78,27 +76,27 @@ gulp.task('npm-sources', ['npm-dts-generator'], function() {
             .pipe(addDefaultExport())
             .pipe(headerPipes.starLicense())
             .pipe(compressionPipes.beautify())
-            .pipe(gulp.dest(context.RESULT_NPM_PATH)),
+            .pipe(gulp.dest(packagePath)),
 
         gulp.src(JSON_GLOBS)
-            .pipe(gulp.dest(context.RESULT_NPM_PATH)),
+            .pipe(gulp.dest(packagePath)),
 
         gulp.src('build/npm-bin/*.js')
             .pipe(eol('\n'))
-            .pipe(gulp.dest(context.RESULT_NPM_PATH + '/bin')),
+            .pipe(gulp.dest(packagePath + '/bin')),
 
         gulp.src('webpack.config.js')
-            .pipe(gulp.dest(context.RESULT_NPM_PATH + '/bin')),
+            .pipe(gulp.dest(packagePath + '/bin')),
 
         gulp.src('package.json')
             .pipe(replace(version, context.version.package))
-            .pipe(gulp.dest(context.RESULT_NPM_PATH)),
+            .pipe(gulp.dest(packagePath)),
 
         gulp.src(DIST_GLOBS)
-            .pipe(gulp.dest(context.RESULT_NPM_PATH + '/dist')),
+            .pipe(gulp.dest(packagePath + '/dist')),
 
         gulp.src('README.md')
-            .pipe(gulp.dest(context.RESULT_NPM_PATH))
+            .pipe(gulp.dest(packagePath))
     );
 });
 
@@ -115,20 +113,31 @@ gulp.task('npm-dts-generator', function() {
         if(moduleMeta.exports) {
             var exportNames = Object.keys(moduleMeta.exports);
             var exportProperties = exportNames.map(function(name) {
-                var globalPath = moduleMeta.exports[name];
+                const exportEntry = moduleMeta.exports[name];
+
                 if(name !== 'default') {
-                    return `export declare let ${name}: typeof DevExpress.${globalPath};`;
+                    switch(moduleMeta.exports[name].exportAs) {
+                        case "type":
+                            return `export type ${name} = DevExpress.${exportEntry.path};`;
+                    }
+                    return `export declare let ${name}: typeof DevExpress.${exportEntry.path};`;
                 }
 
-                var jQueryAugmentation = generateJQueryAugmentation(name, globalPath);
-                if(jQueryAugmentation) {
-                    jQueryAugmentation = `declare global {\n${jQueryAugmentation}}\n`;
+                let result = '';
+
+                if(exportEntry.isWidget) {
+                    var jQueryAugmentation = generateJQueryAugmentation(exportEntry.path);
+                    if(jQueryAugmentation) {
+                        result += `declare global {\n${jQueryAugmentation}}\n`;
+                    }
                 }
 
-                var result = jQueryAugmentation + `export default DevExpress.${globalPath};`;
+                result += `export default DevExpress.${exportEntry.path};`;
 
-                var widgetOptionsPath = getAugmentationOptionsPath(globalPath);
+                var widgetOptionsPath = getAugmentationOptionsPath(exportEntry.path);
                 if(widgetOptionsPath) {
+                    result += `\nexport type Options = DevExpress.${widgetOptionsPath};`;
+                    result += `\n\n/** @deprecated use Options instead */`;
                     result += `\nexport type IOptions = DevExpress.${widgetOptionsPath};`;
                 }
 
@@ -154,12 +163,13 @@ gulp.task('npm-dts-generator', function() {
             .pipe(replace('/*!', '/**'))
             .pipe(replace(/\/\*\s*#StartGlobalDeclaration\s*\*\//g, 'declare global {'))
             .pipe(replace(/\/\*\s*#EndGlobalDeclaration\s*\*\//g, '}'))
+            .pipe(replace(/\/\*\s*#StartJQueryAugmentation\s*\*\/[\s\S]*\/\*\s*#EndJQueryAugmentation\s*\*\//g, ''))
             .pipe(footer('\nexport default DevExpress;'))
-            .pipe(gulp.dest(path.join(context.RESULT_NPM_PATH, 'bundles'))),
+            .pipe(gulp.dest(path.join(packagePath, 'bundles'))),
 
         merge.apply(merge, tsModules)
             .pipe(headerPipes.starLicense())
-            .pipe(gulp.dest(context.RESULT_NPM_PATH))
+            .pipe(gulp.dest(packagePath))
     );
 });
 
@@ -167,19 +177,29 @@ gulp.task('npm-dts-check', ['npm-dts-generator'], function() {
     var content = 'import $ from \'jquery\';\n';
 
     content += MODULES.map(function(moduleMeta) {
-        var modulePath = '\'./npm/' + moduleMeta.name + '\'';
+        var modulePath = '\'./npm/devextreme/' + moduleMeta.name + '\'';
         if(!moduleMeta.exports) {
             return 'import ' + modulePath + ';';
         }
 
         return Object.keys(moduleMeta.exports).map(function(name) {
-            var uniqueIdentifier = moduleMeta.name.split('\/').concat([name]).join('__');
+            const exportEntry = moduleMeta.exports[name];
+
+            var uniqueIdentifier = moduleMeta.name
+                .replace(/\./g, '_')
+                .split('/')
+                .concat([name])
+                .join('__');
+
             var importIdentifier = name === 'default' ? uniqueIdentifier : `{ ${name} as ${uniqueIdentifier} }`;
 
-            var widgetName = widgetNameByPath(moduleMeta.exports[name]);
-            var checkJQueryAugmentation = widgetName ? `$('<div>').${widgetName}();\n` : '';
+            const importStatement = `import ${importIdentifier} from ${modulePath};`;
+            var widgetName = widgetNameByPath(exportEntry.path);
+            if(exportEntry.isWidget && widgetName) {
+                return `$('<div>').${widgetName}();\n${importStatement}`;
+            }
 
-            return checkJQueryAugmentation + `import ${importIdentifier} from ${modulePath};`;
+            return importStatement;
         }).join('\n');
     }).join('\n');
 
@@ -192,9 +212,4 @@ gulp.task('npm-dts-check', ['npm-dts-generator'], function() {
 
 gulp.task('npm-check', ['npm-dts-check']);
 
-gulp.task('npm', function(callback) {
-    return runSequence(
-        'npm-sources',
-        'npm-check',
-        callback);
-});
+gulp.task('npm', ['npm-sources', 'npm-check']);

@@ -1,5 +1,3 @@
-"use strict";
-
 var errorUtils = require("../core/utils/error"),
     coreErrors = require("../core/errors"),
     handlers = {};
@@ -89,6 +87,11 @@ var errors = errorUtils(coreErrors.ERROR_MESSAGES, {
     * @name ErrorsData.E4015
     */
     E4015: "Unknown entity name or alias is used: {0}",
+
+    /**
+    * @name ErrorsData.E4016
+    */
+    E4016: "The compileSetter(expr) method is called with 'self' passed as a parameter",
 
     /**
     * @name ErrorsData.E4017

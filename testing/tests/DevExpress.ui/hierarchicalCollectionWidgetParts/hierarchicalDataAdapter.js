@@ -1,5 +1,3 @@
-"use strict";
-
 var $ = require("jquery"),
     HierarchicalDataAdapter = require("ui/hierarchical_collection/ui.data_adapter"),
     dataUtils = require("data/utils"),
@@ -879,9 +877,9 @@ QUnit.test("It should be possible to find items if text is set via expression", 
             }
         },
         items = [
-                { id: 1, parentId: 0, name: "Cars" },
-                { id: 2, parentId: 0, name: "Bikes" },
-                { id: 3, parentId: 0, name: "Motobikes" }
+            { id: 1, parentId: 0, name: "Cars" },
+            { id: 2, parentId: 0, name: "Bikes" },
+            { id: 3, parentId: 0, name: "Motobikes" }
         ],
         dataAdapter = new HierarchicalDataAdapter({ dataAccessors: accessors, items: items, dataType: "plain" });
 
@@ -989,9 +987,9 @@ QUnit.test("Parent nodes should be expanded", function(assert) {
 
 QUnit.test("Search should work with warning when the parent node is lost", function(assert) {
     var items = [
-        { id: 1, parentId: 0, text: "Cars" },
-        { id: 5, parentId: 154, text: "X1" },
-        { id: 6, parentId: 1, text: "X5" }
+            { id: 1, parentId: 0, text: "Cars" },
+            { id: 5, parentId: 154, text: "X1" },
+            { id: 6, parentId: 1, text: "X5" }
         ],
         warningHandler = sinon.spy(errors, "log");
 
@@ -1028,7 +1026,7 @@ QUnit.test("Node changed should fire if any node was changed", function(assert) 
 });
 
 QUnit.test("Searching with special symbols should not crash the regular expression", function(assert) {
-    var symbols = "[]{}()-+?*,.\^$|#".split(""),
+    var symbols = "[]{}()-+?*,.\\^$|#".split(""),
 
         dataAdapter = initDataAdapter({
             items: [{ text: "item 1", expanded: true, items: [{ text: "item 11" }] }],
