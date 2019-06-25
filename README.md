@@ -1,58 +1,36 @@
-# DevExtreme
+# Пропатченная версия DevExtreme (by TilliWilli)
 
-[![Build Status](https://devextreme-ci.devexpress.com/api/badges/DevExpress/DevExtreme/status.svg?branch=19_1)](https://devextreme-ci.devexpress.com/DevExpress/DevExtreme)
+## Руководство по патчингу
+0. Вызвать ```npm install``` в проекте, чтобы установились все тулзы необходимые для билдинга
 
-Voted the best cross-platform component suite containing everything you need to create responsive web apps for touch devices and traditional desktops: data grid, interactive charts, data editors, navigation and multi-purpose widgets that are designed to look great and provide powerful functionality in any browser.
+1. Внести изменения в коде в файлах находящихся в папке ```/js```
 
-- Official website: [js.devexpress.com](https://js.devexpress.com)
-- Pricing: [js.devexpress.com/buy](https://js.devexpress.com/Buy)
-- Licensing: [js.devexpress.com/licensing](https://js.devexpress.com/Licensing)
-- Support: [www.devexpress.com/support](https://www.devexpress.com/support)
+2. Запустить команду ```npm run build-dist```
 
-## Download and Install
+3. В json файле ```/artifacts/npm/devextreme/package.json```
 
-To include DevExtreme to your project, use one of the distribution packages. If you use Visual Studio, then use the Windows installer for added features like project templates. Alternatively, download a plain zip archive of just the client-side library and its widgets:
+    3.1. Измените название package'a на 
 
-- [Install from NPM](https://js.devexpress.com/Documentation/Guide/Getting_Started/Installation/npm_Package/)
-- [Install via Bower](https://js.devexpress.com/Documentation/Guide/Getting_Started/Installation/Bower_Package/)
-- [Install from NuGet](https://js.devexpress.com/Documentation/Guide/Getting_Started/Installation/NuGet_Package/)
-- [Windows Installer](https://js.devexpress.com/Downloading/DevExtremeComplete/) - Provides benefits for developers who use Visual Studio
-- [ZIP Archive](https://js.devexpress.com/Downloading/DevExtremeCompleteZip/)
+    ```"name": "@congresspolymedia/devextreme",```
 
+    3.2. Необходимо поднять версию npm package'a для этого измените свойство version
 
-## Getting Started
+    ```"version": "19.1.4-vispatch{YOUR_NEW_VERSION}",```
 
-After installation, you can add a widget to your app. Here's a simple button example:
+4. залогиниться в npm с помощью команды npm login
 
-```html
-<div id="buttonContainer"></div>
-```
+login: congresspolymedia
+password: стандарный наш
+email: congresspolymedia@gmail.com
 
-```js
-var element = document.getElementById('buttonContainer');
-var button = new DevExpress.ui.dxButton(element, { text: 'Hello World!' });
-```
+5. перейти в папку ```artifacts/npm/devextreme``` и выполнить команду ```npm publish --access=public```
 
-DevExtreme supports deep integration with the following client-side technologies:
+6. Пакет залился на npm - можно закачивать в проект и проверять
 
-- [jQuery plugins](https://js.devexpress.com/Documentation/Guide/Getting_Started/Widget_Basics_-_jQuery/Create_and_Configure_a_Widget/)
-- [Knockout bindings](https://js.devexpress.com/Documentation/Guide/Getting_Started/Widget_Basics_-_Knockout/Create_and_Configure_a_Widget/)
-- [Angular](https://github.com/DevExpress/devextreme-angular#readme)
-- [React](https://github.com/DevExpress/devextreme-react#readme)
-- [Vue](https://github.com/DevExpress/devextreme-vue#readme)
+```https://www.npmjs.com/~congresspolymedia```
 
-And server-side frameworks:
+7. чтобы закачать в проект удалите во Вьювере папку /node_modules/@congresspolymedia и вызовите команду
 
-- [ASP.NET MVC & ASP.NET Core](https://js.devexpress.com/Documentation/Guide/ASP.NET_MVC_Controls/Fundamentals/)
+```npm i "@congresspolymedia/devextreme@{YOUR_NEW_VERSION}"```
 
-## Learn
-
-- [Online Demos](https://js.devexpress.com/Demos/)
-- [Documentation](https://js.devexpress.com/Documentation)
-- [Examples on GitHub](https://github.com/DevExpress/DevExtreme-examples)
-- [YouTube videos](https://www.youtube.com/watch?v=oWWL6iILMPM&list=PL8h4jt35t1wjGvgflbHEH_e3b23AA30-z)
-
-
-## Contributing
-
-See our [Guidelines for Contributing](CONTRIBUTING.md)
+8. закомитьте и залейте все изменения на github

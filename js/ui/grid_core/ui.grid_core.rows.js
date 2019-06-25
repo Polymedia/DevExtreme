@@ -810,7 +810,8 @@ module.exports = {
                     var $rowElements = $tableElement.children("tbody").children().not(".dx-virtual-row").not("." + FREE_SPACE_CLASS);
 
                     return $rowElements.toArray().reduce(function(sum, row) {
-                        return sum + row.getBoundingClientRect().height;
+                        // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
+                        return sum + devTools.scaleCorrection.linear(row.getBoundingClientRect().height);
                     }, 0);
                 },
 

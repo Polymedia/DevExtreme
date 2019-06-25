@@ -852,8 +852,9 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 width = item.offsetWidth;
                 if(item.getBoundingClientRect) {
                     clientRect = item.getBoundingClientRect();
-                    if(clientRect.width > width - 1) {
-                        width = legacyRendering ? Math.ceil(clientRect.width) : clientRect.width;
+                    // без этой коррекции: ширины колонок начнут выезжать за пределы виджета при scale > 1.0
+                    if(devTools.scaleCorrection.linear(clientRect.width) > width - 1) {
+                        width = legacyRendering ? Math.ceil(devTools.scaleCorrection.linear(clientRect.width)) : devTools.scaleCorrection.linear(clientRect.width);
                     }
                 }
 

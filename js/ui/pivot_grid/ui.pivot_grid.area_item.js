@@ -20,9 +20,11 @@ var getRealElementWidth = function(element) {
     }
 
     if(width > 0) {
-        return width;
+        // без этого ширина ячеек таблицы будет высчитываться не правильно
+        return devTools.scaleCorrection.linear(width);
     } else {
-        return element.offsetWidth;
+        // без этого ширина ячеек таблицы будет высчитываться не правильно
+        return devTools.scaleCorrection.linear(element.offsetWidth);
     }
 };
 
@@ -270,9 +272,11 @@ exports.AreaItem = Class.inherit({
                 height = clientRect.height;
             }
             if(height > 0) {
-                return height;
+                // без этого высота ячеек таблицы будет высчитываться не правильно
+                return devTools.scaleCorrection.linear(height);
             } else {
-                return row.offsetHeight;
+                // без этого высота ячеек таблицы будет высчитываться не правильно
+                return devTools.scaleCorrection.linear(row.offsetHeight);
             }
         }
         return 0;
