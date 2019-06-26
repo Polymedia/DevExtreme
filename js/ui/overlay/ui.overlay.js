@@ -1,3 +1,5 @@
+var scaleCorrection = devTools.getScaleCorrection();
+
 var $ = require("../../core/renderer"),
     domAdapter = require("../../core/dom_adapter"),
     windowUtils = require("../../core/utils/window"),
@@ -1328,7 +1330,7 @@ var Overlay = Widget.inherit({
                 this._$content.css({
                     "transform-origin": "top left",
                     // преобразуем "translate(129px, 325px)" -> "translate(129px, 325px) scale(0.82)"
-                    "transform": `${this._$content[0].style.transform} scale(${devTools.scaleCorrection.scale()})`,
+                    "transform": `${this._$content[0].style.transform} scale(${scaleCorrection.scale()})`,
                 });
             }
 

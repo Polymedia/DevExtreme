@@ -32,10 +32,11 @@ var COLUMNS_SEPARATOR_CLASS = "columns-separator",
     COLUMN_OPACITY = 0.5;
 
 // функции для применения коррекций по скейлу
-var dimensionCorrection = devTools.scaleCorrection.dimension;
-var hShiftCorrection = devTools.scaleCorrection.horizontalShift;
-var vShiftCorrection = devTools.scaleCorrection.verticalShift;
-var currentScale = devTools.scaleCorrection.scale;
+var scaleCorrection = devTools.getScaleCorrection();
+var dimensionCorrection = scaleCorrection.dimension;
+var hShiftCorrection = scaleCorrection.horizontalShift;
+var vShiftCorrection = scaleCorrection.verticalShift;
+var currentScale = scaleCorrection.scale;
 
 var allowResizing = function(that) {
     return that.option("allowColumnResizing") || that.getController("columns").isColumnOptionUsed("allowResizing");

@@ -6,6 +6,8 @@ var $ = require("../../core/renderer"),
 
 var PIVOTGRID_EXPAND_CLASS = "dx-expand";
 
+var scaleCorrection = devTools.getScaleCorrection();
+
 var getRealElementWidth = function(element) {
     var width = 0,
         clientRect;
@@ -21,10 +23,10 @@ var getRealElementWidth = function(element) {
 
     if(width > 0) {
         // без этого ширина ячеек таблицы будет высчитываться не правильно
-        return devTools.scaleCorrection.dimension(width);
+        return scaleCorrection.dimension(width);
     } else {
         // без этого ширина ячеек таблицы будет высчитываться не правильно
-        return devTools.scaleCorrection.dimension(element.offsetWidth);
+        return scaleCorrection.dimension(element.offsetWidth);
     }
 };
 
@@ -273,10 +275,10 @@ exports.AreaItem = Class.inherit({
             }
             if(height > 0) {
                 // без этого высота ячеек таблицы будет высчитываться не правильно
-                return devTools.scaleCorrection.dimension(height);
+                return scaleCorrection.dimension(height);
             } else {
                 // без этого высота ячеек таблицы будет высчитываться не правильно
-                return devTools.scaleCorrection.dimension(row.offsetHeight);
+                return scaleCorrection.dimension(row.offsetHeight);
             }
         }
         return 0;

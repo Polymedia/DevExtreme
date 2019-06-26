@@ -32,6 +32,9 @@ var ROWS_VIEW_CLASS = "rowsview",
 
     LOADPANEL_HIDE_TIMEOUT = 200;
 
+var scaleCorrection = devTools.getScaleCorrection();
+
+
 module.exports = {
     defaultOptions: function() {
         return {
@@ -811,7 +814,7 @@ module.exports = {
 
                     return $rowElements.toArray().reduce(function(sum, row) {
                         // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
-                        return sum + devTools.scaleCorrection.dimension(row.getBoundingClientRect().height);
+                        return sum + scaleCorrection.dimension(row.getBoundingClientRect().height);
                     }, 0);
                 },
 

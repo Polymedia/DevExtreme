@@ -36,6 +36,8 @@ var SCROLL_CONTAINER_CLASS = "scroll-container",
 
     FORM_FIELD_ITEM_CONTENT_CLASS = "dx-field-item-content";
 
+var scaleCorrection = devTools.getScaleCorrection();
+
 var appendElementTemplate = {
     render: function(options) {
         options.container.append(options.content);
@@ -853,8 +855,8 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 if(item.getBoundingClientRect) {
                     clientRect = item.getBoundingClientRect();
                     // без этой коррекции: ширины колонок начнут выезжать за пределы виджета при scale > 1.0
-                    if(devTools.scaleCorrection.dimension(clientRect.width) > width - 1) {
-                        width = legacyRendering ? Math.ceil(devTools.scaleCorrection.dimension(clientRect.width)) : devTools.scaleCorrection.dimension(clientRect.width);
+                    if(scaleCorrection.dimension(clientRect.width) > width - 1) {
+                        width = legacyRendering ? Math.ceil(scaleCorrection.dimension(clientRect.width)) : scaleCorrection.dimension(clientRect.width);
                     }
                 }
 
