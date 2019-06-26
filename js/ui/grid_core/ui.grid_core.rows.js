@@ -811,7 +811,7 @@ module.exports = {
 
                     return $rowElements.toArray().reduce(function(sum, row) {
                         // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
-                        return sum + devTools.scaleCorrection.linear(row.getBoundingClientRect().height);
+                        return sum + devTools.scaleCorrection.dimension(row.getBoundingClientRect().height);
                     }, 0);
                 },
 

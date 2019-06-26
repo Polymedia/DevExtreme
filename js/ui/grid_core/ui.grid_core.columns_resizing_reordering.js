@@ -32,8 +32,9 @@ var COLUMNS_SEPARATOR_CLASS = "columns-separator",
     COLUMN_OPACITY = 0.5;
 
 // функции для применения коррекций по скейлу
-var linearCorrection = devTools.scaleCorrection.linear;
-var pointCorrection = devTools.scaleCorrection.point;
+var dimensionCorrection = devTools.scaleCorrection.dimension;
+var hShiftCorrection = devTools.scaleCorrection.horizontalShift;
+var vShiftCorrection = devTools.scaleCorrection.verticalShift;
 var currentScale = devTools.scaleCorrection.scale;
 
 var allowResizing = function(that) {
@@ -252,7 +253,7 @@ var ColumnsSeparatorView = SeparatorView.inherit({
         if($element) {
             // функция .offset() обращается к getBoundingClientRect, который возвращает некоректные результаты при скейле - компенсируем
             // без этой коррекции: синяя линия-разделитель колонок (появляется при изменение ширины колонки) будет криво позиционироваться
-            $element.css("left", outerX - linearCorrection(this._parentElement().offset().left));
+            $element.css("left", outerX - dimensionCorrection(this._parentElement().offset().left));
             ///#DEBUG
             this._testPosX = outerX;
             ///#ENDDEBUG
@@ -453,9 +454,12 @@ var DraggingHeaderView = modules.View.inherit({
         that._controller.drag(that._dropOptions);
 
         that.element().css({
+            // чтобы шрифт зависил от скейла, иначе текст будет оставаться крупным при scale << 1
+            fontSize: 14 * currentScale() + "px",
             textAlign: columnElement && columnElement.css("textAlign"),
-            height: columnElement && (isCommandColumn && columnElement.get(0).clientHeight || columnElement.height()),
-            width: columnElement && (isCommandColumn && columnElement.get(0).clientWidth || columnElement.width()),
+            // без этой коррекции: размер колонки при перетаскивание будет слишком огромным при маленьком скейле scale << 1
+            height: columnElement && (isCommandColumn && columnElement.get(0).clientHeight || columnElement.height()) * currentScale(),
+            width: columnElement && (isCommandColumn && columnElement.get(0).clientWidth || columnElement.width()) * currentScale(),
             whiteSpace: columnElement && columnElement.css("whiteSpace")
         })
             .addClass(that.addWidgetPrefix(HEADERS_DRAG_ACTION_CLASS))
@@ -592,7 +596,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
                 headersRowHeight = this._columnHeadersView.getHeadersRowHeight();
 
                 // к остальным величинам прикладываем коррекцию - чтобы расчет формулы происходил в едином координатном пространстве scale = 1
-                return pointCorrection(posY) >= pointCorrection(offsetTop) && pointCorrection(posY) <= pointCorrection(offsetTop) + headersRowHeight;
+                return vShiftCorrection(posY) >= vShiftCorrection(offsetTop) && vShiftCorrection(posY) <= vShiftCorrection(offsetTop) + headersRowHeight;
             }
         }
         return false;
@@ -642,12 +646,12 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
 
         if(that._isResizing && that._resizingInfo) {
             // без этой коррекции: колонки будут позволять изменять свои размеры до непозволительно маленьких (будут схлопываться) при scale >> 1
-            if(pointCorrection(parentOffsetLeft) <= pointCorrection(eventData.x) && (!isNextColumnMode || pointCorrection(eventData.x) <= pointCorrection(parentOffsetLeft) + that._$parentContainer.width())) {
-                if(that._updateColumnsWidthIfNeeded(pointCorrection(eventData.x))) {
+            if(hShiftCorrection(parentOffsetLeft) <= hShiftCorrection(eventData.x) && (!isNextColumnMode || hShiftCorrection(eventData.x) <= hShiftCorrection(parentOffsetLeft) + that._$parentContainer.width())) {
+                if(that._updateColumnsWidthIfNeeded(hShiftCorrection(eventData.x))) {
                     var $cell = that._columnHeadersView.getColumnElements().eq(that._resizingInfo.currentColumnIndex);
                     // функция .offset() обращаеться к getBoundingClientRect, который возвращает некоректные результаты при скейле - компенсируем
                     // без этой коррекции: синяя линия-разделитель колонок (появляется при изменение ширины колонки) будет криво позиционироваться
-                    that._columnsSeparatorView.moveByX(linearCorrection($cell.offset().left) + (isNextColumnMode && that.option("rtlEnabled") ? 0 : $cell.outerWidth()));
+                    that._columnsSeparatorView.moveByX(dimensionCorrection($cell.offset().left) + (isNextColumnMode && that.option("rtlEnabled") ? 0 : $cell.outerWidth()));
                     that._tablePositionController.update(that._targetPoint.y);
                     e.preventDefault();
                 }
@@ -668,7 +672,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
                     that._columnsSeparatorView.changeCursor("col-resize");
                     // расчет that._targetPoint.x полагаеться на вызовы к getBoundingClientRect, который возвращает некоректные результаты при скейле - компенсируем
                     // без этой коррекции: синяя линия-разделитель колонок (появляется при изменение ширины колонки) будет криво позиционироваться
-                    that._columnsSeparatorView.moveByX(linearCorrection(that._targetPoint.x - deltaX));
+                    that._columnsSeparatorView.moveByX(dimensionCorrection(that._targetPoint.x - deltaX));
                     that._tablePositionController.update(that._targetPoint.y);
                     that._isReadyResizing = true;
                     e.preventDefault();
@@ -746,7 +750,7 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
                 if(that._targetPoint) {
                     // расчет that._targetPoint.x полагаеться на вызовы к getBoundingClientRect, который возвращает некоректные результаты при скейле - компенсируем
                     // без этой коррекции: синяя линия-разделитель колонок (появляется при изменение ширины колонки) будет криво позиционироваться
-                    that._columnsSeparatorView.moveByX(linearCorrection(that._targetPoint.x - that._columnsSeparatorView.width() / 2));
+                    that._columnsSeparatorView.moveByX(dimensionCorrection(that._targetPoint.x - that._columnsSeparatorView.width() / 2));
                     that._isReadyResizing = true;
                 }
             } else {
@@ -815,11 +819,11 @@ var ColumnsResizerViewController = modules.ViewController.inherit({
             needUpdate = false,
             nextCellWidth,
             resizingInfo = {
-                startPosX: pointCorrection(this._resizingInfo.startPosX),
+                startPosX: hShiftCorrection(this._resizingInfo.startPosX),
                 currentColumnIndex: this._resizingInfo.currentColumnIndex,
-                currentColumnWidth: linearCorrection(this._resizingInfo.currentColumnWidth),
+                currentColumnWidth: dimensionCorrection(this._resizingInfo.currentColumnWidth),
                 nextColumnIndex: this._resizingInfo.nextColumnIndex,
-                nextColumnWidth: linearCorrection(this._resizingInfo.nextColumnWidth),
+                nextColumnWidth: dimensionCorrection(this._resizingInfo.nextColumnWidth),
             },
             columnsController = this._columnsController,
             visibleColumns = columnsController.getVisibleColumns(),

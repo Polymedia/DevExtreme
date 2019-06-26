@@ -21,10 +21,10 @@ var getRealElementWidth = function(element) {
 
     if(width > 0) {
         // без этого ширина ячеек таблицы будет высчитываться не правильно
-        return devTools.scaleCorrection.linear(width);
+        return devTools.scaleCorrection.dimension(width);
     } else {
         // без этого ширина ячеек таблицы будет высчитываться не правильно
-        return devTools.scaleCorrection.linear(element.offsetWidth);
+        return devTools.scaleCorrection.dimension(element.offsetWidth);
     }
 };
 
@@ -273,10 +273,10 @@ exports.AreaItem = Class.inherit({
             }
             if(height > 0) {
                 // без этого высота ячеек таблицы будет высчитываться не правильно
-                return devTools.scaleCorrection.linear(height);
+                return devTools.scaleCorrection.dimension(height);
             } else {
                 // без этого высота ячеек таблицы будет высчитываться не правильно
-                return devTools.scaleCorrection.linear(row.offsetHeight);
+                return devTools.scaleCorrection.dimension(row.offsetHeight);
             }
         }
         return 0;
