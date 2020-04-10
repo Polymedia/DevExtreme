@@ -50,6 +50,7 @@
         "no-empty": ["error", { "allowEmptyCatch": true }],
         "no-new-func": "error",
         "no-eval": "error",
+        "no-undef": "off",
         "no-undef-init": "error",
         "no-unused-vars": ["error", { "args": "none" }],
         "no-extend-native": "error",

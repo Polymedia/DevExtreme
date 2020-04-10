@@ -5,6 +5,7 @@ import { extend } from '../../core/utils/extend';
 import { isDefined } from '../../core/utils/type';
 
 const PIVOTGRID_EXPAND_CLASS = 'dx-expand';
+const scaleCorrection = devTools.getScaleCorrection();
 
 const getRealElementWidth = function(element) {
     let width = 0;
@@ -23,7 +24,9 @@ const getRealElementWidth = function(element) {
         }
     }
 
-    return width > 0 ? width : offsetWidth;
+    // без этого ширина ячеек таблицы будет высчитываться не правильно
+    const resultWidth = width > 0 ? width : offsetWidth;
+    return scaleCorrection.scale() > 1 ? scaleCorrection.dimension(resultWidth) : resultWidth;
 };
 
 function getFakeTableOffset(scrollPos, elementOffset, tableSize, viewPortSize) {
@@ -275,7 +278,9 @@ exports.AreaItem = Class.inherit({
                 }
             }
 
-            return height > 0 ? height : offsetHeight;
+            // без этого высота ячеек таблицы будет высчитываться не правильно
+            const resultHeight = height > 0 ? height : offsetHeight;
+            return scaleCorrection.scale() > 1 ? scaleCorrection.dimension(resultHeight) : resultHeight;
         }
         return 0;
     },

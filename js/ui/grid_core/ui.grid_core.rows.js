@@ -32,6 +32,8 @@ const ROW_INSERTED_ANIMATION_CLASS = 'row-inserted-animation';
 
 const LOADPANEL_HIDE_TIMEOUT = 200;
 
+const scaleCorrection = devTools.getScaleCorrection();
+
 module.exports = {
     defaultOptions: function() {
         return {
@@ -464,7 +466,8 @@ module.exports = {
                     const $rowElements = $tableElement.children('tbody').children().not('.dx-virtual-row').not('.' + FREE_SPACE_CLASS);
 
                     return $rowElements.toArray().reduce(function(sum, row) {
-                        return sum + row.getBoundingClientRect().height;
+                        // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
+                        return sum + scaleCorrection.dimension(row.getBoundingClientRect().height);
                     }, 0);
                 },
 
