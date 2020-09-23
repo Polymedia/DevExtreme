@@ -17,6 +17,7 @@ import { getDefaultAlignment } from '../../core/utils/position';
 import modules from './ui.grid_core.modules';
 import { checkChanges } from './ui.grid_core.utils';
 import columnStateMixin from './ui.grid_core.column_state_mixin';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 const SCROLL_CONTAINER_CLASS = 'scroll-container';
 const GROUP_SPACE_CLASS = 'group-space';
@@ -36,8 +37,6 @@ const HIDDEN_COLUMNS_WIDTH = '0.0001px';
 const CELL_HINT_VISIBLE = 'dxCellHintVisible';
 
 const FORM_FIELD_ITEM_CONTENT_CLASS = 'dx-field-item-content';
-
-const scaleCorrection = devTools.getScaleCorrection();
 
 const appendElementTemplate = {
     render: function(options) {
@@ -868,8 +867,8 @@ exports.ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 if(item.getBoundingClientRect) {
                     clientRect = item.getBoundingClientRect();
                     // без этой коррекции: ширины колонок начнут выезжать за пределы виджета при scale > 1.0
-                    if(scaleCorrection.dimension(clientRect.width) > width - 1) {
-                        width = legacyRendering ? Math.ceil(scaleCorrection.dimension(clientRect.width)) : scaleCorrection.dimension(clientRect.width);
+                    if(getScaleCorrector().dimension(clientRect.width) > width - 1) {
+                        width = legacyRendering ? Math.ceil(getScaleCorrector().dimension(clientRect.width)) : getScaleCorrector().dimension(clientRect.width);
                     }
                 }
 

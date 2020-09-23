@@ -15,6 +15,7 @@ import Scrollable from '../scroll_view/ui.scrollable';
 import removeEvent from '../../core/remove_event';
 import messageLocalization from '../../localization/message';
 import browser from '../../core/utils/browser';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 const ROWS_VIEW_CLASS = 'rowsview';
 const CONTENT_CLASS = 'content';
@@ -31,8 +32,6 @@ const EMPTY_CLASS = 'dx-empty';
 const ROW_INSERTED_ANIMATION_CLASS = 'row-inserted-animation';
 
 const LOADPANEL_HIDE_TIMEOUT = 200;
-
-const scaleCorrection = devTools.getScaleCorrection();
 
 module.exports = {
     defaultOptions: function() {
@@ -467,7 +466,7 @@ module.exports = {
 
                     return $rowElements.toArray().reduce(function(sum, row) {
                         // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
-                        return sum + scaleCorrection.dimension(row.getBoundingClientRect().height);
+                        return sum + getScaleCorrector().dimension(row.getBoundingClientRect().height);
                     }, 0);
                 },
 

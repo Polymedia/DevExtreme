@@ -3,9 +3,9 @@ import Class from '../../core/class';
 import { getPublicElement } from '../../core/utils/dom';
 import { extend } from '../../core/utils/extend';
 import { isDefined } from '../../core/utils/type';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 const PIVOTGRID_EXPAND_CLASS = 'dx-expand';
-const scaleCorrection = devTools.getScaleCorrection();
 
 const getRealElementWidth = function(element) {
     let width = 0;
@@ -26,7 +26,7 @@ const getRealElementWidth = function(element) {
 
     // без этого ширина ячеек таблицы будет высчитываться не правильно
     const resultWidth = width > 0 ? width : offsetWidth;
-    return scaleCorrection.scale() > 1 ? scaleCorrection.dimension(resultWidth) : resultWidth;
+    return getScaleCorrector().scale() > 1 ? getScaleCorrector().dimension(resultWidth) : resultWidth;
 };
 
 function getFakeTableOffset(scrollPos, elementOffset, tableSize, viewPortSize) {
@@ -280,7 +280,7 @@ exports.AreaItem = Class.inherit({
 
             // без этого высота ячеек таблицы будет высчитываться не правильно
             const resultHeight = height > 0 ? height : offsetHeight;
-            return scaleCorrection.scale() > 1 ? scaleCorrection.dimension(resultHeight) : resultHeight;
+            return getScaleCorrector().scale() > 1 ? getScaleCorrector().dimension(resultHeight) : resultHeight;
         }
         return 0;
     },

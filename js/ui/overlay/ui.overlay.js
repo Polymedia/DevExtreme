@@ -1,4 +1,3 @@
-const scaleCorrection = devTools.getScaleCorrection();
 const $ = require('../../core/renderer');
 const domAdapter = require('../../core/dom_adapter');
 const windowUtils = require('../../core/utils/window');
@@ -35,6 +34,7 @@ const EmptyTemplate = require('../../core/templates/empty_template').EmptyTempla
 const Deferred = require('../../core/utils/deferred').Deferred;
 const zIndexPool = require('./z_index');
 const swatch = require('../widget/swatch_container');
+const { getScaleCorrector } = require('../../core/utils/scale-corrector-controller');
 
 const OVERLAY_CLASS = 'dx-overlay';
 const OVERLAY_WRAPPER_CLASS = 'dx-overlay-wrapper';
@@ -1254,7 +1254,7 @@ var Overlay = Widget.inherit({
                 this._$content.css({
                     'transform-origin': 'top left',
                     // преобразуем "translate(129px, 325px)" -> "translate(129px, 325px) scale(0.82)"
-                    transform: `${this._$content[0].style.transform} scale(${scaleCorrection.scale()})`,
+                    transform: `${this._$content[0].style.transform} scale(${getScaleCorrector().scale()})`,
                 });
             }
 
