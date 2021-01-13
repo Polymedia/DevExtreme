@@ -902,9 +902,6 @@ const ColumnsResizerViewController = modules.ViewController.inherit({
                 nextCellWidth = Math.floor(nextCellWidth);
                 setColumnWidth(nextColumn, nextCellWidth, contentWidth, adaptColumnWidthByRatio);
             } else {
-                // мы не используем режим [columnResizingMode = widget] - поэтому в этой части код оставлен без изменений
-                // eslint-disable-next-line no-console
-                console.warn('Корректировка зума не производится для режима: columnResizingMode = widget. Виджет может работать некорректно при зумирование листа');
                 const columnWidths = this._columnHeadersView.getColumnWidths();
                 columnWidths[resizingInfo.currentColumnIndex] = cellWidth;
                 const hasScroll = columnWidths.reduce((totalWidth, width) => totalWidth + width, 0) > this._rowsView.contentWidth();
