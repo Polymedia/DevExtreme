@@ -5,6 +5,7 @@ import positionUtils from '../../animation/position';
 import { resetPosition, move, locate } from '../../animation/translator';
 import { getWindow } from '../../core/utils/window';
 import { originalViewPort, value as viewPort } from '../../core/utils/view_port';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 const window = getWindow();
 
@@ -196,6 +197,15 @@ class OverlayPositionController {
         this._$wrapper.css('overflow', 'hidden');
         const resultPosition = positionUtils.setup(this._$content, this._position);
         this._$wrapper.css('overflow', wrapperOverflow);
+        // eсли это контекстное меню dataGrid'a/pivotGrid'a то применяем коррекцию скейла
+        // без этой коррекции: размер меню будет оставаться слишком огромным при scale << 1
+        if(this._$content.hasClass('dx-context-menu') && (this._$content.hasClass('dx-datagrid') || this._$content.hasClass('dx-pivotgrid'))) {
+            this._$content.css({
+                'transform-origin': 'top left',
+                // преобразуем "translate(129px, 325px)" -> "translate(129px, 325px) scale(0.82)"
+                transform: `${this._$content[0].style.transform} scale(${getScaleCorrector().scale()})`,
+            });
+        }
         this._initialPosition = resultPosition;
         this.detectVisualPositionChange();
     }

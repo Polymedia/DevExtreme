@@ -20,6 +20,7 @@ import gridCoreUtils from './ui.grid_core.utils';
 import columnStateMixin from './ui.grid_core.column_state_mixin';
 import { when, Deferred } from '../../core/utils/deferred';
 import { nativeScrolling } from '../../core/utils/support';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 
 const SCROLL_CONTAINER_CLASS = 'scroll-container';
@@ -884,8 +885,9 @@ export const ColumnsView = modules.View.inherit(columnStateMixin).inherit({
                 width = item.offsetWidth;
                 if(item.getBoundingClientRect) {
                     const clientRect = getBoundingRect(item);
-                    if(clientRect.width > width - 1) {
-                        width = clientRect.width;
+                    // без этой коррекции: ширины колонок начнут выезжать за пределы виджета при scale > 1.0
+                    if(getScaleCorrector().dimension(clientRect.width) > width - 1) {
+                        width = getScaleCorrector().dimension(clientRect.width);
                     }
                 }
 
