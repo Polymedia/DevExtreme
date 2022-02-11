@@ -34,6 +34,8 @@ import { tabbable } from '../widget/selectors';
 import swatch from '../widget/swatch_container';
 import Widget from '../widget/ui.widget';
 import * as zIndexPool from './z_index';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+
 const ready = readyCallbacks.add;
 const window = getWindow();
 const viewPortChanged = changeCallback;
@@ -1218,6 +1220,16 @@ const Overlay = Widget.inherit({
             const position = this._transformStringPosition(this._position, POSITION_ALIASES);
             const resultPosition = positionUtils.setup(this._$content, position);
             this._$wrapper.css('overflow', wrapperOverflow);
+
+            // eсли это контекстное меню dataGrid'a/pivotGrid'a то применяем коррекцию скейла
+            // без этой коррекции: размер меню будет оставаться слишком огромным при scale << 1
+            if(this._$content.hasClass('dx-context-menu') && (this._$content.hasClass('dx-datagrid') || this._$content.hasClass('dx-pivotgrid'))) {
+                this._$content.css({
+                    'transform-origin': 'top left',
+                    // преобразуем "translate(129px, 325px)" -> "translate(129px, 325px) scale(0.82)"
+                    transform: `${this._$content[0].style.transform} scale(${getScaleCorrector().scale()})`,
+                });
+            }
 
             forceRepaint(this._$content);
 

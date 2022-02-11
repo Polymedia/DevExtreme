@@ -16,6 +16,7 @@ import { removeEvent } from '../../events/remove';
 import messageLocalization from '../../localization/message';
 import browser from '../../core/utils/browser';
 import getScrollRtlBehavior from '../../core/utils/scroll_rtl_behavior';
+import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
 
 const ROWS_VIEW_CLASS = 'rowsview';
 const CONTENT_CLASS = 'content';
@@ -435,7 +436,8 @@ export const rowsModule = {
                     const $rowElements = $tableElement.children('tbody').children().not('.dx-virtual-row').not('.' + FREE_SPACE_CLASS);
 
                     return $rowElements.toArray().reduce(function(sum, row) {
-                        return sum + getBoundingRect(row).height;
+                        // без этой коррекции: вертикальные линии-разделители колонок будут не доставать до низа таблицы при scale > 1.0
+                        return sum + getScaleCorrector().dimension(getBoundingRect(row).height);
                     }, 0);
                 },
 

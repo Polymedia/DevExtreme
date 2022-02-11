@@ -7,6 +7,7 @@ const gulp = require('gulp');
 const gulpIf = require('gulp-if');
 const merge = require('merge-stream');
 const replace = require('gulp-replace');
+const babel = require('gulp-babel');
 
 const compressionPipes = require('./compression-pipes.js');
 const ctx = require('./context.js');
@@ -70,10 +71,23 @@ const distGlobs = distGlobsPattern(ctx.RESULT_JS_PATH);
 
 const jsonGlobs = ['js/**/*.json', '!js/viz/vector_map.utils/*.*'];
 
+//этот конфиг должен совпадать с нашим
+var babelConfig = {
+    presets: ['@babel/preset-env'],
+    plugins: [
+        '@babel/plugin-transform-shorthand-properties',
+        //для преобразования async function, иначе будет ошибка: regeneratorruntime is not defined
+        ['@babel/plugin-transform-runtime', {
+            "regenerator": true,
+        }],
+    ],
+};
+
 const sources = (src, dist, distGlob) => (() => merge(
     gulp
         .src(src)
         .pipe(headerPipes.starLicense())
+        .pipe(babel(babelConfig)) //здесь происходит преобразование в es5
         .pipe(compressionPipes.beautify())
         .pipe(gulp.dest(dist)),
 
