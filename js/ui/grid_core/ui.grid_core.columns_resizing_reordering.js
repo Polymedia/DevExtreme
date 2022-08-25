@@ -17,7 +17,7 @@ import modules from './ui.grid_core.modules';
 import gridCoreUtils from './ui.grid_core.utils';
 import fx from '../../animation/fx';
 import swatchContainer from '../widget/swatch_container';
-import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+import { getScaleCorrector } from '../../core/utils/scale-corrector';
 
 const COLUMNS_SEPARATOR_CLASS = 'columns-separator';
 const COLUMNS_SEPARATOR_TRANSPARENT = 'columns-separator-transparent';

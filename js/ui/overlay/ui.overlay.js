@@ -34,7 +34,7 @@ import { tabbable } from '../widget/selectors';
 import swatch from '../widget/swatch_container';
 import Widget from '../widget/ui.widget';
 import * as zIndexPool from './z_index';
-import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+import { getScaleCorrector } from '../../core/utils/scale-corrector';
 
 const ready = readyCallbacks.add;
 const window = getWindow();

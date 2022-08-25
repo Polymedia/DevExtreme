@@ -4,7 +4,7 @@ import { getPublicElement } from '../../core/element';
 import { extend } from '../../core/utils/extend';
 import { getBoundingRect } from '../../core/utils/position';
 import { isDefined } from '../../core/utils/type';
-import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+import { getScaleCorrector } from '../../core/utils/scale-corrector';
 
 const PIVOTGRID_EXPAND_CLASS = 'dx-expand';
 

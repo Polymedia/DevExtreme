@@ -19,7 +19,7 @@ import gridCoreUtils from './ui.grid_core.utils';
 import columnStateMixin from './ui.grid_core.column_state_mixin';
 import { when, Deferred } from '../../core/utils/deferred';
 import { nativeScrolling } from '../../core/utils/support';
-import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+import { getScaleCorrector } from '../../core/utils/scale-corrector';
 
 const SCROLL_CONTAINER_CLASS = 'scroll-container';
 const SCROLLABLE_SIMULATED_CLASS = 'scrollable-simulated';

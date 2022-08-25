@@ -16,7 +16,7 @@ import { removeEvent } from '../../events/remove';
 import messageLocalization from '../../localization/message';
 import browser from '../../core/utils/browser';
 import getScrollRtlBehavior from '../../core/utils/scroll_rtl_behavior';
-import { getScaleCorrector } from '../../core/utils/scale-corrector-controller';
+import { getScaleCorrector } from '../../core/utils/scale-corrector';
 
 const ROWS_VIEW_CLASS = 'rowsview';
 const CONTENT_CLASS = 'content';

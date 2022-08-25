@@ -1,40 +1,38 @@
-# DevExtreme
+# Пропатченная версия DevExtreme (by TilliWilli)
 
-[![Build Status](https://devextreme-ci.devexpress.com/api/badges/DevExpress/DevExtreme/status.svg?branch=21_1)](https://devextreme-ci.devexpress.com/DevExpress/DevExtreme)
+## Руководство по патчингу
+0. Вызвать ```npm install``` в проекте, чтобы установились все тулзы необходимые для билдинга
 
-DevExtreme is a set of enterprise-ready UI component suites for Angular, React, Vue, and jQuery. It is everything you need to create responsive web apps for touch devices and traditional desktops: data grid, interactive charts, data editors, navigation and multi-purpose widgets. These controls are designed to look great and to provide powerful functionality in any browser.
+1. Внести изменения в коде в файлах находящихся в папке ```/js```
 
-- Official website: [js.devexpress.com](https://js.devexpress.com)
-- Pricing: [js.devexpress.com/buy](https://js.devexpress.com/Buy)
-- Licensing: [js.devexpress.com/licensing](https://js.devexpress.com/Licensing)
-- Support: [www.devexpress.com/support](https://www.devexpress.com/support)
+2. Запустить команду ```npm run build-dist```
 
+3. В json файле ```/artifacts/npm/devextreme/package.json```
 
-## Getting Started
+    3.1. Измените название package'a на 
 
-- DevExtreme Angular
-    - [Create a DevExtreme Angular Application](https://js.devexpress.com/Documentation/Guide/Angular_Components/Getting_Started/Create_a_DevExtreme_Application/)
-    - [Add DevExtreme to an Angular Application](https://js.devexpress.com/Documentation/Guide/Angular_Components/Getting_Started/Add_DevExtreme_to_an_Angular_CLI_Application/)
+    ```"name": "@congresspolymedia/devextreme",```
 
-- DevExtreme React
-    - [Create a DevExtreme React Application](https://js.devexpress.com/Documentation/Guide/React_Components/Create_a_DevExtreme_Application/)
-    - [Add DevExtreme to a React Application](https://js.devexpress.com/Documentation/Guide/React_Components/Add_DevExtreme_to_a_React_Application/)
+    3.2. Необходимо поднять версию npm package'a для этого измените свойство version
 
-- DevExtreme Vue
-    - [Create a DevExtreme Vue Application](https://js.devexpress.com/Documentation/Guide/Vue_Components/Create_a_DevExtreme_Application/)
-    - [Add DevExtreme to a Vue Application](https://js.devexpress.com/Documentation/Guide/Vue_Components/Add_DevExtreme_to_a_Vue_Application/)
+    ```"version": "19.1.4-vispatch{YOUR_NEW_VERSION}",```
 
-- DevExtreme jQuery
-    - [Add DevExtreme to a jQuery Application](https://js.devexpress.com/Documentation/Guide/jQuery_Components/Add_DevExtreme_to_a_jQuery_Application/)
+4. залогиниться в npm с помощью команды npm login
 
-## Learn
+login: congresspolymedia
+password: стандарный наш
+email: congresspolymedia@gmail.com
 
-- [Online Demos](https://js.devexpress.com/Demos/)
-- [Documentation](https://js.devexpress.com/Documentation)
-- [Examples on GitHub](https://github.com/DevExpress/DevExtreme-examples)
-- [YouTube videos](https://www.youtube.com/user/DeveloperExpress/)
+5. перейти в папку ```artifacts/npm/devextreme``` и выполнить команду ```npm publish --access=public```
 
+6. Пакет залился на npm - можно закачивать в проект и проверять
 
-## Contributing
+```https://www.npmjs.com/~congresspolymedia```
 
-See our [Guidelines for Contributing](CONTRIBUTING.md)
+7. чтобы закачать в проект удалите во Вьювере папку /node_modules/@congresspolymedia и вызовите команду
+
+```npm i "@congresspolymedia/devextreme@{YOUR_NEW_VERSION}"```
+
+8. закомитьте и залейте все изменения на github
+
+----

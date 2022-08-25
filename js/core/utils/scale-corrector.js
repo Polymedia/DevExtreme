@@ -1,8 +1,12 @@
+import { getWindow } from './window';
+
+const window = getWindow();
+
 /**
  * Ответственность класса: предоставить функции коррекции значений (размеров, смещений) находящихся в разных координатных пространствах
  * разные координатные пространства образуются при работе с виджетами на зумированном листе (zoom отличный от 100%)
  */
- class ScaleCorrector {
+class ScaleCorrector {
     constructor(scaleContainer) {
 
         this.scaleContainer = scaleContainer;
@@ -27,7 +31,7 @@
     }
 
     _initMutationObserver(scaleContainer) {
-        var mutationObserver = new MutationObserver((mutationList, observer) => { this._updateCache(); });
+        const mutationObserver = new window.MutationObserver((mutationList, observer) => { this._updateCache(); });
         mutationObserver.observe(scaleContainer, { attributes: true, attributeFilter: ['style'] });
     }
 
@@ -77,6 +81,21 @@
     }
 }
 
-module.exports = {
-    ScaleCorrector
-};
+/** singleton */
+let scaleCorrector = null;
+const SCALE_CONTAINER_SELECTOR = '.va-dashboard-container';
+
+export function getScaleCorrector() {
+
+    if(scaleCorrector === null) {
+        const scaleContainerElement = window.document.querySelector(SCALE_CONTAINER_SELECTOR);
+
+        if(scaleContainerElement === null) {
+            throw new Error(`Не найден HTML элемент: ${SCALE_CONTAINER_SELECTOR}`);
+        }
+
+        scaleCorrector = new ScaleCorrector(scaleContainerElement);
+    }
+
+    return scaleCorrector;
+}
