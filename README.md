@@ -1,3 +1,6 @@
+# Как патчить
+https://visiology-doc.atlassian.net/wiki/spaces/insidedoc/pages/1343681
+
 # DevExtreme
 
 [![Build Status](https://devextreme-ci.devexpress.com/api/badges/DevExpress/DevExtreme/status.svg?branch=18_1)](https://devextreme-ci.devexpress.com/DevExpress/DevExtreme)
