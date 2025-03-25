@@ -58,6 +58,7 @@
     "@devextreme-generator/react": "1.2.1",
     "@devextreme-generator/vue": "1.2.1",
     "@types/enzyme": "^3.10.5",
+    "@types/estree": "^1.0.7",
     "@types/jest": "^24.0.24",
     "@types/jquery": "^2.0.34",
     "@types/react": "16.9.16",
@@ -127,7 +128,7 @@
     "gulp-template": "^4.0.0",
     "gulp-typescript": "^5.0.0",
     "gulp-uglify": "^1.5.3",
-    "gulp-uglify-es": "^2.0.0",
+    "gulp-uglify-es": "^3.0.0",
     "gulp-watch": "^5.0.0",
     "handlebars": "^4.7.3",
     "hogan.js": "3.0.2",
@@ -177,8 +178,9 @@
     "typescript-min": "npm:typescript@3.1",
     "underscore": "^1.9.2",
     "vinyl-named": "^1.1.0",
-    "webpack": "^3.10.0",
-    "webpack-stream": "^3.2.0",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-stream": "^7.0.0",
     "yargs": "^4.6.0"
   },
   "bin": {
