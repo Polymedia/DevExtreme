@@ -458,6 +458,24 @@ $pivotgrid-expand-icon-text-offset: 0;
       }
     }
   }
+
+  .dx-lastcells-right-border {
+    .dx-pivotgrid-horizontal-headers {
+      tr {
+        td:last-child {
+          border-right: $pivotgrid-border !important; // stylelint-disable-line declaration-no-important
+        }
+      }
+    }
+
+    .dx-area-data-cell {
+      tr {
+        td:last-child {
+          border-right: $pivotgrid-border;
+        }
+      }
+    }
+  }
 }
 
 .dx-pivotgridfieldchooser {

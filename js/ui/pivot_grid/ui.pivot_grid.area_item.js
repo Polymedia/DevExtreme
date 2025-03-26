@@ -66,6 +66,10 @@ export const AreaItem = Class.inherit({
         this.component = component;
     },
 
+    _isAutoSizeColumns: function() {
+        return true;
+    },
+
     option: function() {
         return this.component.option.apply(this.component, arguments);
     },
@@ -478,24 +482,35 @@ export const AreaItem = Class.inherit({
     },
 
     reset: function() {
+        this._reset(this._isAutoSizeColumns());
+    },
+
+    fullReset: function() {
+        this._reset(true);
+    },
+
+    _reset: function(fullClear) {
         const that = this;
         const tableElement = that._tableElement[0];
 
         that._fakeTable && that._fakeTable.detach();
         that._fakeTable = null;
-
         that.disableVirtualMode();
-        that.setGroupWidth('100%');
         that.setGroupHeight('auto');
 
-        that.resetColumnsWidth();
+        if(fullClear) {
+            that.setGroupWidth('100%');
+            that.resetColumnsWidth();
+        }
 
         if(tableElement) {
             for(let i = 0; i < tableElement.rows.length; i++) {
                 tableElement.rows[i].style.height = '';
             }
             tableElement.style.height = '';
-            tableElement.style.width = '100%';
+            if(fullClear) {
+                tableElement.style.width = '100%';
+            }
         }
     },
 

@@ -33,6 +33,10 @@ export const HorizontalHeadersArea = AreaItem.inherit({
         this._scrollBarWidth = 0;
     },
 
+    _isAutoSizeColumns: function() {
+        return this.component.option('autoSizeColumns');
+    },
+
     _getAreaName: function() {
         return 'column';
     },
@@ -159,6 +163,13 @@ export const HorizontalHeadersArea = AreaItem.inherit({
 });
 
 export const VerticalHeadersArea = HorizontalHeadersArea.inherit({
+    ctor: function(component) {
+        this.callBase(component);
+    },
+
+    _isManualColumnSize: function() {
+        return false;
+    },
     _getAreaClassName: function() {
         return PIVOTGRID_AREA_ROW_CLASS;
     },

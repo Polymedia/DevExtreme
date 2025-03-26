@@ -10,6 +10,11 @@ const PIVOTGRID_GRAND_TOTAL_CLASS = 'dx-grandtotal';
 const PIVOTGRID_ROW_TOTAL_CLASS = 'dx-row-total';
 
 export const DataArea = AreaItem.inherit({
+
+    _isAutoSizeColumns: function() {
+        return this.component.option('autoSizeColumns');
+    },
+
     _getAreaName: function() {
         return 'data';
     },

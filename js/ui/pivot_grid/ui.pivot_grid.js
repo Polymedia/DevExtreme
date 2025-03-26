@@ -160,6 +160,7 @@ const PivotGrid = Widget.inherit({
                 applyChangesMode: 'instantly'
             },
             onContextMenuPreparing: null,
+            autoSizeColumns: true,
             allowSorting: false,
             allowSortingBySummary: false,
             allowFiltering: false,
@@ -1164,6 +1165,22 @@ const PivotGrid = Widget.inherit({
         return this.callBase() && !this._dataController.isLoading();
     },
 
+    getColumnWidth: function() {
+        return this._dataArea.getColumnsWidth();
+    },
+
+    setColumnWidth: function(sizes) {
+        this._dataArea.setColumnsWidth(sizes);
+        this._columnsArea.setColumnsWidth(sizes);
+        this.resize();
+    },
+
+    resetColumnsWidth: function() {
+        this._dataArea.fullReset();
+        this._columnsArea.fullReset();
+        this.resize();
+    },
+
     updateDimensions: function() {
         const that = this;
         let groupWidth;
@@ -1261,6 +1278,7 @@ const PivotGrid = Widget.inherit({
             rowsAreaWidth = getArraySum(rowsAreaColumnWidths);
 
             const elementWidth = that.$element().width();
+            const autoSizeColumns = that.option('autoSizeColumns');
 
             bordersWidth = getCommonBorderWidth([rowAreaCell, dataAreaCell, tableElement], 'width');
             groupWidth = elementWidth - rowsAreaWidth - bordersWidth;
@@ -1269,7 +1287,9 @@ const PivotGrid = Widget.inherit({
             const diff = totalWidth - groupWidth;
             const needAdjustWidthOnZoom = diff >= 0 && diff <= 2;
             if(needAdjustWidthOnZoom) { // T914454
-                adjustSizeArray(resultWidths, diff);
+                if(autoSizeColumns) {
+                    adjustSizeArray(resultWidths, diff);
+                }
                 totalWidth = groupWidth;
             }
 
@@ -1291,7 +1311,9 @@ const PivotGrid = Widget.inherit({
                 rowFieldsHeader.tableElement().append(that._rowsArea.headElement());
 
                 if(!hasColumnsScroll && hasRowsScroll && scrollBarWidth) {
-                    adjustSizeArray(resultWidths, scrollBarWidth);
+                    if(autoSizeColumns) {
+                        adjustSizeArray(resultWidths, scrollBarWidth);
+                    }
                     totalWidth -= scrollBarWidth;
                 }
 
@@ -1321,12 +1343,15 @@ const PivotGrid = Widget.inherit({
 
                 dataAreaCell.toggleClass(BOTTOM_BORDER_CLASS, !hasRowsScroll);
                 rowAreaCell.toggleClass(BOTTOM_BORDER_CLASS, !hasRowsScroll);
+                tableElement.toggleClass('dx-lastcells-right-border', !hasColumnsScroll && !autoSizeColumns);
 
                 // T317921
                 if(!that._hasHeight && (elementWidth !== that.$element().width())) {
                     const diff = elementWidth - that.$element().width();
                     if(!hasColumnsScroll) {
-                        adjustSizeArray(resultWidths, diff);
+                        if(autoSizeColumns) {
+                            adjustSizeArray(resultWidths, diff);
+                        }
                         that._columnsArea.setColumnsWidth(resultWidths);
                         that._dataArea.setColumnsWidth(resultWidths);
                     }
