@@ -1,9 +1,9 @@
 # Пропатченная версия DevExtreme (by TilliWilli)
 
-0. Вызвать ```npm install``` в проекте, чтобы установились все тулзы необходимые для билдинга
+0. Вызвать ```npm install --legacy-peer-deps``` в проекте, чтобы установились все тулзы необходимые для билдинга
 
 ## Запуск в режиме разработки
-1. Выполнить команду ```npm run dev``` 
+1. Выполнить команду ```npm run dev --legacy-peer-deps --trace-deprecation```
 
 2. Выполнить команду ```http-server -c-1```
 
@@ -14,17 +14,18 @@
 
 1. Внести изменения в коде в файлах находящихся в папке ```/js```
 
-2. Запустить команду ```npm run build-dist```
+2. Запустить команду ```npm run build-dist --legacy-peer-deps --trace-deprecation```
+    - После этого можно локально тестировать пакет указав к нему путь в package.json viewer'а как: `"@congresspolymedia/devextreme": "file:///G:/Work/Visiology/DevExtreme/artifacts/npm/devextreme"`
 
 3. В json файле ```/artifacts/npm/devextreme/package.json```
 
-    3.1. Измените название package'a на 
+    3.1. Измените название package'a на
 
     ```"name": "@congresspolymedia/devextreme",```
 
     3.2. Необходимо поднять версию npm package'a для этого измените свойство version
 
-    ```"version": "19.1.4-vispatch{YOUR_NEW_VERSION}",```
+    ```"version": "21.1.7-vispatch{YOUR_NEW_VERSION}",```
 
 4. залогиниться в npm с помощью команды npm login
 

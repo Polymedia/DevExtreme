@@ -32,7 +32,7 @@ class ScaleCorrector {
 
     _initMutationObserver(scaleContainer) {
         const mutationObserver = new window.MutationObserver((mutationList, observer) => { this._updateCache(); });
-        mutationObserver.observe(scaleContainer, { attributes: true, attributeFilter: ['style'] });
+        mutationObserver.observe(scaleContainer, { attributes: true, attributeFilter: ['data-scale-value'] });
     }
 
     /**
@@ -70,7 +70,7 @@ class ScaleCorrector {
     _updateCache() {
         const clientRect = this.scaleContainer.getBoundingClientRect();
 
-        const scaleString = this.scaleContainer.style.transform.split('scale')[1].slice(1, -1);
+        const scaleString = this.scaleContainer.dataset.scaleValue;
         const scaleValue = Number.parseFloat(scaleString);
 
         this.cached = {
